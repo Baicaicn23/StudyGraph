@@ -1,0 +1,22 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime data
+data/*
+!data/.gitkeep
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# IDE / local agent config
+.idea/
+.vscode/
+.claude/
