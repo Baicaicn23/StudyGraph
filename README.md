@@ -28,7 +28,7 @@ StudyGraph 面向大学生：平时把资料分学科存进去、聊天随手沉
 | 🔗 MCP 客户端 | 自写 stdio JSON-RPC：启动 server、发现并注册外部工具（前缀 `mcp_`） |
 | 💾 断点持久化 | `AsyncSqliteSaver` 检查点：会话可续、HITL 可恢复 |
 | 🌊 流式输出 | 通过 LangGraph 的 `messages` 流模式逐块输出 |
-| 🖥️ Web 聊天界面 | Next.js 16 + React 19：Tailwind、Markdown/KaTeX 渲染、流式打字、HITL 确认弹窗 |
+| 🖥️ Web 界面 | Next.js 16 + React 19 多页：聊天（流式/HITL）· 知识库上传 · 练习复习 · 错题本 · 今日复习 |
 | 🔌 HTTP / SSE 接口 | FastAPI 把图暴露成 `/api/chat/stream`、`/api/chat/resume` 与知识库接口 |
 | 🤖 双模型适配 | 默认确定性 Mock（零成本），可切任意 OpenAI 兼容平台 |
 
@@ -93,10 +93,10 @@ uv run studygraph "我的笔记里怎么讲微积分测验的？"
 ./scripts/dev.sh
 ```
 
-打开 <http://localhost:3000>：左侧是学科知识库（可勾选限定检索范围），右侧聊天，
-回答用 Markdown/KaTeX 渲染并**流式打字**；当助手要保存笔记时，会弹出**确认框**
-（Human-in-the-Loop），确认后才落库。后端在 `8011`，前端指向它，可用
-`NEXT_PUBLIC_API_BASE` 覆盖。
+打开 <http://localhost:3000>：左侧是导航（**聊天 · 知识库 · 练习复习 · 错题本 · 今日复习**）。
+聊天回答用 Markdown/KaTeX 渲染并**流式打字**；助手要保存笔记时会弹出**确认框**
+（Human-in-the-Loop）。知识库页可上传 TXT/Markdown/PDF；练习页出题后自评会更新掌握度
+与下次复习时间。后端在 `8011`，前端指向它，可用 `NEXT_PUBLIC_API_BASE` 覆盖。
 
 > 前端需要 npm 依赖：首次先在 `frontend/` 里 `npm install`。
 >
