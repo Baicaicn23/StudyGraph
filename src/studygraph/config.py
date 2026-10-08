@@ -24,6 +24,9 @@ class Settings:
     knowledge_root: str = "data/knowledge"
     user_id: str = "local"
     max_tool_rounds: int = 6
+    tool_timeout_seconds: float = 10.0
+    tool_max_retries: int = 2
+    max_history_messages: int = 24
     max_upload_bytes: int = 5_000_000
 
 
@@ -45,6 +48,13 @@ def get_settings() -> Settings:
         knowledge_root=os.environ.get("STUDYGRAPH_KNOWLEDGE_ROOT", "data/knowledge"),
         user_id=os.environ.get("STUDYGRAPH_USER", "local"),
         max_tool_rounds=int(os.environ.get("STUDYGRAPH_MAX_TOOL_ROUNDS", "6")),
+        tool_timeout_seconds=float(
+            os.environ.get("STUDYGRAPH_TOOL_TIMEOUT_SECONDS", "10")
+        ),
+        tool_max_retries=int(os.environ.get("STUDYGRAPH_TOOL_MAX_RETRIES", "2")),
+        max_history_messages=int(
+            os.environ.get("STUDYGRAPH_MAX_HISTORY_MESSAGES", "24")
+        ),
         max_upload_bytes=int(
             os.environ.get("STUDYGRAPH_MAX_UPLOAD_BYTES", "5000000")
         ),

@@ -20,6 +20,7 @@ from langgraph.types import Command
 
 from ..application import tools
 from ..application.graph import build_graph
+from ..application.guardrails import screen_input
 from ..application.learning_service import LearningService
 from ..config import Settings, get_settings
 from ..infrastructure.embeddings import get_embedder
@@ -46,6 +47,10 @@ async def _run(
     auto_approve: bool,
     memories: list[str] | None = None,
 ) -> None:
+    refusal = screen_input(text)
+    if refusal:
+        print(refusal)
+        return
     config = {"configurable": {"thread_id": thread}}
     payload: object = {
         "messages": [HumanMessage(text)],
@@ -94,6 +99,9 @@ async def _amain(settings: Settings, text: str, args: argparse.Namespace) -> Non
             model=model,
             checkpointer=checkpointer,
             max_tool_rounds=settings.max_tool_rounds,
+            tool_timeout=settings.tool_timeout_seconds,
+            tool_retries=settings.tool_max_retries,
+            max_history_messages=settings.max_history_messages,
         )
         await _run(
             graph,

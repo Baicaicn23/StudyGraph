@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 
 from ..application import tools
 from ..application.graph import build_graph
+from ..application.guardrails import screen_input, screen_output
 from ..application.learning_service import LearningService
 from ..config import Settings, get_settings
 from ..domain.errors import LearningError
@@ -84,6 +85,7 @@ def _sse(event: str, data: dict) -> str:
 
 
 async def _run_stream(graph, payload: object, config: dict):
+    interrupted = False
     try:
         async for mode, chunk in graph.astream(
             payload, config, stream_mode=["messages", "updates"]
@@ -93,10 +95,32 @@ async def _run_stream(graph, payload: object, config: dict):
                 if isinstance(message, (AIMessage, AIMessageChunk)) and message.content:
                     yield _sse("token", {"content": message.content})
             elif isinstance(chunk, dict) and "__interrupt__" in chunk:
+                interrupted = True
                 yield _sse("interrupt", chunk["__interrupt__"][0].value)
+        if not interrupted:
+            warning = await _screen_last_answer(graph, config)
+            if warning:
+                yield _sse("guard", {"reason": warning})
         yield _sse("done", {})
     except Exception as exc:  # noqa: BLE001 - 把失败作为事件返回，而不是断连
         yield _sse("error", {"message": f"{type(exc).__name__}: {exc}"})
+
+
+async def _screen_last_answer(graph, config: dict) -> str | None:
+    """输出护栏：复核最终回答（空回答 / 系统提示词泄漏）。"""
+
+    try:
+        state = await graph.aget_state(config)
+        messages = state.values.get("messages", [])
+        last = messages[-1] if messages else None
+        return screen_output(str(getattr(last, "content", "")))
+    except Exception:  # noqa: BLE001 - 复核失败不应影响正常返回
+        return None
+
+
+async def _refusal_stream(message: str):
+    yield _sse("token", {"content": message})
+    yield _sse("done", {})
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -119,6 +143,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 model=model,
                 checkpointer=checkpointer,
                 max_tool_rounds=resolved.max_tool_rounds,
+                tool_timeout=resolved.tool_timeout_seconds,
+                tool_retries=resolved.tool_max_retries,
+                max_history_messages=resolved.max_history_messages,
             )
             yield
 
@@ -173,6 +200,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/chat/stream")
     async def chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:
+        # 输入护栏：越界 / 注入 在进入图之前就拦下，直接流式返回拒绝话术。
+        refusal = screen_input(body.message)
+        if refusal:
+            return StreamingResponse(
+                _refusal_stream(refusal),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
         config = {"configurable": {"thread_id": body.thread_id}}
         learning: LearningService = request.app.state.learning
         learning.remember(body.user_id, body.message)

@@ -22,6 +22,7 @@ def _is_error(content: str) -> bool:
     return (
         content.startswith("[tool_not_allowed]")
         or content.startswith("[unknown_tool]")
+        or content.startswith("[tool_error]")
         or "出错" in content
     )
 

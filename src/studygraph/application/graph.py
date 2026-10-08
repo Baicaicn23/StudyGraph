@@ -24,8 +24,10 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
+from langgraph.errors import GraphInterrupt
 from langgraph.graph import END, START, StateGraph
 
+from .context import compact_messages
 from .ports import ChatModelPort
 from .routing import (
     allowed_tools,
@@ -35,6 +37,7 @@ from .routing import (
     profile_for_intent,
 )
 from .state import StudyState
+from .tool_runner import run_tool
 from .tools import get_tool, set_current_libraries
 
 _BASE_PROMPT = (
@@ -71,6 +74,9 @@ def build_graph(
     model: ChatModelPort,
     checkpointer: Any,
     max_tool_rounds: int = 6,
+    tool_timeout: float = 10.0,
+    tool_retries: int = 2,
+    max_history_messages: int = 24,
 ):
     """编译状态图。`checkpointer` 负责持久化与断点恢复（含 HITL 中断）。"""
 
@@ -88,7 +94,11 @@ def build_graph(
 
         set_current_libraries(state.get("knowledge_bases"))
         prompt = build_system_prompt(profile.agent, state)
-        messages = [SystemMessage(prompt), *state["messages"]]
+        # 上下文工程：历史过长时保留最近若干条，更早的压缩成一句提示。
+        history = compact_messages(
+            list(state["messages"]), max_messages=max_history_messages
+        )
+        messages = [SystemMessage(prompt), *history]
 
         # 用 astream 逐块聚合：这样 LangGraph 的 "messages" 流式模式能拿到每个
         # token（真实模型的流式输出），返回的仍是完整的一条 AI 消息。
@@ -125,7 +135,26 @@ def build_graph(
                     )
                 )
                 continue
-            result = await tool.ainvoke(call.get("args", {}))
+            try:
+                result = await run_tool(
+                    tool.ainvoke,
+                    call.get("args", {}),
+                    timeout=tool_timeout,
+                    retries=tool_retries,
+                )
+            except GraphInterrupt:
+                # HITL：interrupt() 靠在节点内抛出 GraphInterrupt 来暂停图，
+                # 必须原样向上抛，不能被当成工具错误吞掉。
+                raise
+            except Exception as exc:  # noqa: BLE001 — 工具失败转成工具消息，不炸整回合
+                outputs.append(
+                    ToolMessage(
+                        content=f"[tool_error] {type(exc).__name__}: {exc}",
+                        tool_call_id=call_id,
+                        name=name,
+                    )
+                )
+                continue
             outputs.append(
                 ToolMessage(content=str(result), tool_call_id=call_id, name=name)
             )
