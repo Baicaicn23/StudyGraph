@@ -99,6 +99,11 @@ uv run studygraph "我的笔记里怎么讲微积分测验的？"
 `NEXT_PUBLIC_API_BASE` 覆盖。
 
 > 前端需要 npm 依赖：首次先在 `frontend/` 里 `npm install`。
+>
+> **想要有内容可演示**：先播种演示数据（5 个学科知识库、15 份自编复习笔记、3 条典型误区）：
+> ```bash
+> uv run studygraph-demo --reset
+> ```
 
 ## 接入真实模型
 
@@ -119,7 +124,7 @@ uv run studygraph "讲解一下导数的几何意义"
 ## 测试、评测与诊断
 
 ```bash
-uv run pytest -q            # 102 passed
+uv run pytest -q            # 104 passed
 uv run ruff check src tests
 
 # 评测门禁（有基线时掉超过容差 → 退出码 1）
@@ -171,12 +176,13 @@ studygraph/
 │   ├── interfaces/        入口（组合根）
 │   │   ├── api.py            FastAPI + SSE
 │   │   ├── cli.py            命令行
+│   │   ├── demo.py           演示数据播种（studygraph-demo）
 │   │   ├── evals.py          评测命令（studygraph-eval）
 │   │   └── trace.py          trace 命令（studygraph-trace）
 │   └── config.py
 ├── evals/             评测数据集与基线（datasets/ + baselines/）
 ├── frontend/          Next.js 16 聊天界面（Tailwind + Markdown/KaTeX + 流式）
-├── tests/             102 个自动测试（Mock，零 API 消耗）
+├── tests/             104 个自动测试（Mock，零 API 消耗）
 ├── scripts/dev.sh     一键起前后端
 └── docs/              架构设计与使用指南
 ```
