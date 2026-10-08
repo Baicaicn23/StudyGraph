@@ -17,6 +17,8 @@ StudyGraph 面向大学生：平时把资料分学科存进去、聊天随手沉
 | 🎓 学习闭环 | 错题带学科 → 出题（模型写题，失败回退模板）→ 练习自评 → 间隔重复排期 + 掌握度 |
 | 🧠 长期记忆 | 从对话抽取事实注入提示词（标注"数据而非指令"） |
 | 🗓️ 今日复习 | 汇总到期题 / 薄弱学科 / 近期误区，给出"今天做什么" |
+| 📊 评测门禁 | 检索 Hit@K / MRR + 意图准确率，基线 JSON + 容差回归，可直接进 CI |
+| 🔍 回合 trace | 把一次会话读成诊断树，归因到 检索 / 工具 / 模型 层 |
 | 💾 断点持久化 | `AsyncSqliteSaver` 检查点：会话可续、HITL 可恢复 |
 | 🌊 流式输出 | 通过 LangGraph 的 `messages` 流模式逐块输出 |
 | 🖥️ Web 聊天界面 | Next.js 16 + React 19：Tailwind、Markdown/KaTeX 渲染、流式打字、HITL 确认弹窗 |
@@ -107,14 +109,24 @@ uv run studygraph "讲解一下导数的几何意义"
 
 环境变量清单见 [.env.example](.env.example)。
 
-## 测试与检查
+## 测试、评测与诊断
 
 ```bash
-uv run pytest -q            # 69 passed
+uv run pytest -q            # 77 passed
 uv run ruff check src tests
+
+# 评测门禁（有基线时掉超过容差 → 退出码 1）
+uv run studygraph-eval retrieval --dataset evals/datasets/retrieval.json \
+  --baseline evals/baselines/retrieval.json
+uv run studygraph-eval intent --dataset evals/datasets/intent.json \
+  --baseline evals/baselines/intent.json
+
+# 回合诊断（把一次会话读成诊断树，归因到 检索/工具/模型 层）
+uv run studygraph-trace --thread <thread_id>
 ```
 
-全自动测试跑在确定性 Mock 上，**零 API 消耗**。
+当前基线：检索 **Hit@3 = 1.0 / MRR = 1.0**、意图 **准确率 = 1.0**。全自动测试与评测
+都跑在确定性 Mock 上，**零 API 消耗**。
 
 ## 项目结构
 
@@ -126,22 +138,28 @@ studygraph/
 │   │   ├── memory.py         长期记忆抽取
 │   │   ├── quiz.py           出题规则（提示词 / 解析 / 模板）
 │   │   ├── retrieval.py      切块 + RRF 融合
+│   │   ├── evaluation.py     Hit@K / MRR 等评测指标
 │   │   └── models.py / errors.py
 │   ├── application/       用例编排 + 端口（LangGraph 在这层）
 │   │   ├── ports.py          对外部世界的 Protocol
 │   │   ├── graph.py / routing.py / tools.py / state.py
 │   │   ├── learning_service.py   学习闭环用例
-│   │   └── question_writer.py    模型写题、失败回退模板
+│   │   ├── question_writer.py    模型写题、失败回退模板
+│   │   ├── evaluation.py         评测用例（检索 / 意图 / 基线对比）
+│   │   └── trace.py              回合诊断与归因
 │   ├── infrastructure/    适配器（端口的实现）
 │   │   ├── knowledge.py      SQLite + 混合检索
 │   │   ├── learning_repository.py  学习数据的 SQLite 仓储
 │   │   ├── embeddings.py / extract.py / llm.py
 │   ├── interfaces/        入口（组合根）
 │   │   ├── api.py            FastAPI + SSE
-│   │   └── cli.py            命令行
+│   │   ├── cli.py            命令行
+│   │   ├── evals.py          评测命令（studygraph-eval）
+│   │   └── trace.py          trace 命令（studygraph-trace）
 │   └── config.py
+├── evals/             评测数据集与基线（datasets/ + baselines/）
 ├── frontend/          Next.js 16 聊天界面（Tailwind + Markdown/KaTeX + 流式）
-├── tests/             69 个自动测试（Mock，零 API 消耗）
+├── tests/             77 个自动测试（Mock，零 API 消耗）
 ├── scripts/dev.sh     一键起前后端
 └── docs/              架构设计与使用指南
 ```
@@ -151,6 +169,7 @@ studygraph/
 - **M1（已完成）**：状态图回合 · 意图路由 · 工具最小权限 · 学科知识库检索 · HITL 沉淀 · 检查点 · 流式 · Mock/真实双模型 · FastAPI/SSE 接口 · Next.js 聊天界面 · 自动测试。
 - **M2（已完成）**：向量检索 + RRF 混合排序；知识库上传接口。
 - **M3（已完成）**：学习闭环——错题带学科、从错题/知识库出题（模型写题失败回退模板）、间隔重复排期、掌握度、长期记忆、今日复习规划。
+- **M5（已完成）**：评测门禁（检索 Hit@K/MRR + 意图准确率 + 基线容差回归）与回合 trace 诊断。
 - **M4（进行中）**：资料上传与解析（TXT / Markdown / PDF）已完成；待做：复习 / 错题界面、多用户隔离、出题难度分层。
 
 ## 文档
