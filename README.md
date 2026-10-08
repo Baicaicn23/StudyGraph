@@ -19,6 +19,9 @@ StudyGraph 面向大学生：平时把资料分学科存进去、聊天随手沉
 | 🗓️ 今日复习 | 汇总到期题 / 薄弱学科 / 近期误区，给出"今天做什么" |
 | 📊 评测门禁 | 检索 Hit@K / MRR + 意图准确率，基线 JSON + 容差回归，可直接进 CI |
 | 🔍 回合 trace | 把一次会话读成诊断树，归因到 检索 / 工具 / 模型 层 |
+| 🚧 护栏 Guardrails | 输入：拦越界 / 提示词注入；输出：拦空回答与系统提示词泄漏 |
+| 🔁 工具可靠性 | 单次超时 + 仅对可重试错误做有限退避重试；失败转成工具消息、不炸整回合 |
+| 🪟 上下文压缩 | 历史过长时保留最近轮次，更早的压缩成提示（不拆散工具调用对） |
 | 💾 断点持久化 | `AsyncSqliteSaver` 检查点：会话可续、HITL 可恢复 |
 | 🌊 流式输出 | 通过 LangGraph 的 `messages` 流模式逐块输出 |
 | 🖥️ Web 聊天界面 | Next.js 16 + React 19：Tailwind、Markdown/KaTeX 渲染、流式打字、HITL 确认弹窗 |
@@ -112,7 +115,7 @@ uv run studygraph "讲解一下导数的几何意义"
 ## 测试、评测与诊断
 
 ```bash
-uv run pytest -q            # 77 passed
+uv run pytest -q            # 88 passed
 uv run ruff check src tests
 
 # 评测门禁（有基线时掉超过容差 → 退出码 1）
@@ -139,6 +142,7 @@ studygraph/
 │   │   ├── quiz.py           出题规则（提示词 / 解析 / 模板）
 │   │   ├── retrieval.py      切块 + RRF 融合
 │   │   ├── evaluation.py     Hit@K / MRR 等评测指标
+│   │   ├── guardrails.py     输入/输出护栏规则
 │   │   └── models.py / errors.py
 │   ├── application/       用例编排 + 端口（LangGraph 在这层）
 │   │   ├── ports.py          对外部世界的 Protocol
@@ -146,7 +150,10 @@ studygraph/
 │   │   ├── learning_service.py   学习闭环用例
 │   │   ├── question_writer.py    模型写题、失败回退模板
 │   │   ├── evaluation.py         评测用例（检索 / 意图 / 基线对比）
-│   │   └── trace.py              回合诊断与归因
+│   │   ├── trace.py              回合诊断与归因
+│   │   ├── guardrails.py         护栏编排（拒绝话术 / 警告）
+│   │   ├── tool_runner.py        工具超时 + 重试
+│   │   └── context.py            历史压缩
 │   ├── infrastructure/    适配器（端口的实现）
 │   │   ├── knowledge.py      SQLite + 混合检索
 │   │   ├── learning_repository.py  学习数据的 SQLite 仓储
@@ -159,7 +166,7 @@ studygraph/
 │   └── config.py
 ├── evals/             评测数据集与基线（datasets/ + baselines/）
 ├── frontend/          Next.js 16 聊天界面（Tailwind + Markdown/KaTeX + 流式）
-├── tests/             77 个自动测试（Mock，零 API 消耗）
+├── tests/             88 个自动测试（Mock，零 API 消耗）
 ├── scripts/dev.sh     一键起前后端
 └── docs/              架构设计与使用指南
 ```
@@ -169,6 +176,7 @@ studygraph/
 - **M1（已完成）**：状态图回合 · 意图路由 · 工具最小权限 · 学科知识库检索 · HITL 沉淀 · 检查点 · 流式 · Mock/真实双模型 · FastAPI/SSE 接口 · Next.js 聊天界面 · 自动测试。
 - **M2（已完成）**：向量检索 + RRF 混合排序；知识库上传接口。
 - **M3（已完成）**：学习闭环——错题带学科、从错题/知识库出题（模型写题失败回退模板）、间隔重复排期、掌握度、长期记忆、今日复习规划。
+- **M6（已完成）**：护栏（输入/输出）· 工具执行可靠性（超时 + 重试）· 上下文压缩。
 - **M5（已完成）**：评测门禁（检索 Hit@K/MRR + 意图准确率 + 基线容差回归）与回合 trace 诊断。
 - **M4（进行中）**：资料上传与解析（TXT / Markdown / PDF）已完成；待做：复习 / 错题界面、多用户隔离、出题难度分层。
 
