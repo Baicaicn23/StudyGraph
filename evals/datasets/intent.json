@@ -1,0 +1,17 @@
+[
+  { "text": "帮我算一下 37 * 43", "intent": "calculation" },
+  { "text": "算算 (2 + 3) * 4 等于多少", "intent": "calculation" },
+  { "text": "出几道线性代数的练习题", "intent": "practice" },
+  { "text": "考考我正态分布", "intent": "practice" },
+  { "text": "来几道微积分的题", "intent": "practice" },
+  { "text": "我的笔记里怎么讲导数的", "intent": "retrieval" },
+  { "text": "查一下资料里关于矩阵的秩的内容", "intent": "retrieval" },
+  { "text": "我上传的那份讲义在哪", "intent": "retrieval" },
+  { "text": "我的复习进度怎么样了", "intent": "progress" },
+  { "text": "我哪个学科比较薄弱", "intent": "progress" },
+  { "text": "讲解一下特征值是什么", "intent": "concept_explain" },
+  { "text": "帮我理解一下矩阵的秩", "intent": "concept_explain" },
+  { "text": "什么是二叉搜索树", "intent": "concept_explain" },
+  { "text": "你好呀", "intent": "smalltalk" },
+  { "text": "今天心情不错", "intent": "smalltalk" }
+]

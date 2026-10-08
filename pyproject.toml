@@ -20,6 +20,8 @@ openai = ["langchain-openai"]
 
 [project.scripts]
 studygraph = "studygraph.interfaces.cli:main"
+studygraph-eval = "studygraph.interfaces.evals:main"
+studygraph-trace = "studygraph.interfaces.trace:main"
 
 [dependency-groups]
 dev = [
