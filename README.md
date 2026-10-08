@@ -40,13 +40,29 @@ START ─▶│  route   │──────────────▶ │  a
 
 一次回合的数据流、状态模型与设计取舍，见 [docs/架构设计.md](docs/架构设计.md)。
 
+## 分层架构（洋葱 / 六边形）
+
+代码按**依赖只朝内**分层，外部技术可替换而不动业务规则：
+
+| 层 | 目录 | 允许依赖 | 内容 |
+| --- | --- | --- | --- |
+| 领域 Domain | `domain/` | 仅标准库 | 间隔重复、掌握度、出题规则、RRF 融合、记忆抽取 |
+| 应用 Application | `application/` | 领域 + 端口 | 用例编排、**端口 Protocol**、LangGraph 图与工具 |
+| 基础设施 Infrastructure | `infrastructure/` | 应用 / 领域 | SQLite、Embedding、LLM、文件解析（端口的实现） |
+| 接口 Interfaces | `interfaces/` | 全部 | FastAPI、CLI（**组合根**，负责装配） |
+
+- 应用层只依赖 `application/ports.py` 里的 **Protocol**（`KnowledgePort` /
+  `LearningRepositoryPort` / `EmbeddingPort` / `ChatModelPort`），不 import 任何具体实现——
+  换数据库、换模型、换检索都不用改业务代码。
+- 领域层是纯逻辑：测它不用起数据库、不联网。
+
 ## 快速开始
 
 需要 Python 3.12+ 和 [uv](https://docs.astral.sh/uv/)。
 
 ```bash
 uv sync
-uv run python -m studygraph.cli "帮我算一下 7 * 9"
+uv run studygraph "帮我算一下 7 * 9"
 ```
 
 预期输出：
@@ -58,8 +74,8 @@ uv run python -m studygraph.cli "帮我算一下 7 * 9"
 沉淀一条笔记（写操作会请求确认，`--yes` 自动同意）：
 
 ```bash
-uv run python -m studygraph.cli "记住：我在准备月底的微积分测验" --yes
-uv run python -m studygraph.cli "我的笔记里怎么讲微积分测验的？"
+uv run studygraph "记住：我在准备月底的微积分测验" --yes
+uv run studygraph "我的笔记里怎么讲微积分测验的？"
 ```
 
 ### 启动 Web 界面（推荐）
@@ -86,7 +102,7 @@ export STUDYGRAPH_MODEL=deepseek-chat
 export STUDYGRAPH_OPENAI_BASE_URL=https://api.deepseek.com/v1
 export STUDYGRAPH_OPENAI_API_KEY=你的密钥
 export STUDYGRAPH_MAX_OUTPUT_TOKENS=4096
-uv run python -m studygraph.cli "讲解一下导数的几何意义"
+uv run studygraph "讲解一下导数的几何意义"
 ```
 
 环境变量清单见 [.env.example](.env.example)。
@@ -105,20 +121,25 @@ uv run ruff check src tests
 ```text
 studygraph/
 ├── src/studygraph/
-│   ├── config.py      运行配置（环境变量，默认 Mock）
-│   ├── state.py       图状态 StudyState
-│   ├── routing.py     意图识别 + 子智能体路由 + 工具权限
-│   ├── graph.py       状态图装配（route / agent / tools）
-│   ├── tools.py       计算器 / 知识检索 / HITL 沉淀
-│   ├── knowledge.py   学科知识库 + 混合检索（FTS trigram + 向量 + RRF）
-│   ├── embeddings.py  向量化（Mock 哈希 / OpenAI 兼容）
-│   ├── extract.py     上传文件抽文本（TXT / Markdown / PDF）
-│   ├── learning.py    学习闭环：错题 / 练习 / 间隔重复 / 掌握度 / 规划
-│   ├── generator.py   模型出题（失败回退模板）
-│   ├── memory.py      长期记忆抽取
-│   ├── providers.py   Mock 与 OpenAI 兼容模型
-│   ├── api.py         FastAPI + SSE 接口层
-│   └── cli.py         命令行入口
+│   ├── domain/            纯领域逻辑（不依赖框架 / DB）
+│   │   ├── scheduling.py     间隔重复 + 掌握度
+│   │   ├── memory.py         长期记忆抽取
+│   │   ├── quiz.py           出题规则（提示词 / 解析 / 模板）
+│   │   ├── retrieval.py      切块 + RRF 融合
+│   │   └── models.py / errors.py
+│   ├── application/       用例编排 + 端口（LangGraph 在这层）
+│   │   ├── ports.py          对外部世界的 Protocol
+│   │   ├── graph.py / routing.py / tools.py / state.py
+│   │   ├── learning_service.py   学习闭环用例
+│   │   └── question_writer.py    模型写题、失败回退模板
+│   ├── infrastructure/    适配器（端口的实现）
+│   │   ├── knowledge.py      SQLite + 混合检索
+│   │   ├── learning_repository.py  学习数据的 SQLite 仓储
+│   │   ├── embeddings.py / extract.py / llm.py
+│   ├── interfaces/        入口（组合根）
+│   │   ├── api.py            FastAPI + SSE
+│   │   └── cli.py            命令行
+│   └── config.py
 ├── frontend/          Next.js 16 聊天界面（Tailwind + Markdown/KaTeX + 流式）
 ├── tests/             69 个自动测试（Mock，零 API 消耗）
 ├── scripts/dev.sh     一键起前后端
