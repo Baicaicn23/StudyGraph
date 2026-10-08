@@ -25,6 +25,7 @@ StudyGraph 面向大学生：平时把资料分学科存进去、聊天随手沉
 | 🗺️ 规划 Plan-and-Execute | 复杂请求先出计划再执行；简单请求跳过（省延迟与成本） |
 | 🎚️ 模型路由 | 按意图 / 复杂度选 small / standard / large 档位（可配不同模型） |
 | 💰 成本控制 | token 记账（按次 / 按模型）+ 当日预算，超限阻止真实调用 |
+| 🔗 MCP 客户端 | 自写 stdio JSON-RPC：启动 server、发现并注册外部工具（前缀 `mcp_`） |
 | 💾 断点持久化 | `AsyncSqliteSaver` 检查点：会话可续、HITL 可恢复 |
 | 🌊 流式输出 | 通过 LangGraph 的 `messages` 流模式逐块输出 |
 | 🖥️ Web 聊天界面 | Next.js 16 + React 19：Tailwind、Markdown/KaTeX 渲染、流式打字、HITL 确认弹窗 |
@@ -118,7 +119,7 @@ uv run studygraph "讲解一下导数的几何意义"
 ## 测试、评测与诊断
 
 ```bash
-uv run pytest -q            # 99 passed
+uv run pytest -q            # 102 passed
 uv run ruff check src tests
 
 # 评测门禁（有基线时掉超过容差 → 退出码 1）
@@ -164,6 +165,8 @@ studygraph/
 │   │   ├── knowledge.py      SQLite + 混合检索
 │   │   ├── learning_repository.py  学习数据的 SQLite 仓储
 │   │   ├── usage_repository.py     token 用量记账
+│   │   ├── mcp_client.py           MCP stdio JSON-RPC 客户端
+│   │   ├── mcp_bridge.py           MCP 工具桥接进工具表
 │   │   ├── embeddings.py / extract.py / llm.py
 │   ├── interfaces/        入口（组合根）
 │   │   ├── api.py            FastAPI + SSE
@@ -173,7 +176,7 @@ studygraph/
 │   └── config.py
 ├── evals/             评测数据集与基线（datasets/ + baselines/）
 ├── frontend/          Next.js 16 聊天界面（Tailwind + Markdown/KaTeX + 流式）
-├── tests/             99 个自动测试（Mock，零 API 消耗）
+├── tests/             102 个自动测试（Mock，零 API 消耗）
 ├── scripts/dev.sh     一键起前后端
 └── docs/              架构设计与使用指南
 ```
@@ -183,6 +186,7 @@ studygraph/
 - **M1（已完成）**：状态图回合 · 意图路由 · 工具最小权限 · 学科知识库检索 · HITL 沉淀 · 检查点 · 流式 · Mock/真实双模型 · FastAPI/SSE 接口 · Next.js 聊天界面 · 自动测试。
 - **M2（已完成）**：向量检索 + RRF 混合排序；知识库上传接口。
 - **M3（已完成）**：学习闭环——错题带学科、从错题/知识库出题（模型写题失败回退模板）、间隔重复排期、掌握度、长期记忆、今日复习规划。
+- **M8（已完成）**：MCP 客户端（stdio JSON-RPC，发现并注册外部工具）。
 - **M7（已完成）**：规划（plan-and-execute）· 模型路由（档位选择）· 成本控制（token 记账 + 当日预算）。
 - **M6（已完成）**：护栏（输入/输出）· 工具执行可靠性（超时 + 重试）· 上下文压缩。
 - **M5（已完成）**：评测门禁（检索 Hit@K/MRR + 意图准确率 + 基线容差回归）与回合 trace 诊断。
