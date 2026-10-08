@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
@@ -27,6 +28,7 @@ from ..infrastructure.embeddings import get_embedder
 from ..infrastructure.knowledge import KnowledgeStore
 from ..infrastructure.learning_repository import SqliteLearningRepository
 from ..infrastructure.llm import build_chat_model
+from ..infrastructure.usage_repository import SqliteUsageRepository
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -89,10 +91,18 @@ async def _run(
 async def _amain(settings: Settings, text: str, args: argparse.Namespace) -> None:
     knowledge = KnowledgeStore(settings.database_path, embedder=get_embedder(settings))
     repository = SqliteLearningRepository(settings.database_path)
+    usage_repository = SqliteUsageRepository(settings.database_path)
     learning = LearningService(knowledge, repository)
     tools.configure(knowledge)
     model = build_chat_model(settings)
     user_id = args.user or settings.user_id
+
+    def model_router(tier: str):
+        name = {"small": settings.model_small, "large": settings.model_large}.get(
+            tier, ""
+        )
+        return build_chat_model(replace(settings, model=name)) if name else model
+
     learning.remember(user_id, text)
     async with AsyncSqliteSaver.from_conn_string(settings.database_path) as checkpointer:
         graph = build_graph(
@@ -102,6 +112,10 @@ async def _amain(settings: Settings, text: str, args: argparse.Namespace) -> Non
             tool_timeout=settings.tool_timeout_seconds,
             tool_retries=settings.tool_max_retries,
             max_history_messages=settings.max_history_messages,
+            model_router=model_router,
+            usage_repository=usage_repository,
+            daily_token_budget=settings.daily_token_budget,
+            budget_exceeded_action=settings.budget_exceeded_action,
         )
         await _run(
             graph,

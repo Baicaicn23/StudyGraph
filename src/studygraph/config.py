@@ -14,9 +14,13 @@ from dataclasses import dataclass
 class Settings:
     llm_provider: str = "mock"
     model: str = "study-mock"
+    model_small: str = ""
+    model_large: str = ""
     openai_base_url: str = ""
     openai_api_key: str = ""
     max_output_tokens: int = 2048
+    daily_token_budget: int = 0
+    budget_exceeded_action: str = "block"
     embedding_provider: str = "mock"
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 256
@@ -34,9 +38,15 @@ def get_settings() -> Settings:
     return Settings(
         llm_provider=os.environ.get("STUDYGRAPH_LLM_PROVIDER", "mock").strip().lower(),
         model=os.environ.get("STUDYGRAPH_MODEL", "study-mock"),
+        model_small=os.environ.get("STUDYGRAPH_MODEL_SMALL", ""),
+        model_large=os.environ.get("STUDYGRAPH_MODEL_LARGE", ""),
         openai_base_url=os.environ.get("STUDYGRAPH_OPENAI_BASE_URL", ""),
         openai_api_key=os.environ.get("STUDYGRAPH_OPENAI_API_KEY", ""),
         max_output_tokens=int(os.environ.get("STUDYGRAPH_MAX_OUTPUT_TOKENS", "2048")),
+        daily_token_budget=int(os.environ.get("STUDYGRAPH_DAILY_TOKEN_BUDGET", "0")),
+        budget_exceeded_action=os.environ.get(
+            "STUDYGRAPH_BUDGET_EXCEEDED_ACTION", "block"
+        ),
         embedding_provider=os.environ.get("STUDYGRAPH_EMBEDDING_PROVIDER", "mock")
         .strip()
         .lower(),

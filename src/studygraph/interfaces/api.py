@@ -13,7 +13,9 @@ SSE 事件协议（每行一个事件，`data` 为 JSON）：
 from __future__ import annotations
 
 import json
+import time
 from contextlib import asynccontextmanager
+from dataclasses import replace
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,6 +36,7 @@ from ..infrastructure.extract import ExtractError, extract_text
 from ..infrastructure.knowledge import KnowledgeStore
 from ..infrastructure.learning_repository import SqliteLearningRepository
 from ..infrastructure.llm import build_chat_model
+from ..infrastructure.usage_repository import SqliteUsageRepository
 
 
 class ChatRequest(BaseModel):
@@ -131,14 +134,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             resolved.database_path, embedder=get_embedder(resolved)
         )
         repository = SqliteLearningRepository(resolved.database_path)
+        usage_repository = SqliteUsageRepository(resolved.database_path)
         learning = LearningService(knowledge, repository)
         tools.configure(knowledge)
         model = build_chat_model(resolved)
+        tier_models: dict[str, object] = {}
+
+        def model_router(tier: str):
+            name = {
+                "small": resolved.model_small,
+                "large": resolved.model_large,
+            }.get(tier, "")
+            if not name:
+                return model
+            if tier not in tier_models:
+                tier_models[tier] = build_chat_model(replace(resolved, model=name))
+            return tier_models[tier]
+
         async with AsyncSqliteSaver.from_conn_string(resolved.database_path) as checkpointer:
             app.state.settings = resolved
             app.state.store = knowledge
             app.state.learning = learning
             app.state.model = model
+            app.state.usage = usage_repository
             app.state.graph = build_graph(
                 model=model,
                 checkpointer=checkpointer,
@@ -146,6 +164,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 tool_timeout=resolved.tool_timeout_seconds,
                 tool_retries=resolved.tool_max_retries,
                 max_history_messages=resolved.max_history_messages,
+                model_router=model_router,
+                usage_repository=usage_repository,
+                daily_token_budget=resolved.daily_token_budget,
+                budget_exceeded_action=resolved.budget_exceeded_action,
             )
             yield
 
@@ -282,6 +304,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/memories")
     async def list_memories(request: Request, user_id: str = "local") -> dict:
         return {"memories": request.app.state.learning.memories(user_id)}
+
+    @app.get("/api/usage")
+    async def usage(request: Request, user_id: str = "local", days: int = 1) -> dict:
+        since = time.time() - max(1, days) * 86400
+        repository = request.app.state.usage
+        return {
+            "total_tokens": repository.total_since(user_id=user_id, since=since),
+            "by_model": repository.summary(user_id=user_id, since=since),
+        }
 
     return app
 

@@ -70,7 +70,25 @@ class MockChatModel(BaseChatModel):
         run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
-        return ChatResult(generations=[ChatGeneration(message=self._decide(messages))])
+        message = self._decide(messages)
+        message = message.model_copy(
+            update={"usage_metadata": self._estimate_usage(messages, message)}
+        )
+        return ChatResult(generations=[ChatGeneration(message=message)])
+
+    @staticmethod
+    def _estimate_usage(messages: list[BaseMessage], message: AIMessage) -> dict[str, int]:
+        """粗略估 token（字符数/2）——让 Mock 也能驱动 token 记账与预算。"""
+
+        prompt_chars = sum(len(str(getattr(m, "content", ""))) for m in messages)
+        output_chars = len(str(getattr(message, "content", "")))
+        input_tokens = prompt_chars // 2 + 1
+        output_tokens = output_chars // 2 + 1
+        return {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+        }
 
     def _decide(self, messages: list[BaseMessage]) -> AIMessage:
         tool_result = _used_tool_since_last_human(messages)

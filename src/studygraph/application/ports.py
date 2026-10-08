@@ -81,6 +81,25 @@ class LearningRepositoryPort(Protocol):
     def count_recent_mistakes(self, user_id: str, *, since: float) -> int: ...
 
 
+class UsageRepositoryPort(Protocol):
+    """token 用量记账：写入每次模型调用、按日汇总。"""
+
+    def record(
+        self,
+        *,
+        user_id: str,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        total_tokens: int,
+        created_at: float,
+    ) -> None: ...
+
+    def total_since(self, *, user_id: str, since: float) -> int: ...
+
+    def summary(self, *, user_id: str, since: float) -> list[dict[str, Any]]: ...
+
+
 class EmbeddingPort(Protocol):
     """向量化。"""
 
