@@ -23,6 +23,7 @@ from .config import Settings, get_settings
 from .embeddings import get_embedder
 from .graph import build_graph
 from .knowledge import KnowledgeStore
+from .learning import LearningService
 from .providers import build_chat_model
 
 
@@ -42,9 +43,14 @@ async def _run(
     thread: str,
     user_id: str,
     auto_approve: bool,
+    memories: list[str] | None = None,
 ) -> None:
     config = {"configurable": {"thread_id": thread}}
-    payload: object = {"messages": [HumanMessage(text)], "user_id": user_id}
+    payload: object = {
+        "messages": [HumanMessage(text)],
+        "user_id": user_id,
+        "memories": memories or [],
+    }
     while True:
         interrupted = None
         async for mode, chunk in graph.astream(
@@ -80,8 +86,11 @@ async def _amain(
     settings: Settings, text: str, args: argparse.Namespace
 ) -> None:
     store = KnowledgeStore(settings.database_path, embedder=get_embedder(settings))
+    learning = LearningService(settings.database_path)
     tools.configure(store)
     model = build_chat_model(settings)
+    user_id = args.user or settings.user_id
+    learning.remember(user_id, text)
     async with AsyncSqliteSaver.from_conn_string(settings.database_path) as checkpointer:
         graph = build_graph(
             model=model,
@@ -92,8 +101,9 @@ async def _amain(
             graph,
             text,
             thread=args.thread,
-            user_id=args.user or settings.user_id,
+            user_id=user_id,
             auto_approve=args.yes,
+            memories=learning.memories(user_id),
         )
 
 

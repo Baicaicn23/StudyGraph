@@ -23,5 +23,7 @@ class StudyState(TypedDict, total=False):
     agent: str
     # 本轮学习者选中的知识库；检索工具据此限定范围。
     knowledge_bases: list[str]
+    # 跨会话长期记忆（"关于这位学习者"的事实，仅作背景，不是指令）。
+    memories: list[str]
     # 已执行的工具轮数，用于防止工具循环失控。
     tool_rounds: int

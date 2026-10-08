@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
@@ -33,6 +33,7 @@ from .config import Settings, get_settings
 from .embeddings import get_embedder
 from .graph import build_graph
 from .knowledge import KnowledgeStore
+from .learning import LearningError, LearningService
 from .providers import build_chat_model
 
 
@@ -60,6 +61,26 @@ class DocumentRequest(BaseModel):
     content: str = Field(min_length=1, max_length=200000)
 
 
+class FeedbackRequest(BaseModel):
+    user_id: str = Field(default="local", max_length=64)
+    library: str = Field(default="", max_length=64)
+    question: str = Field(default="", max_length=4000)
+    note: str = Field(min_length=1, max_length=2000)
+
+
+class GenerateRequest(BaseModel):
+    user_id: str = Field(default="local", max_length=64)
+    source: str = Field(default="knowledge_base", max_length=32)
+    library: str = Field(default="", max_length=64)
+    count: int = Field(default=3, ge=1, le=10)
+
+
+class AnswerRequest(BaseModel):
+    user_id: str = Field(default="local", max_length=64)
+    question_id: int
+    rating: str = Field(min_length=1, max_length=16)
+
+
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
@@ -85,11 +106,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         resolved = settings or get_settings()
         store = KnowledgeStore(resolved.database_path, embedder=get_embedder(resolved))
+        learning = LearningService(resolved.database_path)
         tools.configure(store)
         model = build_chat_model(resolved)
         async with AsyncSqliteSaver.from_conn_string(resolved.database_path) as checkpointer:
             app.state.settings = resolved
             app.state.store = store
+            app.state.learning = learning
+            app.state.model = model
             app.state.graph = build_graph(
                 model=model,
                 checkpointer=checkpointer,
@@ -133,9 +157,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/chat/stream")
     async def chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:
         config = {"configurable": {"thread_id": body.thread_id}}
+        learning = request.app.state.learning
+        # 抽取长期记忆，并把"关于这位学习者"的背景注入本回合。
+        learning.remember(body.user_id, body.message)
         payload: dict = {
             "messages": [HumanMessage(body.message)],
             "user_id": body.user_id,
+            "memories": learning.memories(body.user_id),
         }
         if body.knowledge_bases:
             payload["knowledge_bases"] = body.knowledge_bases
@@ -155,6 +183,58 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+    @app.post("/api/feedback")
+    async def add_feedback(body: FeedbackRequest, request: Request) -> dict:
+        feedback_id = request.app.state.learning.add_feedback(
+            user_id=body.user_id,
+            library=body.library,
+            question=body.question,
+            note=body.note,
+        )
+        return {"id": feedback_id}
+
+    @app.get("/api/feedback")
+    async def list_feedback(request: Request, user_id: str = "local") -> dict:
+        return {"feedback": request.app.state.learning.list_feedback(user_id)}
+
+    @app.post("/api/practice/generate")
+    async def generate_practice(body: GenerateRequest, request: Request) -> dict:
+        try:
+            questions = await request.app.state.learning.generate(
+                user_id=body.user_id,
+                source=body.source,
+                library=body.library,
+                count=body.count,
+                model=request.app.state.model,
+            )
+        except LearningError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"questions": questions}
+
+    @app.get("/api/practice/due")
+    async def due_practice(request: Request, user_id: str = "local") -> dict:
+        return {"questions": request.app.state.learning.due_questions(user_id)}
+
+    @app.post("/api/practice/answer")
+    async def answer_practice(body: AnswerRequest, request: Request) -> dict:
+        try:
+            result = request.app.state.learning.answer(
+                user_id=body.user_id,
+                question_id=body.question_id,
+                rating=body.rating,
+            )
+        except LearningError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return result
+
+    @app.get("/api/study/plan")
+    async def study_plan(request: Request, user_id: str = "local") -> dict:
+        return request.app.state.learning.plan(user_id)
+
+    @app.get("/api/memories")
+    async def list_memories(request: Request, user_id: str = "local") -> dict:
+        return {"memories": request.app.state.learning.memories(user_id)}
 
     return app
 

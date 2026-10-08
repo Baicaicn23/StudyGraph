@@ -112,3 +112,50 @@ def test_hitl_rejection_does_not_persist(tmp_path) -> None:
         )
         libraries = client.get("/api/knowledge/libraries").json()["libraries"]
     assert libraries == []
+
+
+def test_learning_loop_endpoints(tmp_path) -> None:
+    with _client(tmp_path) as client:
+        # 记录一条误区
+        feedback = client.post(
+            "/api/feedback",
+            json={
+                "library": "线性代数",
+                "question": "什么是特征值？",
+                "note": "我把特征向量和基向量搞混了",
+            },
+        )
+        assert feedback.status_code == 200
+
+        # 从错题出题（Mock 模型 → 模板题）
+        generated = client.post(
+            "/api/practice/generate", json={"source": "mistakes", "count": 3}
+        ).json()["questions"]
+        assert len(generated) == 1
+        assert generated[0]["source"] == "mistake"
+
+        # 新题立即到期
+        due = client.get("/api/practice/due").json()["questions"]
+        assert any(q["id"] == generated[0]["id"] for q in due)
+
+        # 作答 good → 掌握度 +5
+        result = client.post(
+            "/api/practice/answer",
+            json={"question_id": generated[0]["id"], "rating": "good"},
+        ).json()
+        assert result["mastery"] == 5
+
+        # 复习计划有建议
+        plan = client.get("/api/study/plan").json()
+        assert plan["suggestions"]
+
+
+def test_chat_turn_records_long_term_memory(tmp_path) -> None:
+    with _client(tmp_path) as client:
+        _read_events(
+            client,
+            "/api/chat/stream",
+            {"message": "记住：我在准备月底的微积分测验", "thread_id": "m1"},
+        )
+        memories = client.get("/api/memories").json()["memories"]
+    assert "我在准备月底的微积分测验" in memories
