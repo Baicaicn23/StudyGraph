@@ -25,7 +25,7 @@ interface PendingInterrupt {
 
 const SUGGESTIONS = [
   "帮我算一下 7 * 9",
-  "我的笔记里怎么讲导数的？",
+  "我的笔记里怎么讲定积分和不定积分的区别？",
   "记住：我在准备月底的微积分测验",
 ];
 
@@ -38,7 +38,6 @@ export default function Chat() {
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 会话 id 在浏览器端首次使用时惰性生成（预渲染期不能用随机值）。
   const threadIdRef = useRef("");
   const getThreadId = useCallback(() => {
     if (!threadIdRef.current) {
@@ -51,12 +50,11 @@ export default function Chat() {
     try {
       setLibraries(await listLibraries());
     } catch {
-      // 后端未启动时保持空列表，不影响输入。
+      // 后端未启动时保持空列表。
     }
   }, []);
 
   useEffect(() => {
-    // 挂载时拉取一次知识库列表（同步外部系统）。
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshLibraries();
   }, [refreshLibraries]);
@@ -88,6 +86,8 @@ export default function Chat() {
           title: event.title,
           preview: event.preview,
         });
+      else if (event.type === "guard")
+        appendToAssistant(`\n\n> 🚧 护栏提示：${event.reason}`);
       else if (event.type === "error")
         appendToAssistant(`\n\n> ⚠️ ${event.message}`);
     },
@@ -139,110 +139,95 @@ export default function Chat() {
     );
 
   return (
-    <div className="flex h-dvh bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 md:flex">
-        <div className="mb-6">
-          <div className="text-lg font-semibold">StudyGraph</div>
-          <div className="text-xs text-zinc-500">个人学习助理 · LangGraph 驱动</div>
-        </div>
-        <div className="mb-2 text-xs font-medium text-zinc-500">学科知识库</div>
-        <div className="flex flex-1 flex-col gap-1 overflow-y-auto">
-          {libraries.length === 0 ? (
-            <p className="text-xs text-zinc-400">
-              还没有知识库。在聊天里说「记住：…」沉淀一条笔记试试。
-            </p>
+    <div className="flex h-full flex-col">
+      <header className="flex flex-wrap items-center gap-2 border-b border-zinc-200 bg-white px-4 py-2.5 dark:border-zinc-800 dark:bg-zinc-900">
+        <span className="text-xs font-medium text-zinc-500">
+          限定检索范围（可多选）
+        </span>
+        {libraries.length === 0 ? (
+          <span className="text-xs text-zinc-400">
+            暂无知识库，可到「知识库」上传或在聊天里说「记住：…」
+          </span>
+        ) : (
+          libraries.map((library) => {
+            const active = selected.includes(library.name);
+            return (
+              <button
+                key={library.name}
+                type="button"
+                onClick={() => toggleLibrary(library.name)}
+                className={`rounded-full border px-3 py-1 text-xs transition ${
+                  active
+                    ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                    : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {library.name}
+                <span className="ml-1 text-zinc-400">
+                  {library.document_count}
+                </span>
+              </button>
+            );
+          })
+        )}
+      </header>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
+        <div className="mx-auto max-w-3xl space-y-5">
+          {messages.length === 0 ? (
+            <div className="mt-16 text-center">
+              <h1 className="text-2xl font-semibold">你好，我是 StudyGraph</h1>
+              <p className="mt-2 text-sm text-zinc-500">
+                算题、讲概念、检索你的资料、把内容沉淀进学科库——都能聊。
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {SUGGESTIONS.map((text) => (
+                  <button
+                    key={text}
+                    type="button"
+                    onClick={() => void send(text)}
+                    className="rounded-full border border-zinc-300 px-4 py-2 text-sm hover:bg-white dark:border-zinc-700 dark:hover:bg-zinc-900"
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : (
-            libraries.map((library) => {
-              const active = selected.includes(library.name);
-              return (
-                <button
-                  key={library.name}
-                  type="button"
-                  onClick={() => toggleLibrary(library.name)}
-                  className={`flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
-                    active
-                      ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                      : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  <span className="truncate">{library.name}</span>
-                  <span className="ml-2 text-xs text-zinc-400">
-                    {library.document_count}
-                  </span>
-                </button>
-              );
-            })
+            messages.map((message, index) => (
+              <MessageBubble key={index} message={message} busy={busy} />
+            ))
           )}
         </div>
-        {selected.length > 0 && (
+      </div>
+
+      <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="mx-auto flex max-w-3xl items-end gap-2">
+          <textarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={onKeyDown}
+            rows={1}
+            placeholder="输入你的问题，例如：我的笔记里怎么讲导数的？"
+            className="max-h-40 flex-1 resize-none rounded-xl border border-zinc-300 bg-zinc-50 px-4 py-3 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+          />
           <button
             type="button"
-            onClick={() => setSelected([])}
-            className="mt-3 text-left text-xs text-zinc-500 hover:text-zinc-800"
+            onClick={() => void send()}
+            disabled={busy || !input.trim()}
+            className="rounded-xl bg-zinc-900 px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
           >
-            清除选择（当前限定 {selected.length} 个库检索）
+            {busy ? "……" : "发送"}
           </button>
-        )}
-      </aside>
-
-      <main className="flex flex-1 flex-col">
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="mx-auto max-w-3xl space-y-5">
-            {messages.length === 0 ? (
-              <div className="mt-16 text-center">
-                <h1 className="text-2xl font-semibold">你好，我是 StudyGraph</h1>
-                <p className="mt-2 text-sm text-zinc-500">
-                  算题、讲概念、检索你的资料、把内容沉淀进学科库——都能聊。
-                </p>
-                <div className="mt-6 flex flex-wrap justify-center gap-2">
-                  {SUGGESTIONS.map((text) => (
-                    <button
-                      key={text}
-                      type="button"
-                      onClick={() => void send(text)}
-                      className="rounded-full border border-zinc-300 px-4 py-2 text-sm hover:bg-white dark:border-zinc-700 dark:hover:bg-zinc-900"
-                    >
-                      {text}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              messages.map((message, index) => (
-                <MessageBubble key={index} message={message} busy={busy} />
-              ))
-            )}
-          </div>
         </div>
-
-        <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="mx-auto flex max-w-3xl items-end gap-2">
-            <textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={onKeyDown}
-              rows={1}
-              placeholder="输入你的问题，例如：我的笔记里怎么讲导数的？"
-              className="max-h-40 flex-1 resize-none rounded-xl border border-zinc-300 bg-zinc-50 px-4 py-3 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
-            />
-            <button
-              type="button"
-              onClick={() => void send()}
-              disabled={busy || !input.trim()}
-              className="rounded-xl bg-zinc-900 px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
-            >
-              {busy ? "……" : "发送"}
-            </button>
-          </div>
-          <p className="mx-auto mt-2 max-w-3xl text-center text-xs text-zinc-400">
-            Enter 发送 · Shift+Enter 换行
-            {selected.length > 0 ? ` · 检索限定：${selected.join("、")}` : ""}
-          </p>
-        </div>
-      </main>
+        <p className="mx-auto mt-2 max-w-3xl text-center text-xs text-zinc-400">
+          Enter 发送 · Shift+Enter 换行
+          {selected.length > 0 ? ` · 检索限定：${selected.join("、")}` : ""}
+        </p>
+      </div>
 
       {pending && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl dark:bg-zinc-900">
             <h2 className="text-base font-semibold">需要你的确认</h2>
             <p className="mt-1 text-sm text-zinc-500">
