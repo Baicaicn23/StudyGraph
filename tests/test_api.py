@@ -159,3 +159,32 @@ def test_chat_turn_records_long_term_memory(tmp_path) -> None:
         )
         memories = client.get("/api/memories").json()["memories"]
     assert "我在准备月底的微积分测验" in memories
+
+
+def test_upload_endpoint_ingests_a_text_file(tmp_path) -> None:
+    with _client(tmp_path) as client:
+        response = client.post(
+            "/api/knowledge/upload",
+            data={"library": "高等数学"},
+            files={
+                "file": (
+                    "导数笔记.md",
+                    "导数是瞬时变化率，反映切线斜率。".encode(),
+                    "text/markdown",
+                )
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["chars"] > 0
+        libraries = client.get("/api/knowledge/libraries").json()["libraries"]
+    assert any(item["name"] == "高等数学" for item in libraries)
+
+
+def test_upload_endpoint_rejects_unsupported_file(tmp_path) -> None:
+    with _client(tmp_path) as client:
+        response = client.post(
+            "/api/knowledge/upload",
+            data={"library": "高等数学"},
+            files={"file": ("图片.png", b"\x89PNG", "image/png")},
+        )
+    assert response.status_code == 400

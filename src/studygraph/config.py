@@ -24,6 +24,7 @@ class Settings:
     knowledge_root: str = "data/knowledge"
     user_id: str = "local"
     max_tool_rounds: int = 6
+    max_upload_bytes: int = 5_000_000
 
 
 def get_settings() -> Settings:
@@ -44,4 +45,7 @@ def get_settings() -> Settings:
         knowledge_root=os.environ.get("STUDYGRAPH_KNOWLEDGE_ROOT", "data/knowledge"),
         user_id=os.environ.get("STUDYGRAPH_USER", "local"),
         max_tool_rounds=int(os.environ.get("STUDYGRAPH_MAX_TOOL_ROUNDS", "6")),
+        max_upload_bytes=int(
+            os.environ.get("STUDYGRAPH_MAX_UPLOAD_BYTES", "5000000")
+        ),
     )

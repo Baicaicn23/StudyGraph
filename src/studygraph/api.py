@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 from . import tools
 from .config import Settings, get_settings
 from .embeddings import get_embedder
+from .extract import ExtractError, extract_text
 from .graph import build_graph
 from .knowledge import KnowledgeStore
 from .learning import LearningError, LearningService
@@ -153,6 +154,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             body.library, body.title, body.content
         )
         return {"id": document_id, "library": body.library, "title": body.title}
+
+    @app.post("/api/knowledge/upload")
+    async def upload_document(
+        request: Request,
+        library: str = Form(min_length=1, max_length=64),
+        file: UploadFile = File(...),  # noqa: B008 — FastAPI 的标准依赖注入写法
+    ) -> dict:
+        data = await file.read()
+        if len(data) > request.app.state.settings.max_upload_bytes:
+            raise HTTPException(status_code=413, detail="文件太大")
+        try:
+            text = extract_text(file.filename or "", data)
+        except ExtractError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="文件里没有可提取的文本")
+        title = (file.filename or "上传资料").strip()
+        document_id = request.app.state.store.add_document(library, title, text)
+        return {
+            "id": document_id,
+            "library": library,
+            "title": title,
+            "chars": len(text),
+        }
 
     @app.post("/api/chat/stream")
     async def chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:

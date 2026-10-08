@@ -11,6 +11,8 @@ dependencies = [
     "aiosqlite",
     "fastapi",
     "uvicorn[standard]",
+    "python-multipart",
+    "pypdf",
 ]
 
 [project.optional-dependencies]
