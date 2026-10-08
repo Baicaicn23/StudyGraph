@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
     AIMessageChunk,
     BaseMessage,
@@ -27,6 +26,7 @@ from langchain_core.messages import (
 )
 from langgraph.graph import END, START, StateGraph
 
+from .ports import ChatModelPort
 from .routing import (
     allowed_tools,
     classify,
@@ -68,7 +68,7 @@ def build_system_prompt(profile_agent: str, state: StudyState) -> str:
 
 def build_graph(
     *,
-    model: BaseChatModel,
+    model: ChatModelPort,
     checkpointer: Any,
     max_tool_rounds: int = 6,
 ):

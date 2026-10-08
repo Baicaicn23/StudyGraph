@@ -4,8 +4,8 @@ import json
 
 from fastapi.testclient import TestClient
 
-from studygraph.api import create_app
 from studygraph.config import Settings
+from studygraph.interfaces.api import create_app
 
 
 def _client(tmp_path) -> TestClient:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from studygraph.routing import (
+from studygraph.application.routing import (
     CALCULATION,
     CONCEPT_EXPLAIN,
     PRACTICE,

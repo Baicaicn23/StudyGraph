@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 export STUDYGRAPH_LLM_PROVIDER="${STUDYGRAPH_LLM_PROVIDER:-mock}"
 
 echo "▶ 后端 http://127.0.0.1:8011"
-uv run uvicorn studygraph.api:app --port 8011 --reload &
+uv run uvicorn studygraph.interfaces.api:app --port 8011 --reload &
 BACKEND=$!
 
 echo "▶ 前端 http://localhost:3000"

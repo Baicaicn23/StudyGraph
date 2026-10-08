@@ -1,10 +1,8 @@
-"""模型适配：Mock（默认，零成本）与 OpenAI 兼容（可选）。
+"""模型适配（基础设施）：Mock（默认，零成本）与 OpenAI 兼容（可选）。
 
-Mock 模型不是"随便回一句话"：它按固定规则**模拟工具调用**——看到算式就调计算器，
-看到"记住/存一下"就调保存工具，看到"资料/知识库"就调检索。这样全链路（路由、
-工具循环、流式、checkpoint、HITL）都能在零 API 消耗下被确定性地测试和演示。
-
-要覆盖真实模型路径，设置 `STUDYGRAPH_LLM_PROVIDER=openai` 并安装 `--extra openai`。
+Mock 模型按固定规则**模拟工具调用**——看到算式调计算器、看到"记住/沉淀"调保存、
+看到"资料/知识库"调检索。这样全链路（路由、工具循环、流式、检查点、HITL）都能
+在**零 API 消耗**下被确定性地测试和演示。
 """
 
 from __future__ import annotations
@@ -15,16 +13,11 @@ from typing import Any
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import (
-    AIMessage,
-    BaseMessage,
-    HumanMessage,
-    ToolMessage,
-)
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import Field
 
-from .config import Settings
+from ..config import Settings
 
 _MATH_RE = re.compile(r"\d[\d\.\s]*(?:[\+\-\*/×÷\^%]\s*\d[\d\.\s]*)+")
 _SAVE_HINTS = ("记住", "记下", "存进", "存一下", "沉淀", "保存")
@@ -65,11 +58,7 @@ class MockChatModel(BaseChatModel):
         return "study-mock"
 
     def bind_tools(
-        self,
-        tools: Sequence[Any],
-        *,
-        tool_choice: str | None = None,
-        **kwargs: Any,
+        self, tools: Sequence[Any], *, tool_choice: str | None = None, **kwargs: Any
     ) -> MockChatModel:
         names = [name for tool in tools if (name := _tool_name(tool))]
         return self.model_copy(update={"tool_names": names})
@@ -81,8 +70,7 @@ class MockChatModel(BaseChatModel):
         run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
-        message = self._decide(messages)
-        return ChatResult(generations=[ChatGeneration(message=message)])
+        return ChatResult(generations=[ChatGeneration(message=self._decide(messages))])
 
     def _decide(self, messages: list[BaseMessage]) -> AIMessage:
         tool_result = _used_tool_since_last_human(messages)
@@ -136,7 +124,7 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
     if provider in ("openai", "openai-compatible"):
         try:
             from langchain_openai import ChatOpenAI
-        except ImportError as exc:  # pragma: no cover - 依赖缺失时的清晰提示
+        except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "接入真实模型需要 langchain-openai：请执行 `uv sync --extra openai`"
             ) from exc

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from studygraph.embeddings import MockHashEmbedding, cosine
-from studygraph.knowledge import KnowledgeStore, SearchHit, build_match_query, rrf_fuse
+from studygraph.domain.models import SearchHit
+from studygraph.domain.retrieval import rrf_fuse
+from studygraph.infrastructure.embeddings import MockHashEmbedding, cosine
+from studygraph.infrastructure.knowledge import KnowledgeStore, build_match_query
 
 
 def test_mock_embedding_is_deterministic_and_normalized() -> None:

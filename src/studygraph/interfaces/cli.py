@@ -1,10 +1,10 @@
-"""命令行入口：一次学习回合，带流式输出与 HITL 确认。
+"""接口层：CLI。组合根，把基础设施注入应用层。
 
 用法：
 
-    uv run python -m studygraph.cli "计算 7 * 9"
-    uv run python -m studygraph.cli "记住：我在准备月底的微积分测验" --yes
-    uv run python -m studygraph.cli "我的笔记里怎么讲导数的？" --thread math
+    uv run python -m studygraph.interfaces.cli "计算 7 * 9"
+    uv run python -m studygraph.interfaces.cli "记住：我在准备月底的微积分测验" --yes
+    uv run python -m studygraph.interfaces.cli "我的笔记里怎么讲导数的？" --thread math
 """
 
 from __future__ import annotations
@@ -18,13 +18,14 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.types import Command
 
-from . import tools
-from .config import Settings, get_settings
-from .embeddings import get_embedder
-from .graph import build_graph
-from .knowledge import KnowledgeStore
-from .learning import LearningService
-from .providers import build_chat_model
+from ..application import tools
+from ..application.graph import build_graph
+from ..application.learning_service import LearningService
+from ..config import Settings, get_settings
+from ..infrastructure.embeddings import get_embedder
+from ..infrastructure.knowledge import KnowledgeStore
+from ..infrastructure.learning_repository import SqliteLearningRepository
+from ..infrastructure.llm import build_chat_model
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -58,7 +59,6 @@ async def _run(
         ):
             if mode == "messages":
                 message, _meta = chunk
-                # 流式模型发 AIMessageChunk；非流式模型发完整 AIMessage。
                 if isinstance(message, (AIMessage, AIMessageChunk)) and message.content:
                     print(message.content, end="", flush=True)
             elif isinstance(chunk, dict) and "__interrupt__" in chunk:
@@ -70,8 +70,7 @@ async def _run(
 
         request = interrupted[0].value
         print(
-            f"[需要确认] 保存到「{request.get('library')}」："
-            f"《{request.get('title')}》"
+            f"[需要确认] 保存到「{request.get('library')}」：《{request.get('title')}》"
         )
         print(f"  预览：{request.get('preview', '')[:160]}")
         if auto_approve:
@@ -82,12 +81,11 @@ async def _run(
         payload = Command(resume=approved)
 
 
-async def _amain(
-    settings: Settings, text: str, args: argparse.Namespace
-) -> None:
-    store = KnowledgeStore(settings.database_path, embedder=get_embedder(settings))
-    learning = LearningService(settings.database_path)
-    tools.configure(store)
+async def _amain(settings: Settings, text: str, args: argparse.Namespace) -> None:
+    knowledge = KnowledgeStore(settings.database_path, embedder=get_embedder(settings))
+    repository = SqliteLearningRepository(settings.database_path)
+    learning = LearningService(knowledge, repository)
+    tools.configure(knowledge)
     model = build_chat_model(settings)
     user_id = args.user or settings.user_id
     learning.remember(user_id, text)
@@ -111,9 +109,11 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     text = " ".join(args.message).strip()
     if not text:
-        print('请输入要发送的内容，例如：uv run python -m studygraph.cli "计算 7 * 9"')
+        print(
+            '请输入要发送的内容，例如：'
+            'uv run python -m studygraph.interfaces.cli "计算 7 * 9"'
+        )
         return 2
-
     settings = get_settings()
     Path(settings.database_path).parent.mkdir(parents=True, exist_ok=True)
     try:

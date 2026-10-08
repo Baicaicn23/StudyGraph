@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from studygraph.knowledge import KnowledgeStore, chunk_text
+from studygraph.domain.retrieval import chunk_text
+from studygraph.infrastructure.knowledge import KnowledgeStore
 
 
 def test_chunk_text_splits_with_overlap() -> None:

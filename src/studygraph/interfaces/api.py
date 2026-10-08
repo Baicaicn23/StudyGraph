@@ -1,9 +1,6 @@
-"""HTTP 接口层：把 LangGraph 图通过 SSE 暴露给前端。
+"""接口层：HTTP。这里是**组合根**——把基础设施实现注入应用层服务与图。
 
-- `POST /api/chat/stream`：发起一回合，流式返回 `token` / `interrupt` / `done` 事件。
-- `POST /api/chat/resume`：对上一次 `interrupt`（HITL）给出确认，继续流式返回。
-- `GET  /api/knowledge/libraries`：列出学科知识库。
-- `POST /api/knowledge/notes`：写入一条笔记（演示/播种用）。
+启动：`uv run uvicorn studygraph.interfaces.api:app --port 8011 --reload`
 
 SSE 事件协议（每行一个事件，`data` 为 JSON）：
 
@@ -11,8 +8,6 @@ SSE 事件协议（每行一个事件，`data` 为 JSON）：
     event: interrupt  data: {"action": "save_note", "library": "...", ...}
     event: done       data: {}
     event: error      data: {"message": "..."}
-
-启动：`uv run uvicorn studygraph.api:app --port 8011 --reload`
 """
 
 from __future__ import annotations
@@ -28,14 +23,16 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 
-from . import tools
-from .config import Settings, get_settings
-from .embeddings import get_embedder
-from .extract import ExtractError, extract_text
-from .graph import build_graph
-from .knowledge import KnowledgeStore
-from .learning import LearningError, LearningService
-from .providers import build_chat_model
+from ..application import tools
+from ..application.graph import build_graph
+from ..application.learning_service import LearningService
+from ..config import Settings, get_settings
+from ..domain.errors import LearningError
+from ..infrastructure.embeddings import get_embedder
+from ..infrastructure.extract import ExtractError, extract_text
+from ..infrastructure.knowledge import KnowledgeStore
+from ..infrastructure.learning_repository import SqliteLearningRepository
+from ..infrastructure.llm import build_chat_model
 
 
 class ChatRequest(BaseModel):
@@ -106,13 +103,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         resolved = settings or get_settings()
-        store = KnowledgeStore(resolved.database_path, embedder=get_embedder(resolved))
-        learning = LearningService(resolved.database_path)
-        tools.configure(store)
+        knowledge = KnowledgeStore(
+            resolved.database_path, embedder=get_embedder(resolved)
+        )
+        repository = SqliteLearningRepository(resolved.database_path)
+        learning = LearningService(knowledge, repository)
+        tools.configure(knowledge)
         model = build_chat_model(resolved)
         async with AsyncSqliteSaver.from_conn_string(resolved.database_path) as checkpointer:
             app.state.settings = resolved
-            app.state.store = store
+            app.state.store = knowledge
             app.state.learning = learning
             app.state.model = model
             app.state.graph = build_graph(
@@ -122,7 +122,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             yield
 
-    app = FastAPI(title="StudyGraph API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="StudyGraph API", version="0.2.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -132,10 +132,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/health")
     async def health(request: Request) -> dict:
-        return {
-            "status": "ok",
-            "provider": request.app.state.settings.llm_provider,
-        }
+        return {"status": "ok", "provider": request.app.state.settings.llm_provider}
 
     @app.get("/api/knowledge/libraries")
     async def list_libraries(request: Request) -> dict:
@@ -172,18 +169,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail="文件里没有可提取的文本")
         title = (file.filename or "上传资料").strip()
         document_id = request.app.state.store.add_document(library, title, text)
-        return {
-            "id": document_id,
-            "library": library,
-            "title": title,
-            "chars": len(text),
-        }
+        return {"id": document_id, "library": library, "title": title, "chars": len(text)}
 
     @app.post("/api/chat/stream")
     async def chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:
         config = {"configurable": {"thread_id": body.thread_id}}
-        learning = request.app.state.learning
-        # 抽取长期记忆，并把"关于这位学习者"的背景注入本回合。
+        learning: LearningService = request.app.state.learning
         learning.remember(body.user_id, body.message)
         payload: dict = {
             "messages": [HumanMessage(body.message)],
@@ -202,9 +193,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def chat_resume(body: ResumeRequest, request: Request) -> StreamingResponse:
         config = {"configurable": {"thread_id": body.thread_id}}
         return StreamingResponse(
-            _run_stream(
-                request.app.state.graph, Command(resume=body.approved), config
-            ),
+            _run_stream(request.app.state.graph, Command(resume=body.approved), config),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -245,9 +234,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def answer_practice(body: AnswerRequest, request: Request) -> dict:
         try:
             result = request.app.state.learning.answer(
-                user_id=body.user_id,
-                question_id=body.question_id,
-                rating=body.rating,
+                user_id=body.user_id, question_id=body.question_id, rating=body.rating
             )
         except LearningError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

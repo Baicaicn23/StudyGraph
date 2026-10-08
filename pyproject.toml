@@ -18,6 +18,9 @@ dependencies = [
 [project.optional-dependencies]
 openai = ["langchain-openai"]
 
+[project.scripts]
+studygraph = "studygraph.interfaces.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8",

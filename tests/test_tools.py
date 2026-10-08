@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from studygraph import tools
-from studygraph.knowledge import KnowledgeStore
-from studygraph.tools import calculator, knowledge_search, safe_eval
+from studygraph.application import tools
+from studygraph.application.tools import calculator, knowledge_search, safe_eval
+from studygraph.infrastructure.knowledge import KnowledgeStore
 
 
 def test_calculator_evaluates_arithmetic() -> None:

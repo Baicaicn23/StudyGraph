@@ -1,11 +1,8 @@
-"""用模型写练习题（失败/无模型一律回退模板）。
+"""出题的领域逻辑（纯函数）：提示词拼装、题面解析、模板兜底。
 
-结构照搬意图识别那一层：提示词是纯函数、要求模型返回结构化 JSON、**任何失败都
-回退模板**。"出题"是用户主动发起的动作，不能因为模型不可用而失败——所以调用方
-不需要处理异常，模板题照样能用。
-
-Mock 模型直接走模板（它的输出不遵循本模块的 JSON 约定，问它没有信息量）。
-要覆盖模型路径，请在测试里用一个自定义的假模型。
+这里不碰任何模型调用——"让模型写题、失败回退"是应用层的编排（见
+`application/question_writer.py`）。本模块只回答"该给模型什么要求""怎么判断它
+答得合不合格""没有模型时怎么拼一道题"。
 """
 
 from __future__ import annotations
@@ -13,21 +10,10 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any
-
-from langchain_core.messages import HumanMessage, SystemMessage
 
 MAX_INSTRUCTION_CHARS = 1200
 MIN_QUESTION_CHARS = 8
 MAX_QUESTION_CHARS = 600
-
-_SYSTEM_PROMPT = (
-    "你是一位出题教练，为一位大学生出一道练习题。"
-    "只输出 JSON，不要解释、不要 markdown 代码块，格式为："
-    '{"question": "题目正文"}。'
-    "题面要自成一体（学习者不看资料也能作答），简体中文，"
-    "数学式子用纯文本写清楚，不要给出答案或解题步骤，题面不超过 200 字。"
-)
 
 
 @dataclass(frozen=True)
@@ -98,25 +84,3 @@ def parse_question(content: str) -> str | None:
     if len(question) < MIN_QUESTION_CHARS:
         return None
     return question[:MAX_QUESTION_CHARS]
-
-
-async def write_question(
-    model: Any | None, instruction: str, *, fallback: str
-) -> WrittenQuestion:
-    """先让模型写题，失败或没有可用模型就用 ``fallback``。本函数永不抛异常。"""
-
-    if model is None or getattr(model, "_llm_type", "") == "study-mock":
-        return WrittenQuestion(prompt=fallback, generator="template")
-    try:
-        response = await model.ainvoke(
-            [
-                SystemMessage(_SYSTEM_PROMPT),
-                HumanMessage(instruction[:MAX_INSTRUCTION_CHARS]),
-            ]
-        )
-        question = parse_question(getattr(response, "content", ""))
-    except Exception:  # noqa: BLE001 — 出题失败绝不阻塞，退回模板
-        return WrittenQuestion(prompt=fallback, generator="template")
-    if question is None:
-        return WrittenQuestion(prompt=fallback, generator="template")
-    return WrittenQuestion(prompt=question, generator="model")

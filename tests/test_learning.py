@@ -4,13 +4,17 @@ from pathlib import Path
 
 import pytest
 
-from studygraph.knowledge import KnowledgeStore
-from studygraph.learning import LearningError, LearningService
+from studygraph.application.learning_service import LearningService
+from studygraph.domain.errors import LearningError
+from studygraph.infrastructure.knowledge import KnowledgeStore
+from studygraph.infrastructure.learning_repository import SqliteLearningRepository
 
 
 def _services(tmp_path: Path) -> tuple[KnowledgeStore, LearningService]:
     db = tmp_path / "learn.db"
-    return KnowledgeStore(db), LearningService(db)
+    knowledge = KnowledgeStore(db)
+    repository = SqliteLearningRepository(db)
+    return knowledge, LearningService(knowledge, repository)
 
 
 async def test_generate_from_library_uses_template_and_exhausts(tmp_path: Path) -> None:

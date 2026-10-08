@@ -4,11 +4,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from studygraph.generator import (
+from studygraph.application.question_writer import write_question
+from studygraph.domain.quiz import (
     build_mistake_instruction,
     parse_question,
     template_mistake_question,
-    write_question,
 )
 
 

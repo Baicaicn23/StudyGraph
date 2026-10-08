@@ -6,8 +6,8 @@
 - `save_note`：把内容沉淀进某个学科库——**会先 `interrupt()` 请求用户确认**
   （Human-in-the-Loop），确认后才落库。
 
-工具需要访问同一个知识库实例，用模块级 `configure()` 注入；"本轮选中的知识库"
-用一个 contextvar 传递，避免污染模型可见的参数 schema。
+工具依赖的是**端口**（`KnowledgePort`），不是具体实现；"本轮选中的知识库"用
+contextvar 传递，避免污染模型可见的参数 schema。
 """
 
 from __future__ import annotations
@@ -20,9 +20,9 @@ from typing import Any
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
-from .knowledge import KnowledgeStore
+from .ports import KnowledgePort
 
-_store: KnowledgeStore | None = None
+_knowledge: KnowledgePort | None = None
 _current_libraries: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
     "studygraph_current_libraries", default=None
 )
@@ -38,17 +38,17 @@ _BIN_OPS = {
 }
 
 
-def configure(store: KnowledgeStore) -> None:
-    """由应用入口注入知识库实例。"""
+def configure(knowledge: KnowledgePort) -> None:
+    """由组合根注入知识库实现。"""
 
-    global _store
-    _store = store
+    global _knowledge
+    _knowledge = knowledge
 
 
-def get_store() -> KnowledgeStore:
-    if _store is None:
-        raise RuntimeError("工具尚未配置知识库：请先调用 tools.configure(store)")
-    return _store
+def get_knowledge() -> KnowledgePort:
+    if _knowledge is None:
+        raise RuntimeError("工具尚未配置知识库：请先调用 tools.configure(...)")
+    return _knowledge
 
 
 def set_current_libraries(libraries: list[str] | None) -> None:
@@ -103,12 +103,10 @@ def knowledge_search(query: str) -> str:
     学生自己上传/沉淀的资料有关时使用（例如"我的笔记里怎么说的"）。"""
 
     libraries = _current_libraries.get()
-    hits = get_store().search(query, libraries=libraries, limit=4)
+    hits = get_knowledge().search(query, libraries=libraries, limit=4)
     if not hits:
         return "知识库里没有找到相关片段。"
-    blocks = [
-        f"【{hit.library} / {hit.title}】{hit.content}" for hit in hits
-    ]
+    blocks = [f"【{hit.library} / {hit.title}】{hit.content}" for hit in hits]
     return "\n\n".join(blocks)
 
 
@@ -127,8 +125,7 @@ def save_note(title: str, content: str, library: str = "日常沉淀") -> str:
     )
     if not approved:
         return "已取消，未保存。"
-    store = get_store()
-    store.add_note(library, title, content)
+    get_knowledge().add_document(library, title, content)
     return f"已存入「{library}」：《{title}》"
 
 

@@ -1,14 +1,7 @@
-"""学科知识库：文档/笔记的存储与混合检索（FTS + 向量 + RRF）。
+"""学科知识库：SQLite 存储 + 混合检索（FTS trigram + 向量 + RRF）。
 
-设计要点：
-- **存储**用 SQLite；全文检索用 **FTS5 trigram**——中文按 3-gram 切分，普通
-  `unicode61` 分词器不切中文（整段当一个 token），中文查询会零命中。
-- **中文长查询**拆成 3-gram 词项做 OR（整句当短语几乎不可能命中）；更短的
-  查询走 `LIKE` 兜底。
-- **向量检索**：每个片段算一个 Embedding，查询时算**余弦相似度**取 top-k。
-- **RRF 融合**：把 FTS（关键词）与向量（语义）两路排名用 Reciprocal Rank
-  Fusion 融合，取长补短。
-- 结果带**出处**（哪个库、哪份资料），供回答引用。
+`KnowledgePort` 的 SQLite 实现。纯算法（切块、RRF）在领域层
+（`domain/retrieval.py`），查询语法等存储细节留在这里。
 """
 
 from __future__ import annotations
@@ -17,10 +10,11 @@ import re
 import sqlite3
 import time
 from array import array
-from dataclasses import dataclass, replace
 from pathlib import Path
 
-from .embeddings import BaseEmbedding, cosine
+from ..domain.models import Chunk, SearchHit
+from ..domain.retrieval import chunk_text, rrf_fuse
+from .embeddings import cosine
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 _TOKEN_SPLIT_RE = re.compile(r"[\s,，。！？!?、；;：:（）()\[\]「」《》\"'“”‘’]+")
@@ -62,44 +56,15 @@ CREATE TABLE IF NOT EXISTS chunk_vectors (
 """
 
 
-@dataclass(frozen=True)
-class SearchHit:
-    chunk_id: int
-    library: str
-    title: str
-    content: str
-    score: float
-
-
-def chunk_text(text: str, *, max_chars: int = 480, overlap: int = 80) -> list[str]:
-    """把长文本切成带重叠的片段。重叠是为了避免答案正好被切在边界上。"""
-
-    cleaned = (text or "").strip()
-    if not cleaned:
-        return []
-    if len(cleaned) <= max_chars:
-        return [cleaned]
-    chunks: list[str] = []
-    start = 0
-    while start < len(cleaned):
-        end = min(start + max_chars, len(cleaned))
-        chunks.append(cleaned[start:end])
-        if end >= len(cleaned):
-            break
-        start = end - overlap
-    return chunks
-
-
 def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def build_match_query(query: str) -> str:
-    """把自然语言查询转成 FTS5 的 OR 查询串。
+    """把自然语言查询转成 FTS5 的 OR 查询串（中文拆 3-gram 词项）。
 
-    trigram 分词器按 3 字滑窗建索引，所以中文查询要拆成 3-gram 词项做 OR，
-    而不是把整句当成一个短语——整句短语要求查询是资料的连续子串，几乎永不命中。
-    纯英文/数字词整词保留。返回空串表示无法构造查询（交由 LIKE 兜底）。
+    整句当短语要求查询是资料的连续子串，几乎永不命中；拆成 3-gram 做 OR 才能
+    命中。返回空串表示无法构造查询（交由 LIKE 兜底）。
     """
 
     terms: list[str] = []
@@ -119,23 +84,6 @@ def build_match_query(query: str) -> str:
     return " OR ".join('"' + term.replace('"', '""') + '"' for term in unique)
 
 
-def rrf_fuse(rankings: list[list[SearchHit]], *, k: int = 60) -> list[SearchHit]:
-    """Reciprocal Rank Fusion：把多路排名按 ``1/(k+rank)`` 相加融合。
-
-    只用排名、不用原始分数，所以能把"关键词命中"和"语义相似"两种不可比的分数
-    放在一起比较。
-    """
-
-    scores: dict[int, float] = {}
-    hits: dict[int, SearchHit] = {}
-    for ranking in rankings:
-        for rank, hit in enumerate(ranking):
-            scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + 1.0 / (k + rank + 1)
-            hits[hit.chunk_id] = hit
-    ordered = sorted(scores, key=lambda chunk_id: scores[chunk_id], reverse=True)
-    return [replace(hits[chunk_id], score=scores[chunk_id]) for chunk_id in ordered]
-
-
 def _to_blob(vector: list[float]) -> bytes:
     return array("f", vector).tobytes()
 
@@ -147,10 +95,12 @@ def _from_blob(blob: bytes) -> list[float]:
 
 
 class KnowledgeStore:
+    """`KnowledgePort` 的 SQLite 实现。"""
+
     def __init__(
         self,
         db_path: str | Path,
-        embedder: BaseEmbedding | None = None,
+        embedder=None,
         *,
         recall_depth: int = 8,
         rrf_k: int = 60,
@@ -187,9 +137,7 @@ class KnowledgeStore:
         self.ensure_library(library)
         now = time.time()
         chunks = chunk_text(content)
-        vectors = (
-            self.embedder.embed(chunks) if self.embedder and chunks else []
-        )
+        vectors = self.embedder.embed(chunks) if self.embedder and chunks else []
         with self._connect() as connection:
             cursor = connection.execute(
                 "INSERT INTO documents(library, title, content, created_at) VALUES (?, ?, ?, ?)",
@@ -233,12 +181,27 @@ class KnowledgeStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def list_chunks(self, *, library: str | None = None) -> list[Chunk]:
+        sql = "SELECT id, library, title, content FROM chunks"
+        params: list[object] = []
+        if library is not None:
+            sql += " WHERE library = ?"
+            params.append(library)
+        sql += " ORDER BY id"
+        with self._connect() as connection:
+            rows = connection.execute(sql, params).fetchall()
+        return [
+            Chunk(
+                id=int(row["id"]),
+                library=str(row["library"]),
+                title=str(row["title"]),
+                content=str(row["content"]),
+            )
+            for row in rows
+        ]
+
     def search(
-        self,
-        query: str,
-        *,
-        libraries: list[str] | None = None,
-        limit: int = 4,
+        self, query: str, *, libraries: list[str] | None = None, limit: int = 4
     ) -> list[SearchHit]:
         cleaned = (query or "").strip()
         if not cleaned:
@@ -316,8 +279,7 @@ class KnowledgeStore:
         clause, params = self._library_filter(libraries)
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT chunk_id, library, vector FROM chunk_vectors WHERE dim=?"
-                + clause,
+                "SELECT chunk_id, library, vector FROM chunk_vectors WHERE dim=?" + clause,
                 [len(query_vector), *params],
             ).fetchall()
 
@@ -335,8 +297,7 @@ class KnowledgeStore:
         placeholders = ", ".join("?" for _ in ids)
         with self._connect() as connection:
             detail_rows = connection.execute(
-                f"SELECT id, title, content FROM chunks WHERE id IN ({placeholders})",
-                ids,
+                f"SELECT id, title, content FROM chunks WHERE id IN ({placeholders})", ids
             ).fetchall()
         details = {
             int(row["id"]): (str(row["title"]), str(row["content"]))

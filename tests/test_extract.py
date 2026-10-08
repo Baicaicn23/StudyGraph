@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from studygraph.extract import ExtractError, extract_text
+from studygraph.infrastructure.extract import ExtractError, extract_text
 
 
 def test_extract_plain_text_and_markdown() -> None:

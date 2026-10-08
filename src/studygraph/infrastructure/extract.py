@@ -1,15 +1,10 @@
-"""从上传文件里抽取纯文本（TXT / Markdown / PDF）。
-
-只做"把文件变成字符串"这一件事；切块、索引、向量化交给 `KnowledgeStore`。
-PDF 用可选的 `pypdf`（已在主依赖里）；未知后缀直接报错，不猜测格式。
-"""
+"""从上传文件里抽取纯文本（TXT / Markdown / PDF）——基础设施实现。"""
 
 from __future__ import annotations
 
 import io
 
 _TEXT_SUFFIXES = (".txt", ".md", ".markdown")
-_SUPPORTED = _TEXT_SUFFIXES + (".pdf",)
 
 
 class ExtractError(ValueError):
