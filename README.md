@@ -12,6 +12,7 @@ StudyGraph 面向大学生：平时把资料分学科存进去、聊天随手沉
 | 🧩 显式状态图 | 一次回合就是一张 LangGraph 状态图：`route → agent ⇄ tools`，循环与分支都写在明面上 |
 | 🛡️ 工具最小权限 | **双层生效**：schema 层只给模型看允许的工具，执行层再拦一次黑名单 |
 | 🔎 学科知识库 RAG | SQLite + FTS5 **trigram** 中文检索 + **向量余弦相似度**，两路用 **RRF** 融合；中文查询拆 3-gram，短词 LIKE 兜底，结果带出处 |
+| 📥 资料上传 | TXT / Markdown / PDF 抽文本入库（PDF 走 `pypdf`），超限拒绝 |
 | ✋ Human-in-the-Loop | "沉淀进知识库"这类写操作会先 `interrupt()` 请求确认，确认后才落库 |
 | 🎓 学习闭环 | 错题带学科 → 出题（模型写题，失败回退模板）→ 练习自评 → 间隔重复排期 + 掌握度 |
 | 🧠 长期记忆 | 从对话抽取事实注入提示词（标注"数据而非指令"） |
@@ -93,7 +94,7 @@ uv run python -m studygraph.cli "讲解一下导数的几何意义"
 ## 测试与检查
 
 ```bash
-uv run pytest -q            # 64 passed
+uv run pytest -q            # 69 passed
 uv run ruff check src tests
 ```
 
@@ -111,6 +112,7 @@ studygraph/
 │   ├── tools.py       计算器 / 知识检索 / HITL 沉淀
 │   ├── knowledge.py   学科知识库 + 混合检索（FTS trigram + 向量 + RRF）
 │   ├── embeddings.py  向量化（Mock 哈希 / OpenAI 兼容）
+│   ├── extract.py     上传文件抽文本（TXT / Markdown / PDF）
 │   ├── learning.py    学习闭环：错题 / 练习 / 间隔重复 / 掌握度 / 规划
 │   ├── generator.py   模型出题（失败回退模板）
 │   ├── memory.py      长期记忆抽取
@@ -118,7 +120,7 @@ studygraph/
 │   ├── api.py         FastAPI + SSE 接口层
 │   └── cli.py         命令行入口
 ├── frontend/          Next.js 16 聊天界面（Tailwind + Markdown/KaTeX + 流式）
-├── tests/             64 个自动测试（Mock，零 API 消耗）
+├── tests/             69 个自动测试（Mock，零 API 消耗）
 ├── scripts/dev.sh     一键起前后端
 └── docs/              架构设计与使用指南
 ```
@@ -128,7 +130,7 @@ studygraph/
 - **M1（已完成）**：状态图回合 · 意图路由 · 工具最小权限 · 学科知识库检索 · HITL 沉淀 · 检查点 · 流式 · Mock/真实双模型 · FastAPI/SSE 接口 · Next.js 聊天界面 · 自动测试。
 - **M2（已完成）**：向量检索 + RRF 混合排序；知识库上传接口。
 - **M3（已完成）**：学习闭环——错题带学科、从错题/知识库出题（模型写题失败回退模板）、间隔重复排期、掌握度、长期记忆、今日复习规划。
-- **M4**：知识库大文件上传与解析（PDF/TXT/MD）、复习界面、多用户隔离校验。
+- **M4（进行中）**：资料上传与解析（TXT / Markdown / PDF）已完成；待做：复习 / 错题界面、多用户隔离、出题难度分层。
 
 ## 文档
 
