@@ -17,6 +17,9 @@ class Settings:
     openai_base_url: str = ""
     openai_api_key: str = ""
     max_output_tokens: int = 2048
+    embedding_provider: str = "mock"
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dim: int = 256
     database_path: str = "data/studygraph.db"
     knowledge_root: str = "data/knowledge"
     user_id: str = "local"
@@ -30,6 +33,13 @@ def get_settings() -> Settings:
         openai_base_url=os.environ.get("STUDYGRAPH_OPENAI_BASE_URL", ""),
         openai_api_key=os.environ.get("STUDYGRAPH_OPENAI_API_KEY", ""),
         max_output_tokens=int(os.environ.get("STUDYGRAPH_MAX_OUTPUT_TOKENS", "2048")),
+        embedding_provider=os.environ.get("STUDYGRAPH_EMBEDDING_PROVIDER", "mock")
+        .strip()
+        .lower(),
+        embedding_model=os.environ.get(
+            "STUDYGRAPH_EMBEDDING_MODEL", "text-embedding-3-small"
+        ),
+        embedding_dim=int(os.environ.get("STUDYGRAPH_EMBEDDING_DIM", "256")),
         database_path=os.environ.get("STUDYGRAPH_DATABASE_PATH", "data/studygraph.db"),
         knowledge_root=os.environ.get("STUDYGRAPH_KNOWLEDGE_ROOT", "data/knowledge"),
         user_id=os.environ.get("STUDYGRAPH_USER", "local"),

@@ -49,6 +49,21 @@ def test_notes_endpoint_feeds_the_library(tmp_path) -> None:
     assert any(item["name"] == "线性代数" for item in libraries)
 
 
+def test_documents_endpoint_uploads_material(tmp_path) -> None:
+    with _client(tmp_path) as client:
+        response = client.post(
+            "/api/knowledge/documents",
+            json={
+                "library": "高等数学",
+                "title": "导数讲义",
+                "content": "导数是瞬时变化率，反映曲线在该点的切线斜率。",
+            },
+        )
+        assert response.status_code == 200
+        libraries = client.get("/api/knowledge/libraries").json()["libraries"]
+    assert any(item["name"] == "高等数学" for item in libraries)
+
+
 def test_chat_stream_runs_tools_and_streams(tmp_path) -> None:
     with _client(tmp_path) as client:
         events = _read_events(

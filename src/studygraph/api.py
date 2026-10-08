@@ -30,6 +30,7 @@ from pydantic import BaseModel, Field
 
 from . import tools
 from .config import Settings, get_settings
+from .embeddings import get_embedder
 from .graph import build_graph
 from .knowledge import KnowledgeStore
 from .providers import build_chat_model
@@ -51,6 +52,12 @@ class NoteRequest(BaseModel):
     library: str = Field(min_length=1, max_length=64)
     title: str = Field(min_length=1, max_length=120)
     content: str = Field(min_length=1, max_length=20000)
+
+
+class DocumentRequest(BaseModel):
+    library: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(min_length=1, max_length=200000)
 
 
 def _sse(event: str, data: dict) -> str:
@@ -77,7 +84,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         resolved = settings or get_settings()
-        store = KnowledgeStore(resolved.database_path)
+        store = KnowledgeStore(resolved.database_path, embedder=get_embedder(resolved))
         tools.configure(store)
         model = build_chat_model(resolved)
         async with AsyncSqliteSaver.from_conn_string(resolved.database_path) as checkpointer:
@@ -112,6 +119,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/knowledge/notes")
     async def add_note(body: NoteRequest, request: Request) -> dict:
         document_id = request.app.state.store.add_note(
+            body.library, body.title, body.content
+        )
+        return {"id": document_id, "library": body.library, "title": body.title}
+
+    @app.post("/api/knowledge/documents")
+    async def add_document(body: DocumentRequest, request: Request) -> dict:
+        document_id = request.app.state.store.add_document(
             body.library, body.title, body.content
         )
         return {"id": document_id, "library": body.library, "title": body.title}

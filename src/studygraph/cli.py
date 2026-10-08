@@ -20,6 +20,7 @@ from langgraph.types import Command
 
 from . import tools
 from .config import Settings, get_settings
+from .embeddings import get_embedder
 from .graph import build_graph
 from .knowledge import KnowledgeStore
 from .providers import build_chat_model
@@ -78,7 +79,7 @@ async def _run(
 async def _amain(
     settings: Settings, text: str, args: argparse.Namespace
 ) -> None:
-    store = KnowledgeStore(settings.database_path)
+    store = KnowledgeStore(settings.database_path, embedder=get_embedder(settings))
     tools.configure(store)
     model = build_chat_model(settings)
     async with AsyncSqliteSaver.from_conn_string(settings.database_path) as checkpointer:
