@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 
@@ -32,6 +33,7 @@ class Settings:
     tool_max_retries: int = 2
     max_history_messages: int = 24
     max_upload_bytes: int = 5_000_000
+    mcp_servers: str = ""
 
 
 def get_settings() -> Settings:
@@ -68,4 +70,24 @@ def get_settings() -> Settings:
         max_upload_bytes=int(
             os.environ.get("STUDYGRAPH_MAX_UPLOAD_BYTES", "5000000")
         ),
+        mcp_servers=os.environ.get("STUDYGRAPH_MCP_SERVERS", ""),
     )
+
+
+def parse_mcp_servers(raw: str) -> list[dict]:
+    """解析 MCP server 配置（JSON 数组）。非法配置一律忽略，不阻塞启动。"""
+
+    text = (raw or "").strip()
+    if not text:
+        return []
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(data, list):
+        return []
+    return [
+        item
+        for item in data
+        if isinstance(item, dict) and item.get("command")
+    ]

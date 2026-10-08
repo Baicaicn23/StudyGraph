@@ -135,6 +135,18 @@ TOOLS = {
     "save_note": save_note,
 }
 
+# 通过 MCP 动态注册进来的工具名（前缀 mcp_）。
+_mcp_names: set[str] = set()
+
 
 def get_tool(name: str):
     return TOOLS.get(name)
+
+
+def register_mcp_tool(name: str, tool: Any) -> None:
+    TOOLS[name] = tool
+    _mcp_names.add(name)
+
+
+def mcp_tool_names() -> list[str]:
+    return sorted(_mcp_names)

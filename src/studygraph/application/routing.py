@@ -143,6 +143,12 @@ def allowed_tools(profile: AgentProfile, requested: list[str] | None = None) -> 
     if profile.deny_all:
         return []
     base = list(requested) if requested else list(profile.default_tools)
+    # 通过 MCP 动态注册的外部工具，对"可读写"档位的子智能体开放。
+    from .tools import mcp_tool_names
+
+    for name in mcp_tool_names():
+        if name not in base:
+            base.append(name)
     denied = set(profile.denied_tools)
     seen: list[str] = []
     for name in base:

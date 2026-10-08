@@ -23,11 +23,12 @@ from ..application import tools
 from ..application.graph import build_graph
 from ..application.guardrails import screen_input
 from ..application.learning_service import LearningService
-from ..config import Settings, get_settings
+from ..config import Settings, get_settings, parse_mcp_servers
 from ..infrastructure.embeddings import get_embedder
 from ..infrastructure.knowledge import KnowledgeStore
 from ..infrastructure.learning_repository import SqliteLearningRepository
 from ..infrastructure.llm import build_chat_model
+from ..infrastructure.mcp_bridge import connect_and_register
 from ..infrastructure.usage_repository import SqliteUsageRepository
 
 
@@ -94,6 +95,9 @@ async def _amain(settings: Settings, text: str, args: argparse.Namespace) -> Non
     usage_repository = SqliteUsageRepository(settings.database_path)
     learning = LearningService(knowledge, repository)
     tools.configure(knowledge)
+    mcp_clients, _ = await connect_and_register(
+        parse_mcp_servers(settings.mcp_servers), tools.register_mcp_tool
+    )
     model = build_chat_model(settings)
     user_id = args.user or settings.user_id
 
@@ -125,6 +129,8 @@ async def _amain(settings: Settings, text: str, args: argparse.Namespace) -> Non
             auto_approve=args.yes,
             memories=learning.memories(user_id),
         )
+    for client in mcp_clients:
+        await client.close()
 
 
 def main(argv: list[str] | None = None) -> int:

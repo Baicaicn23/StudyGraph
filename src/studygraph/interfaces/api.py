@@ -29,13 +29,14 @@ from ..application import tools
 from ..application.graph import build_graph
 from ..application.guardrails import screen_input, screen_output
 from ..application.learning_service import LearningService
-from ..config import Settings, get_settings
+from ..config import Settings, get_settings, parse_mcp_servers
 from ..domain.errors import LearningError
 from ..infrastructure.embeddings import get_embedder
 from ..infrastructure.extract import ExtractError, extract_text
 from ..infrastructure.knowledge import KnowledgeStore
 from ..infrastructure.learning_repository import SqliteLearningRepository
 from ..infrastructure.llm import build_chat_model
+from ..infrastructure.mcp_bridge import connect_and_register
 from ..infrastructure.usage_repository import SqliteUsageRepository
 
 
@@ -137,6 +138,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         usage_repository = SqliteUsageRepository(resolved.database_path)
         learning = LearningService(knowledge, repository)
         tools.configure(knowledge)
+        mcp_clients, _ = await connect_and_register(
+            parse_mcp_servers(resolved.mcp_servers), tools.register_mcp_tool
+        )
         model = build_chat_model(resolved)
         tier_models: dict[str, object] = {}
 
@@ -170,6 +174,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 budget_exceeded_action=resolved.budget_exceeded_action,
             )
             yield
+        for client in mcp_clients:
+            await client.close()
 
     app = FastAPI(title="StudyGraph API", version="0.2.0", lifespan=lifespan)
     app.add_middleware(
