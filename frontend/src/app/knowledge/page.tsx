@@ -18,6 +18,7 @@ import {
   type StreamEvent,
 } from "@/lib/api";
 import Markdown from "@/components/Markdown";
+import { notifyKnowledgeChanged } from "@/components/KnowledgeTree";
 import { buttonClass, inputClass, Notice } from "@/components/ui";
 
 function FolderIcon({ active }: { active?: boolean }) {
@@ -347,6 +348,8 @@ export default function KnowledgePage() {
         ),
       );
       setLibDocs(Object.fromEntries(entries));
+      // 让其他页面（如笔记详情页）的文件树同步刷新
+      notifyKnowledgeChanged();
     } catch (err) {
       setError((err as Error).message);
     }
@@ -709,10 +712,10 @@ export default function KnowledgePage() {
                 }
               >
                 <div
-                  className={`group relative flex items-center rounded-lg border-l-2 transition ${
+                  className={`group relative flex items-center rounded-lg transition ${
                     libActive
-                      ? "border-teal-600 bg-teal-50/70"
-                      : "border-transparent hover:bg-black/[0.04]"
+                      ? "bg-teal-50/70"
+                      : "hover:bg-black/[0.04]"
                   }`}
                 >
                   <button
@@ -741,7 +744,7 @@ export default function KnowledgePage() {
                         openTreeMenu(event, "doc", { doc })
                       }
                       title={`${doc.title}（右键可删除）`}
-                      className="ml-3 flex w-[calc(100%-0.75rem)] items-center gap-2 rounded-lg border-l-2 border-transparent py-1.5 pl-2.5 pr-2 text-left text-xs text-zinc-500 transition hover:bg-black/[0.04] hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                      className="ml-3 flex w-[calc(100%-0.75rem)] items-center gap-2 rounded-lg py-1.5 pl-2.5 pr-2 text-left text-xs text-zinc-500 transition hover:bg-black/[0.04] hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
                     >
                       <DocIcon className="shrink-0 text-zinc-400" />
                       <span className="min-w-0 flex-1 truncate">{doc.title}</span>
