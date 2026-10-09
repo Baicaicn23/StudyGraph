@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import base64
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from studygraph.config import Settings
+from studygraph.infrastructure.chat_repository import SqliteChatRepository
 from studygraph.interfaces.api import create_app
 
 
@@ -113,6 +115,54 @@ _TINY_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ"
     "AAAABJRU5ErkJggg=="
 )
+
+
+def test_deleting_project_removes_its_attachments_from_disk(
+    tmp_path, monkeypatch
+) -> None:
+    """删项目 = 连项目里的会话/附件一起删，磁盘上的图片也不能留。"""
+
+    async def fake_vision(model, filename, data):
+        return "（一张纯色小图）"
+
+    monkeypatch.setattr(
+        "studygraph.interfaces.api.image_to_markdown", fake_vision
+    )
+    settings = Settings(
+        database_path=str(tmp_path / "proj.db"),
+        llm_provider="openai",
+        model="test-vision",
+        openai_api_key="test-key",
+        openai_base_url="http://127.0.0.1:1/v1",
+    )
+    with TestClient(create_app(settings)) as client:
+        project_id = client.post(
+            "/api/projects", data={"name": "带图项目"}, params={"user_id": "alice"}
+        ).json()["id"]
+        attachment_id = client.post(
+            "/api/chat/attachments",
+            files={"file": ("shot.png", _TINY_PNG, "image/png")},
+            data={"user_id": "alice", "project_id": str(project_id)},
+        ).json()["id"]
+        stored = Path(
+            SqliteChatRepository(settings.database_path)
+            .get_attachment("alice", attachment_id)["storage_path"]
+        )
+        assert stored.is_file(), "上传后图片应落盘"
+
+        deleted = client.delete(
+            f"/api/projects/{project_id}", params={"user_id": "alice"}
+        )
+        assert deleted.status_code == 200
+        assert deleted.json()["sessions"] == 0
+        assert not stored.exists(), "删项目后磁盘图片应被清理"
+        assert (
+            client.get(
+                f"/api/chat/attachments/{attachment_id}/raw",
+                params={"user_id": "alice"},
+            ).status_code
+            == 404
+        )
 
 
 def test_image_preview_raw_endpoint_with_ownership(tmp_path, monkeypatch) -> None:

@@ -153,14 +153,18 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
     }
   };
 
-  const handleDeleteProject = async (projectId: number) => {
-    if (
-      !window.confirm("确定删除该项目吗？项目里的对话会移到「默认对话空间」。")
-    ) {
+  const handleDeleteProject = async (project: ChatProject) => {
+    const chatCount = chats.filter(
+      (chat) => chat.project_id === project.id,
+    ).length;
+    const warning = chatCount
+      ? `确定删除项目「${project.name}」吗？\n\n其中的 ${chatCount} 条对话及其消息、附件会一起删除，无法恢复。`
+      : `确定删除项目「${project.name}」吗？删除后无法恢复。`;
+    if (!window.confirm(warning)) {
       return;
     }
     try {
-      await deleteProject(projectId);
+      await deleteProject(project.id);
       setMenuFor(null);
       await refreshLists();
     } catch {
@@ -371,10 +375,10 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => void handleDeleteProject(project.id)}
+                    onClick={() => void handleDeleteProject(project)}
                     className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] text-red-600 transition hover:bg-red-50"
                   >
-                    删除项目（对话保留）
+                    删除项目
                   </button>
                 )}
               </div>

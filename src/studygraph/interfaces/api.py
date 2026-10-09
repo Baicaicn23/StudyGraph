@@ -538,9 +538,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         request: Request,
         file: UploadFile = File(...),  # noqa: B008 — FastAPI 的标准依赖注入写法
         session_id: int | None = Form(default=None),
+        project_id: int | None = Form(default=None),
         user_id: str = Form(default="local"),
     ) -> dict:
-        """聊天附件上传：抽取文本（图片走视觉转写）存库，返回附件 id。"""
+        """聊天附件上传：抽取文本（图片走视觉转写）存库，返回附件 id。
+
+        project_id 记录附件归属：消息发出前session 可能还不存在，但附件
+        已经属于某个项目，删项目时才能一起清掉。
+        """
 
         data = await file.read()
         if len(data) > request.app.state.settings.max_upload_bytes:
@@ -581,6 +586,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             filename=filename,
             kind=kind,
             content=text,
+            project_id=str(
+                project_id
+                if project_id is not None
+                else request.app.state.chat.ensure_default_project(user_id)
+            ),
         )
         # 原文件落盘，供前端「点击预览」用（只存图片，PDF 等暂不重复存）
         if kind == "image":
@@ -835,14 +845,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def delete_project(
         request: Request, project_id: int, user_id: str = "local"
     ) -> dict:
-        project = request.app.state.chat.get_project(user_id, project_id)
+        """删除项目：项目内的会话、消息、附件（含磁盘上的图片）一起清空。"""
+
+        chat = request.app.state.chat
+        project = chat.get_project(user_id, project_id)
         if project is None:
             raise HTTPException(status_code=404, detail="项目不存在")
         if project.get("is_default"):
             raise HTTPException(status_code=400, detail="默认对话空间不能删除")
-        if not request.app.state.chat.delete_project(user_id, project_id):
+
+        session_ids = [
+            session["id"]
+            for session in chat.list_sessions(user_id, project_id=project_id)
+        ]
+        attachment_paths = chat.list_project_attachment_paths(user_id, project_id)
+
+        if not chat.delete_project(user_id, project_id):
             raise HTTPException(status_code=404, detail="项目不存在")
-        return {"deleted": project_id}
+
+        # 磁盘上的附件图片一并清理（失败不影响删除结果）
+        for raw_path in attachment_paths:
+            try:
+                Path(raw_path).unlink(missing_ok=True)
+            except OSError:  # noqa: PERF203 — 逐个尽力清理即可
+                pass
+        return {"deleted": project_id, "sessions": len(session_ids)}
 
     @app.get("/api/chats")
     async def list_chats(

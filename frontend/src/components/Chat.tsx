@@ -516,6 +516,7 @@ export default function Chat() {
         const uploaded = await uploadChatAttachment(
           file,
           sessionIdRef.current ?? undefined,
+          activeProjectId ?? undefined,
         );
         setPendingFiles((prev) => [
           ...prev,
@@ -533,7 +534,7 @@ export default function Chat() {
         setUploadingCount((count) => count - 1);
       }
     },
-    [pendingFiles.length],
+    [pendingFiles.length, activeProjectId],
   );
 
   const uploadManyFiles = (files: File[]) =>

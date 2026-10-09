@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS chat_attachments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
     session_id INTEGER,
+    project_id TEXT NOT NULL DEFAULT '',
     filename TEXT NOT NULL,
     kind TEXT NOT NULL DEFAULT 'file',
     content TEXT NOT NULL DEFAULT '',
@@ -115,6 +116,11 @@ class SqliteChatRepository:
             connection.execute(
                 "ALTER TABLE chat_attachments "
                 "ADD COLUMN storage_path TEXT NOT NULL DEFAULT ''"
+            )
+        if "project_id" not in attachment_cols:
+            connection.execute(
+                "ALTER TABLE chat_attachments "
+                "ADD COLUMN project_id TEXT NOT NULL DEFAULT ''"
             )
 
     def _connect(self) -> sqlite3.Connection:
@@ -202,7 +208,11 @@ class SqliteChatRepository:
             return cursor.rowcount > 0
 
     def delete_project(self, user_id: str, project_id: int) -> bool:
-        """删除项目：会话归入默认空间（绝不丢聊天记录）；默认空间本身不可删。"""
+        """删除项目：**连同项目里的所有会话、消息、附件一起删**（彻底清理）。
+
+        默认空间不可删。项目是「一段工作」的容器，用户删它就是不要了，
+        把对话挪去默认空间只会留下名不副实的孤儿对话。
+        """
 
         with self._connect() as connection:
             row = connection.execute(
@@ -211,23 +221,59 @@ class SqliteChatRepository:
             ).fetchone()
             if row is None or row["is_default"]:
                 return False
-            default_row = connection.execute(
-                "SELECT id FROM projects WHERE user_id = ? AND is_default = 1",
-                (user_id,),
-            ).fetchone()
-            default_id = int(default_row["id"]) if default_row else None
             cursor = connection.execute(
                 "DELETE FROM projects WHERE id = ? AND user_id = ?",
                 (project_id, user_id),
             )
             if cursor.rowcount:
-                # 会话挪进默认空间；万一默认空间缺失（理论不可能）才退回未分组
+                # 子表没有外键级联，手工清干净（附件 → 消息 → 会话）。
+                # 附件按 project_id 兜底清：还没发出去的消息附件 session_id 为空，
+                # 但同样属于这个项目，不能变成删不掉的孤儿文件。
                 connection.execute(
-                    "UPDATE chat_sessions SET project_id = ? "
-                    "WHERE project_id = ? AND user_id = ?",
-                    (default_id, project_id, user_id),
+                    "DELETE FROM chat_attachments WHERE project_id = ? "
+                    "OR session_id IN (SELECT id FROM chat_sessions "
+                    "                   WHERE project_id = ? AND user_id = ?)",
+                    (str(project_id), project_id, user_id),
+                )
+                connection.execute(
+                    "DELETE FROM chat_messages WHERE session_id IN "
+                    "(SELECT id FROM chat_sessions WHERE project_id = ? AND user_id = ?)",
+                    (project_id, user_id),
+                )
+                connection.execute(
+                    "DELETE FROM chat_sessions WHERE project_id = ? AND user_id = ?",
+                    (project_id, user_id),
                 )
             return cursor.rowcount > 0
+
+    def list_attachment_paths(self, user_id: str, session_ids: list[int]) -> list[str]:
+        """取这些会话的附件落盘路径（删项目后要清理磁盘上的图片文件）。"""
+
+        return self._paths_where(
+            "session_id IN ({})".format(
+                ",".join("?" for _ in session_ids) or "NULL"
+            ),
+            [user_id, *session_ids],
+        )
+
+    def list_project_attachment_paths(self, user_id: str, project_id: int) -> list[str]:
+        """取某项目名下所有附件的落盘路径（含尚未发出消息的附件）。"""
+
+        return self._paths_where(
+            "(project_id = ? OR session_id IN ("
+            "SELECT id FROM chat_sessions WHERE project_id = ? AND user_id = ?"
+            "))",
+            [user_id, str(project_id), project_id, user_id],
+        )
+
+    def _paths_where(self, clause: str, params: list[Any]) -> list[str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"SELECT DISTINCT storage_path FROM chat_attachments "
+                f"WHERE user_id = ? AND {clause} AND storage_path <> ''",
+                params,
+            ).fetchall()
+        return [str(row["storage_path"]) for row in rows]
 
     # -- 会话 -----------------------------------------------------------------
 
@@ -373,14 +419,17 @@ class SqliteChatRepository:
         kind: str,
         content: str,
         storage_path: str = "",
+        project_id: str = "",
     ) -> int:
         with self._connect() as connection:
             cursor = connection.execute(
-                "INSERT INTO chat_attachments (user_id, session_id, filename, kind, "
-                "content, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO chat_attachments (user_id, session_id, project_id, "
+                "filename, kind, content, storage_path, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     user_id,
                     session_id,
+                    project_id,
                     filename,
                     kind,
                     content,

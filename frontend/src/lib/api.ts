@@ -481,10 +481,12 @@ export interface ChatRequest {
 export async function uploadChatAttachment(
   file: File,
   sessionId?: number,
+  projectId?: number,
 ): Promise<{ id: number; filename: string; kind: string; chars: number }> {
   const form = new FormData();
   form.append("file", file);
   if (sessionId !== undefined) form.append("session_id", String(sessionId));
+  if (projectId !== undefined) form.append("project_id", String(projectId));
   return requestJson("/api/chat/attachments", { method: "POST", body: form });
 }
 

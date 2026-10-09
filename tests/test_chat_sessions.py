@@ -41,23 +41,34 @@ def test_default_space_adopts_same_name_project(tmp_path) -> None:
     assert len(repo.list_projects("u")) == 1
 
 
-def test_project_delete_moves_sessions_to_default_space(tmp_path) -> None:
+def test_project_delete_removes_sessions_messages_and_attachments(tmp_path) -> None:
     repo = SqliteChatRepository(tmp_path / "chat.db")
     default_id = repo.ensure_default_project("u")
     project_id = repo.create_project(user_id="u", name="考研数学")
     session_id = repo.create_session(user_id="u", project_id=project_id, thread_id="t1")
+    repo.append_message(session_id, role="user", content="高数问题")
+    repo.add_attachment(
+        user_id="u",
+        session_id=session_id,
+        filename="shot.png",
+        kind="image",
+        content="图",
+        storage_path="/tmp/shot.png",
+        project_id=str(project_id),
+    )
+    keep_session = repo.create_session(user_id="u", project_id=default_id, thread_id="t2")
 
     # 默认空间不可删除
     assert repo.delete_project("u", default_id) is False
     assert any(p["id"] == default_id for p in repo.list_projects("u"))
 
-    # 删普通项目 → 会话挪进默认空间，而不是被删掉
+    # 删普通项目 → 项目连同里面的会话 / 消息 / 附件一起消失
     assert repo.delete_project("u", project_id) is True
     assert repo.list_projects("u")[0]["id"] == default_id
-    sessions = repo.list_sessions("u")
-    assert sessions[0]["id"] == session_id
-    assert sessions[0]["project_id"] == default_id
-    assert sessions[0]["thread_id"] == "t1"
+    remaining = repo.list_sessions("u")
+    assert [s["id"] for s in remaining] == [keep_session], "只该剩默认空间的会话"
+    assert repo.list_messages("u", session_id) == [], "旧会话的消息应一并删除"
+    assert repo.list_attachment_paths("u", [session_id]) == []
 
 
 def test_session_ownership_and_rename(tmp_path) -> None:
