@@ -66,26 +66,6 @@ function formatDay(timestamp: number): string {
   });
 }
 
-function TrashIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M3 6h18" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-
 interface QaMessage {
   role: "user" | "assistant";
   content: string;
@@ -430,9 +410,44 @@ export default function KnowledgePage() {
     );
   }, []);
 
-  /* ---------- 删除知识库 / 删除资料 ---------- */
-  const onDeleteLibrary = useCallback(
+  /* ---------- 右键菜单：新建 / 删除 ---------- */
+  const [treeMenu, setTreeMenu] = useState<
+    | { x: number; y: number; kind: "lib" | "doc" | "blank"; libName?: string; doc?: DocumentItem }
+    | null
+  >(null);
+
+  const openTreeMenu = (
+    event: React.MouseEvent,
+    kind: "lib" | "doc" | "blank",
+    data?: { libName?: string; doc?: DocumentItem },
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setTreeMenu({ x: event.clientX, y: event.clientY, kind, ...data });
+  };
+
+  const newLibraryViaPrompt = useCallback(async () => {
+    setTreeMenu(null);
+    const name = window
+      .prompt("新建知识库：请输入名称（例如：高等数学）")
+      ?.trim();
+    if (!name) return;
+    try {
+      await createLibrary(name);
+      await refreshLibraries();
+      setActiveLib(name);
+      setExpandedLibs((prev) =>
+        prev.includes(name) ? prev : [...prev, name],
+      );
+      setMessage(`已创建知识库「${name}」`);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }, [refreshLibraries]);
+
+  const deleteLibraryViaMenu = useCallback(
     async (name: string) => {
+      setTreeMenu(null);
       const count = (libDocs[name] ?? []).length;
       const ok = window.confirm(
         `确定删除知识库「${name}」吗？${
@@ -452,8 +467,9 @@ export default function KnowledgePage() {
     [libDocs, activeLib, refreshLibraries],
   );
 
-  const onDeleteDocument = useCallback(
+  const deleteDocumentViaMenu = useCallback(
     async (doc: DocumentItem) => {
+      setTreeMenu(null);
       const ok = window.confirm(`确定删除资料《${doc.title}》吗？不可恢复。`);
       if (!ok) return;
       try {
@@ -466,30 +482,6 @@ export default function KnowledgePage() {
     },
     [refreshLibraries],
   );
-
-  /* ---------- 新建知识库 ---------- */
-  const [creatingLib, setCreatingLib] = useState(false);
-  const [newLibName, setNewLibName] = useState("");
-  const createNewLibrary = useCallback(async () => {
-    const name = newLibName.trim();
-    if (!name) {
-      setCreatingLib(false);
-      return;
-    }
-    try {
-      await createLibrary(name);
-      setNewLibName("");
-      setCreatingLib(false);
-      await refreshLibraries();
-      setActiveLib(name); // 建完直接选中，上传/写笔记立刻可用
-      setExpandedLibs((prev) =>
-        prev.includes(name) ? prev : [...prev, name],
-      );
-      setMessage(`已创建知识库「${name}」`);
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  }, [newLibName, refreshLibraries]);
 
   const modelLabel = provider === "mock" ? "Mock 模型" : provider;
 
@@ -693,7 +685,10 @@ export default function KnowledgePage() {
             />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-2 pb-4">
+        <div
+          className="flex-1 overflow-y-auto px-2 pb-4"
+          onContextMenu={(event) => openTreeMenu(event, "blank")}
+        >
           {filteredLibs.map((library) => {
             const libActive = library.name === activeLib;
             const isOpen = expandedLibs.includes(library.name);
@@ -706,7 +701,13 @@ export default function KnowledgePage() {
                 )
               : libDocList;
             return (
-              <div key={library.name} className="mb-0.5">
+              <div
+                key={library.name}
+                className="mb-0.5"
+                onContextMenu={(event) =>
+                  openTreeMenu(event, "lib", { libName: library.name })
+                }
+              >
                 <div
                   className={`group relative flex items-center rounded-lg border-l-2 transition ${
                     libActive
@@ -725,20 +726,10 @@ export default function KnowledgePage() {
                   >
                     <FolderIcon active={libActive} />
                     <span className="flex-1 truncate">{library.name}</span>
-                    <span className="text-[11px] tabular-nums text-zinc-400 group-hover:opacity-0">
+                    <span className="text-[11px] tabular-nums text-zinc-400">
                       {library.document_count}
                     </span>
                   </button>
-                  <div className="absolute right-1.5 opacity-0 transition group-hover:opacity-100">
-                    <button
-                      type="button"
-                      title="删除知识库"
-                      onClick={() => void onDeleteLibrary(library.name)}
-                      className="grid h-6 w-6 place-items-center rounded-md bg-white/90 text-zinc-400 shadow-sm ring-1 ring-black/5 transition hover:text-red-600"
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
                 </div>
                 {isOpen &&
                   visibleDocs.map((doc) => (
@@ -746,7 +737,10 @@ export default function KnowledgePage() {
                       key={doc.id}
                       type="button"
                       onClick={() => router.push(`/knowledge/doc/${doc.id}`)}
-                      title={doc.title}
+                      onContextMenu={(event) =>
+                        openTreeMenu(event, "doc", { doc })
+                      }
+                      title={`${doc.title}（右键可删除）`}
                       className="ml-3 flex w-[calc(100%-0.75rem)] items-center gap-2 rounded-lg border-l-2 border-transparent py-1.5 pl-2.5 pr-2 text-left text-xs text-zinc-500 transition hover:bg-black/[0.04] hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
                     >
                       <DocIcon className="shrink-0 text-zinc-400" />
@@ -758,40 +752,8 @@ export default function KnowledgePage() {
           })}
           {libraries.length === 0 && (
             <p className="px-2.5 py-2 text-xs text-zinc-400">
-              还没有学科库，点下方「新建知识库」开始。
+              还没有学科库。右键这里，或点中间的按钮新建。
             </p>
-          )}
-        </div>
-
-        {/* 新建知识库 */}
-        <div className="border-t border-black/[0.06] p-2">
-          {creatingLib ? (
-            <input
-              autoFocus
-              value={newLibName}
-              onChange={(event) => setNewLibName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") void createNewLibrary();
-                if (event.key === "Escape") {
-                  setNewLibName("");
-                  setCreatingLib(false);
-                }
-              }}
-              onBlur={() => void createNewLibrary()}
-              placeholder="库名，如：高等数学"
-              className="w-full rounded-lg bg-white px-2.5 py-1.5 text-xs ring-1 ring-teal-600 outline-none"
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setCreatingLib(true)}
-              className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-black/[0.04] hover:text-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              新建知识库
-            </button>
           )}
         </div>
       </aside>
@@ -949,12 +911,12 @@ export default function KnowledgePage() {
                     <p className="mt-3 text-sm text-zinc-400">
                       {activeLib
                         ? "这个库还没有资料，点右上角「上传」或「写笔记」。"
-                        : "先在左侧新建或选择一个学科库"}
+                        : "点下方按钮新建，或在左侧目录树右键新建"}
                     </p>
-                    {libraries.length === 0 && !creatingLib && (
+                    {libraries.length === 0 && (
                       <button
                         type="button"
-                        onClick={() => setCreatingLib(true)}
+                        onClick={() => void newLibraryViaPrompt()}
                         className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-teal-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus-visible:outline-none"
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -967,19 +929,25 @@ export default function KnowledgePage() {
                 ) : (
                   <ul className="space-y-1">
                     {docs.map((doc) => (
-                      <li key={doc.id} className="group relative">
+                      <li
+                        key={doc.id}
+                        onContextMenu={(event) =>
+                          openTreeMenu(event, "doc", { doc })
+                        }
+                      >
                         <button
                           type="button"
                           onClick={() =>
                             router.push(`/knowledge/doc/${doc.id}`)
                           }
+                          title={`${doc.title}（右键可删除）`}
                           className="animate-fade-up flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-black/[0.03] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
                         >
                           <DocIcon className="shrink-0 text-zinc-400" />
                           <span className="min-w-0 flex-1 truncate text-sm text-zinc-800">
                             {doc.title}
                           </span>
-                          <span className="shrink-0 text-[11px] tabular-nums text-zinc-400 transition group-hover:opacity-0">
+                          <span className="shrink-0 text-[11px] tabular-nums text-zinc-400">
                             {formatDay(doc.created_at)} · {doc.chars} 字
                           </span>
                           <svg
@@ -992,22 +960,11 @@ export default function KnowledgePage() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             aria-hidden
-                            className="shrink-0 text-zinc-300 transition group-hover:opacity-0"
+                            className="shrink-0 text-zinc-300"
                           >
                             <path d="m9 18 6-6-6-6" />
                           </svg>
                         </button>
-                        {/* 悬停删除 */}
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 transition group-hover:opacity-100">
-                          <button
-                            type="button"
-                            title="删除资料"
-                            onClick={() => void onDeleteDocument(doc)}
-                            className="grid h-7 w-7 place-items-center rounded-lg bg-white/90 text-zinc-400 shadow-sm ring-1 ring-black/5 transition hover:text-red-600"
-                          >
-                            <TrashIcon />
-                          </button>
-                        </div>
                       </li>
                     ))}
                   </ul>
@@ -1069,6 +1026,69 @@ export default function KnowledgePage() {
         >
           向 AI 提问
         </button>
+      )}
+
+      {/* 右键菜单：新建知识库 / 删除 */}
+      {treeMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setTreeMenu(null)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setTreeMenu(null);
+            }}
+            aria-hidden
+          />
+          <div
+            className="animate-pop-in fixed z-50 w-48 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10"
+            style={{
+              left: Math.min(treeMenu.x, window.innerWidth - 200),
+              top: Math.min(treeMenu.y, window.innerHeight - 150),
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => void newLibraryViaPrompt()}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-teal-700 transition hover:bg-black/[0.04]"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              新建知识库
+            </button>
+            {treeMenu.kind === "lib" && treeMenu.libName && (
+              <button
+                type="button"
+                onClick={() => void deleteLibraryViaMenu(treeMenu.libName!)}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-red-600 transition hover:bg-red-50"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                删除「{treeMenu.libName}」
+              </button>
+            )}
+            {treeMenu.kind === "doc" && treeMenu.doc && (
+              <button
+                type="button"
+                onClick={() => void deleteDocumentViaMenu(treeMenu.doc!)}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-red-600 transition hover:bg-red-50"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                <span className="min-w-0 flex-1 truncate text-left">
+                  删除《{treeMenu.doc.title}》
+                </span>
+              </button>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
