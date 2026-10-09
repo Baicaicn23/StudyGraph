@@ -143,6 +143,32 @@ export default function Chat() {
   /* ---------- 状态行（理解问题 / 检索知识库…） ---------- */
   const [statusLabel, setStatusLabel] = useState("");
 
+  /* ---------- 权限：允许完全访问（保存笔记等不再逐次确认） ---------- */
+  const [fullAccess, setFullAccess] = useState(false);
+  const fullAccessRef = useRef(false);
+  useEffect(() => {
+    // 记住用户的选择（localStorage）
+    try {
+      fullAccessRef.current =
+        localStorage.getItem("studygraph-full-access") === "1";
+      setFullAccess(fullAccessRef.current);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const toggleFullAccess = useCallback(() => {
+    setFullAccess((prev) => {
+      const next = !prev;
+      fullAccessRef.current = next;
+      try {
+        localStorage.setItem("studygraph-full-access", next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
   const refreshLibraries = useCallback(async () => {
     try {
       setLibraries(await listLibraries());
@@ -202,11 +228,17 @@ export default function Chat() {
         }
         refreshSidebar();
       } else if (event.type === "interrupt") {
-        setPending({
-          library: event.library,
-          title: event.title,
-          preview: event.preview,
-        });
+        if (fullAccessRef.current) {
+          // 允许完全访问：自动同意保存，不再弹确认框
+          setStatusLabel("已自动允许保存笔记");
+          resolveRef.current(true);
+        } else {
+          setPending({
+            library: event.library,
+            title: event.title,
+            preview: event.preview,
+          });
+        }
       } else if (event.type === "guard") {
         appendToAssistant(`\n\n> 🚧 护栏提示：${event.reason}`);
       } else if (event.type === "error") {
@@ -280,6 +312,11 @@ export default function Chat() {
     },
     [getThreadId, handleEvent, refreshLibraries, startPump],
   );
+  // handleEvent 里要在 interrupt 时自动放行，用 ref 持有最新的 resume 入口
+  const resolveRef = useRef<(approved: boolean) => void>(() => {});
+  useEffect(() => {
+    resolveRef.current = (approved: boolean) => void resolvePending(approved);
+  }, [resolvePending]);
 
   /* ---------- 会话切换 ---------- */
   const startNewChat = useCallback(() => {
@@ -292,11 +329,27 @@ export default function Chat() {
     setMessages([]);
   }, [busy]);
 
+  /** 在指定项目下新建对话：首轮消息会落到这个项目（记忆也跟着项目隔离） */
+  const startNewChatInProject = useCallback(
+    (projectId: number) => {
+      if (busy) return;
+      sessionIdRef.current = null;
+      threadIdRef.current = "";
+      setActiveSessionId(null);
+      setActiveProjectId(projectId);
+      setStatusLabel("");
+      queueRef.current = "";
+      setMessages([]);
+    },
+    [busy],
+  );
+
   const openSession = useCallback(async (session: ChatSession) => {
     if (busyRef.current) return;
     sessionIdRef.current = session.id;
     threadIdRef.current = session.thread_id || `web-s${session.id}`;
     setActiveSessionId(session.id);
+    setActiveProjectId(session.project_id);
     setStatusLabel("");
     queueRef.current = "";
     try {
@@ -415,10 +468,10 @@ export default function Chat() {
       <div className="hidden h-full md:block">
         <ChatSidebar
           activeSessionId={activeSessionId}
-          activeProjectId={activeProjectId}
+          busy={busy}
           onSelectSession={(session) => void openSession(session)}
           onNewChat={startNewChat}
-          onSelectProject={setActiveProjectId}
+          onNewChatInProject={startNewChatInProject}
           refreshSignal={sidebarSignal}
           onChatListChanged={refreshSidebar}
         />
@@ -773,6 +826,37 @@ export default function Chat() {
               placeholder="输入你的问题，或描述你要生成的复习材料…"
               className="max-h-36 min-w-0 flex-1 resize-none self-center bg-transparent px-1 py-1.5 text-sm outline-none placeholder:text-zinc-400"
             />
+            {/* 权限开关：允许完全访问（开 = 敏感操作自动同意，仿 WorkBuddy） */}
+            <button
+              type="button"
+              onClick={toggleFullAccess}
+              title={
+                fullAccess
+                  ? "已开启：保存笔记等操作自动同意，不再逐次询问。点击关闭。"
+                  : "已关闭：保存笔记等敏感操作需要你逐次确认。点击开启「允许完全访问」。"
+              }
+              className={`hidden shrink-0 self-center items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none lg:inline-flex ${
+                fullAccess
+                  ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                  : "border-black/[0.08] text-zinc-400 hover:text-zinc-600"
+              }`}
+            >
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v4l2.5 2.5" />
+              </svg>
+              {fullAccess ? "允许完全访问" : "逐步确认"}
+            </button>
             <button
               type="button"
               onClick={() => setPickerOpen((v) => !v)}
