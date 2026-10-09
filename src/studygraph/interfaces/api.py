@@ -76,6 +76,12 @@ class DocumentRequest(BaseModel):
     content: str = Field(min_length=1, max_length=200000)
 
 
+class DocumentUpdateRequest(BaseModel):
+    id: int
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(min_length=1, max_length=200000)
+
+
 class FeedbackRequest(BaseModel):
     user_id: str = Field(default="local", max_length=64)
     library: str = Field(default="", max_length=64)
@@ -299,6 +305,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="资料不存在")
         return {"document": document}
 
+    @app.put("/api/knowledge/document")
+    async def update_document(body: DocumentUpdateRequest, request: Request) -> dict:
+        """编辑资料：标题/正文更新并重建检索索引（切块 + 向量）。"""
+
+        try:
+            updated = request.app.state.store.update_document(
+                body.id, title=body.title, content=body.content
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if not updated:
+            raise HTTPException(status_code=404, detail="资料不存在")
+        return {"id": body.id, "title": body.title}
+
+    @app.delete("/api/knowledge/document")
+    async def delete_document(request: Request, id: int = Query(ge=1)) -> dict:
+        if not request.app.state.store.delete_document(id):
+            raise HTTPException(status_code=404, detail="资料不存在")
+        return {"deleted": id}
+
+    @app.delete("/api/knowledge/library")
+    async def delete_library(request: Request, name: str = Query(min_length=1, max_length=64)) -> dict:  # noqa: E501
+        """删除整个学科库：库里所有资料与检索索引一起删。"""
+
+        if not request.app.state.store.delete_library(name):
+            raise HTTPException(status_code=404, detail="知识库不存在")
+        return {"deleted": name}
+
     @app.post("/api/knowledge/notes")
     async def add_note(body: NoteRequest, request: Request) -> dict:
         document_id = request.app.state.store.add_note(
@@ -441,6 +475,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def list_feedback(request: Request, user_id: str = "local") -> dict:
         return {"feedback": request.app.state.learning.list_feedback(user_id)}
 
+    @app.delete("/api/feedback/{feedback_id}")
+    async def delete_feedback(
+        request: Request, feedback_id: int, user_id: str = "local"
+    ) -> dict:
+        if not request.app.state.learning.delete_feedback(user_id, feedback_id):
+            raise HTTPException(status_code=404, detail="误区记录不存在")
+        return {"deleted": feedback_id}
+
     @app.post("/api/practice/generate")
     async def generate_practice(body: GenerateRequest, request: Request) -> dict:
         try:
@@ -469,6 +511,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except LearningError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return result
+
+    @app.delete("/api/practice/{question_id}")
+    async def delete_practice(
+        request: Request, question_id: int, user_id: str = "local"
+    ) -> dict:
+        if not request.app.state.learning.delete_question(user_id, question_id):
+            raise HTTPException(status_code=404, detail="练习题不存在")
+        return {"deleted": question_id}
 
     @app.get("/api/study/plan")
     async def study_plan(request: Request, user_id: str = "local") -> dict:
@@ -578,6 +628,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 user_id, project_id=str(project_id or "")
             )
         }
+
+    @app.delete("/api/memories/{memory_id}")
+    async def delete_memory(
+        request: Request, memory_id: int, user_id: str = "local"
+    ) -> dict:
+        if not request.app.state.learning.delete_memory(user_id, memory_id):
+            raise HTTPException(status_code=404, detail="记忆不存在")
+        return {"deleted": memory_id}
 
     @app.get("/api/usage")
     async def usage(request: Request, user_id: str = "local", days: int = 1) -> dict:

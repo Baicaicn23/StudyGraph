@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   addNote,
+  deleteDocument,
+  deleteLibrary,
   getHealth,
   listDocuments,
   listLibraries,
@@ -61,6 +63,26 @@ function formatDay(timestamp: number): string {
     month: "numeric",
     day: "numeric",
   });
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
 }
 
 interface QaMessage {
@@ -407,6 +429,43 @@ export default function KnowledgePage() {
     );
   }, []);
 
+  /* ---------- 删除知识库 / 删除资料 ---------- */
+  const onDeleteLibrary = useCallback(
+    async (name: string) => {
+      const count = (libDocs[name] ?? []).length;
+      const ok = window.confirm(
+        `确定删除知识库「${name}」吗？${
+          count > 0 ? `其中 ${count} 份资料会一起删除，` : ""
+        }此操作不可恢复。`,
+      );
+      if (!ok) return;
+      try {
+        await deleteLibrary(name);
+        setMessage(`已删除知识库「${name}」`);
+        if (activeLib === name) setActiveLib("");
+        await refreshLibraries();
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    },
+    [libDocs, activeLib, refreshLibraries],
+  );
+
+  const onDeleteDocument = useCallback(
+    async (doc: DocumentItem) => {
+      const ok = window.confirm(`确定删除资料《${doc.title}》吗？不可恢复。`);
+      if (!ok) return;
+      try {
+        await deleteDocument(doc.id);
+        setMessage(`已删除《${doc.title}》`);
+        await refreshLibraries();
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    },
+    [refreshLibraries],
+  );
+
   const modelLabel = provider === "mock" ? "Mock 模型" : provider;
 
   /* ---------- AI 问答 ---------- */
@@ -623,21 +682,39 @@ export default function KnowledgePage() {
               : libDocList;
             return (
               <div key={library.name} className="mb-0.5">
-                <button
-                  type="button"
-                  onClick={() => selectLibrary(library.name)}
-                  className={`flex w-full items-center gap-2 rounded-lg border-l-2 py-2 pl-2.5 pr-2 text-left text-[13px] transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                <div
+                  className={`group relative flex items-center rounded-lg border-l-2 transition ${
                     libActive
-                      ? "border-teal-600 bg-teal-50/70 font-semibold text-zinc-900"
-                      : "border-transparent font-medium text-zinc-800 hover:bg-black/[0.04]"
+                      ? "border-teal-600 bg-teal-50/70"
+                      : "border-transparent hover:bg-black/[0.04]"
                   }`}
                 >
-                  <FolderIcon active={libActive} />
-                  <span className="flex-1 truncate">{library.name}</span>
-                  <span className="text-[11px] tabular-nums text-zinc-400">
-                    {library.document_count}
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => selectLibrary(library.name)}
+                    className={`flex min-w-0 flex-1 items-center gap-2 py-2 pl-2.5 pr-2 text-left text-[13px] transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                      libActive
+                        ? "font-semibold text-zinc-900"
+                        : "font-medium text-zinc-800"
+                    }`}
+                  >
+                    <FolderIcon active={libActive} />
+                    <span className="flex-1 truncate">{library.name}</span>
+                    <span className="text-[11px] tabular-nums text-zinc-400 group-hover:opacity-0">
+                      {library.document_count}
+                    </span>
+                  </button>
+                  <div className="absolute right-1.5 opacity-0 transition group-hover:opacity-100">
+                    <button
+                      type="button"
+                      title="删除知识库"
+                      onClick={() => void onDeleteLibrary(library.name)}
+                      className="grid h-6 w-6 place-items-center rounded-md bg-white/90 text-zinc-400 shadow-sm ring-1 ring-black/5 transition hover:text-red-600"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                </div>
                 {isOpen &&
                   visibleDocs.map((doc) => (
                     <button
@@ -821,7 +898,7 @@ export default function KnowledgePage() {
                 ) : (
                   <ul className="space-y-1">
                     {docs.map((doc) => (
-                      <li key={doc.id}>
+                      <li key={doc.id} className="group relative">
                         <button
                           type="button"
                           onClick={() =>
@@ -833,7 +910,7 @@ export default function KnowledgePage() {
                           <span className="min-w-0 flex-1 truncate text-sm text-zinc-800">
                             {doc.title}
                           </span>
-                          <span className="shrink-0 text-[11px] tabular-nums text-zinc-400">
+                          <span className="shrink-0 text-[11px] tabular-nums text-zinc-400 transition group-hover:opacity-0">
                             {formatDay(doc.created_at)} · {doc.chars} 字
                           </span>
                           <svg
@@ -846,11 +923,22 @@ export default function KnowledgePage() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             aria-hidden
-                            className="shrink-0 text-zinc-300"
+                            className="shrink-0 text-zinc-300 transition group-hover:opacity-0"
                           >
                             <path d="m9 18 6-6-6-6" />
                           </svg>
                         </button>
+                        {/* 悬停删除 */}
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 transition group-hover:opacity-100">
+                          <button
+                            type="button"
+                            title="删除资料"
+                            onClick={() => void onDeleteDocument(doc)}
+                            className="grid h-7 w-7 place-items-center rounded-lg bg-white/90 text-zinc-400 shadow-sm ring-1 ring-black/5 transition hover:text-red-600"
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>

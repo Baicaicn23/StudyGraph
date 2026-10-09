@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   answerQuestion,
+  deleteQuestion,
   dueQuestions,
   generatePractice,
   listLibraries,
@@ -174,6 +175,19 @@ export default function PracticePage() {
       });
       // 平滑滚回列表顶部，让反馈条进入视野
       reviewListRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const onDeleteQuestion = async (questionId: number) => {
+    const ok = window.confirm("确定删除这道练习题吗？（含作答记录）");
+    if (!ok) return;
+    setError("");
+    try {
+      await deleteQuestion(questionId);
+      setQueue((prev) => prev.filter((q) => q.id !== questionId));
       await refresh();
     } catch (err) {
       setError((err as Error).message);
@@ -534,6 +548,19 @@ export default function PracticePage() {
                         )}
                         <DifficultyTag difficulty={question.difficulty} />
                         <span className="flex-1" />
+                        <button
+                          type="button"
+                          onClick={() => void onDeleteQuestion(question.id)}
+                          aria-label="删除本题"
+                          title="删除本题"
+                          className="grid h-6 w-6 place-items-center rounded-lg text-zinc-300 transition hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M3 6h18" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
                         <button
                           type="button"
                           onClick={() => toggleStar(question.id)}

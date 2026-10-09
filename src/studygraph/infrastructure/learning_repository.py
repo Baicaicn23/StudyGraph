@@ -134,6 +134,16 @@ class SqliteLearningRepository:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def delete_feedback(self, user_id: str, feedback_id: int) -> bool:
+        """删除一条误区（校验归属，防止越权删别人的）。"""
+
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM feedback WHERE id = ? AND user_id = ?",
+                (feedback_id, user_id),
+            )
+            return cursor.rowcount > 0
+
     # -- 练习题 ---------------------------------------------------------------
 
     def insert_question(
@@ -207,6 +217,24 @@ class SqliteLearningRepository:
             ).fetchone()
         return str(row["library"]) if row else None
 
+    def delete_question(self, user_id: str, question_id: int) -> bool:
+        """删除一道练习题及其作答记录（校验归属）。"""
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id FROM practice_questions WHERE id = ? AND user_id = ?",
+                (question_id, user_id),
+            ).fetchone()
+            if row is None:
+                return False
+            connection.execute(
+                "DELETE FROM practice_attempts WHERE question_id = ?", (question_id,)
+            )
+            connection.execute(
+                "DELETE FROM practice_questions WHERE id = ?", (question_id,)
+            )
+            return True
+
     def update_question_review(
         self, question_id: int, *, due_at: float, rating: str
     ) -> None:
@@ -270,6 +298,16 @@ class SqliteLearningRepository:
 
     # -- 记忆 -----------------------------------------------------------------
 
+    def delete_memory(self, user_id: str, memory_id: int) -> bool:
+        """删除一条长期记忆（校验归属）。"""
+
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM memories WHERE id = ? AND user_id = ?",
+                (memory_id, user_id),
+            )
+            return cursor.rowcount > 0
+
     def remember_fact(
         self, user_id: str, content: str, *, created_at: float, project_id: str = ""
     ) -> None:
@@ -287,18 +325,22 @@ class SqliteLearningRepository:
         with self._connect() as connection:
             if project_id:
                 rows = connection.execute(
-                    "SELECT content, created_at FROM memories WHERE user_id = ? "
+                    "SELECT id, content, created_at FROM memories WHERE user_id = ? "
                     "AND project_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
                     (user_id, project_id, limit),
                 ).fetchall()
             else:
                 rows = connection.execute(
-                    "SELECT content, created_at FROM memories WHERE user_id = ? "
+                    "SELECT id, content, created_at FROM memories WHERE user_id = ? "
                     "ORDER BY created_at DESC, id DESC LIMIT ?",
                     (user_id, limit),
                 ).fetchall()
         return [
-            {"content": str(row["content"]), "created_at": float(row["created_at"])}
+            {
+                "id": int(row["id"]),
+                "content": str(row["content"]),
+                "created_at": float(row["created_at"]),
+            }
             for row in rows
         ]
 

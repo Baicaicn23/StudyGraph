@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   addFeedback,
+  deleteFeedback,
   generatePractice,
   listFeedback,
   listLibraries,
@@ -78,6 +79,18 @@ export default function MistakesPage() {
       setError((err as Error).message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onDelete = async (item: Feedback) => {
+    const ok = window.confirm("确定删除这条误区记录吗？");
+    if (!ok) return;
+    try {
+      await deleteFeedback(item.id);
+      setExpanded((prev) => prev.filter((id) => id !== item.id));
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message);
     }
   };
 
@@ -243,6 +256,18 @@ export default function MistakesPage() {
                       <span className="ml-auto text-[10px] text-zinc-300">
                         {relativeDay(item.created_at)}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => void onDelete(item)}
+                        title="删除这条误区"
+                        className="grid h-6 w-6 place-items-center rounded-md text-zinc-300 transition hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
                       <button
                         type="button"
                         onClick={() => void onGenerate(item)}

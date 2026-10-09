@@ -255,6 +255,15 @@ class LearningService:
 
     # -- 长期记忆 -------------------------------------------------------------
 
+    def delete_feedback(self, user_id: str, feedback_id: int) -> bool:
+        return self.repository.delete_feedback(user_id, feedback_id)
+
+    def delete_question(self, user_id: str, question_id: int) -> bool:
+        return self.repository.delete_question(user_id, question_id)
+
+    def delete_memory(self, user_id: str, memory_id: int) -> bool:
+        return self.repository.delete_memory(user_id, memory_id)
+
     def remember(
         self, user_id: str, text: str, *, project_id: str = ""
     ) -> list[str]:

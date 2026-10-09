@@ -138,35 +138,152 @@ class KnowledgeStore:
     def add_document(self, library: str, title: str, content: str) -> int:
         self.ensure_library(library)
         now = time.time()
-        chunks = chunk_text(content)
-        vectors = self.embedder.embed(chunks) if self.embedder and chunks else []
         with self._connect() as connection:
             cursor = connection.execute(
                 "INSERT INTO documents(library, title, content, created_at) VALUES (?, ?, ?, ?)",
                 (library, title, content, now),
             )
             document_id = int(cursor.lastrowid)
-            for index, chunk in enumerate(chunks):
-                chunk_cursor = connection.execute(
-                    "INSERT INTO chunks(library, title, document_id, content) VALUES (?, ?, ?, ?)",
-                    (library, title, document_id, chunk),
-                )
-                chunk_id = int(chunk_cursor.lastrowid)
-                connection.execute(
-                    "INSERT INTO chunks_fts(content, chunk_id, library, title) VALUES (?, ?, ?, ?)",
-                    (chunk, chunk_id, library, title),
-                )
-                if index < len(vectors) and vectors[index]:
-                    vector = vectors[index]
-                    connection.execute(
-                        "INSERT OR REPLACE INTO chunk_vectors(chunk_id, library, dim, vector) "
-                        "VALUES (?, ?, ?, ?)",
-                        (chunk_id, library, len(vector), _to_blob(vector)),
-                    )
+            self._index_chunks(
+                connection,
+                library=library,
+                title=title,
+                document_id=document_id,
+                content=content,
+            )
         return document_id
 
     def add_note(self, library: str, title: str, content: str) -> int:
         return self.add_document(library, title, content)
+
+    # -- 更新 / 删除 ----------------------------------------------------------
+
+    def _index_chunks(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        library: str,
+        title: str,
+        document_id: int,
+        content: str,
+    ) -> None:
+        """切块 + 向量化 + 写入 chunks / FTS / 向量表（新增与改写共用）。"""
+
+        chunks = chunk_text(content)
+        vectors = self.embedder.embed(chunks) if self.embedder and chunks else []
+        for index, chunk in enumerate(chunks):
+            chunk_cursor = connection.execute(
+                "INSERT INTO chunks(library, title, document_id, content) VALUES (?, ?, ?, ?)",
+                (library, title, document_id, chunk),
+            )
+            chunk_id = int(chunk_cursor.lastrowid)
+            connection.execute(
+                "INSERT INTO chunks_fts(content, chunk_id, library, title) VALUES (?, ?, ?, ?)",
+                (chunk, chunk_id, library, title),
+            )
+            if index < len(vectors) and vectors[index]:
+                vector = vectors[index]
+                connection.execute(
+                    "INSERT OR REPLACE INTO chunk_vectors(chunk_id, library, dim, vector) "
+                    "VALUES (?, ?, ?, ?)",
+                    (chunk_id, library, len(vector), _to_blob(vector)),
+                )
+
+    @staticmethod
+    def _drop_document_index(
+        connection: sqlite3.Connection, *, document_id: int
+    ) -> None:
+        """清掉一份资料的全部检索索引（chunks / FTS / 向量）。"""
+
+        chunk_ids = [
+            int(row["id"])
+            for row in connection.execute(
+                "SELECT id FROM chunks WHERE document_id = ?", (document_id,)
+            ).fetchall()
+        ]
+        if not chunk_ids:
+            return
+        placeholders = ", ".join("?" for _ in chunk_ids)
+        connection.execute(
+            f"DELETE FROM chunks_fts WHERE chunk_id IN ({placeholders})", chunk_ids
+        )
+        connection.execute(
+            f"DELETE FROM chunk_vectors WHERE chunk_id IN ({placeholders})", chunk_ids
+        )
+        connection.execute(
+            f"DELETE FROM chunks WHERE id IN ({placeholders})", chunk_ids
+        )
+
+    def update_document(
+        self, document_id: int, *, title: str, content: str
+    ) -> bool:
+        """改写资料：标题/正文更新并重建检索索引；不存在返回 False。"""
+
+        title = (title or "").strip()
+        content = content or ""
+        if not title:
+            raise ValueError("标题不能为空")
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT library FROM documents WHERE id = ?", (document_id,)
+            ).fetchone()
+            if row is None:
+                return False
+            library = str(row["library"])
+            self._drop_document_index(connection, document_id=document_id)
+            connection.execute(
+                "UPDATE documents SET title = ?, content = ? WHERE id = ?",
+                (title, content, document_id),
+            )
+            self._index_chunks(
+                connection,
+                library=library,
+                title=title,
+                document_id=document_id,
+                content=content,
+            )
+        return True
+
+    def delete_document(self, document_id: int) -> bool:
+        """删除一份资料及其全部检索索引；不存在返回 False。"""
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id FROM documents WHERE id = ?", (document_id,)
+            ).fetchone()
+            if row is None:
+                return False
+            self._drop_document_index(connection, document_id=document_id)
+            connection.execute(
+                "DELETE FROM documents WHERE id = ?", (document_id,)
+            )
+        return True
+
+    def delete_library(self, name: str) -> bool:
+        """删除整个学科库：连库里所有资料与检索索引一起删；不存在返回 False。"""
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT name FROM libraries WHERE name = ?", (name,)
+            ).fetchone()
+            if row is None:
+                return False
+            doc_ids = [
+                int(r["id"])
+                for r in connection.execute(
+                    "SELECT id FROM documents WHERE library = ?", (name,)
+                ).fetchall()
+            ]
+            for document_id in doc_ids:
+                self._drop_document_index(connection, document_id=document_id)
+            connection.execute("DELETE FROM documents WHERE library = ?", (name,))
+            connection.execute("DELETE FROM chunks WHERE library = ?", (name,))
+            connection.execute("DELETE FROM chunks_fts WHERE library = ?", (name,))
+            connection.execute(
+                "DELETE FROM chunk_vectors WHERE library = ?", (name,)
+            )
+            connection.execute("DELETE FROM libraries WHERE name = ?", (name,))
+        return True
 
     # -- 查询 -----------------------------------------------------------------
 

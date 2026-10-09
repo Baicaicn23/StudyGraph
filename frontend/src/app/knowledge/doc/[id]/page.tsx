@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Suspense, use, useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  deleteDocument,
   getDocument,
   getHealth,
   streamChat,
+  updateDocument,
   type KnowledgeDocument,
   type StreamEvent,
 } from "@/lib/api";
@@ -81,6 +84,57 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
   const [qaInput, setQaInput] = useState("");
   const [qaBusy, setQaBusy] = useState(false);
   const [modelLabel, setModelLabel] = useState("");
+
+  // 编辑 / 删除当前笔记
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  const startEdit = useCallback(() => {
+    if (!doc) return;
+    setEditTitle(doc.title);
+    setEditContent(doc.content);
+    setEditError("");
+    setEditing(true);
+  }, [doc]);
+
+  const onSaveEdit = useCallback(async () => {
+    if (!doc) return;
+    if (!editTitle.trim() || !editContent.trim()) {
+      setEditError("标题和正文都不能为空");
+      return;
+    }
+    setSaving(true);
+    setEditError("");
+    try {
+      await updateDocument(doc.id, editTitle.trim(), editContent);
+      const fresh = await getDocument(doc.id);
+      setDoc(fresh);
+      setHeadings(extractHeadings(fresh.content));
+      setEditing(false);
+    } catch (err) {
+      setEditError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }, [doc, editTitle, editContent]);
+
+  const onDeleteDoc = useCallback(async () => {
+    if (!doc) return;
+    const ok = window.confirm(
+      `确定删除笔记《${doc.title}》吗？删除后不可恢复。`,
+    );
+    if (!ok) return;
+    try {
+      await deleteDocument(doc.id);
+      router.push("/knowledge");
+    } catch (err) {
+      setEditError((err as Error).message);
+    }
+  }, [doc, router]);
 
   // AI 问答栏宽度（可拖拽调节，本地记忆；与知识库页的问答栏互相独立）
   const [qaWidth, setQaWidth] = useState(384);
@@ -276,21 +330,72 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
       {/* 中栏：笔记正文 */}
       <section className="flex min-w-0 flex-1 flex-col border-r border-black/[0.06]">
         <header className="border-b border-black/[0.06] px-6 pt-4 pb-3">
-          <nav className="flex items-center gap-1.5 text-xs text-zinc-400">
-            <Link href="/knowledge" className="transition hover:text-teal-700">
-              知识库
-            </Link>
+          <div className="flex items-center justify-between gap-3">
+            <nav className="flex min-w-0 items-center gap-1.5 text-xs text-zinc-400">
+              <Link href="/knowledge" className="transition hover:text-teal-700">
+                知识库
+              </Link>
+              {doc && (
+                <>
+                  <span className="text-zinc-300">/</span>
+                  <span>{doc.library}</span>
+                  <span className="text-zinc-300">/</span>
+                  <span className="truncate font-medium text-zinc-600">
+                    {doc.title}
+                  </span>
+                </>
+              )}
+            </nav>
             {doc && (
-              <>
-                <span className="text-zinc-300">/</span>
-                <span>{doc.library}</span>
-                <span className="text-zinc-300">/</span>
-                <span className="truncate font-medium text-zinc-600">
-                  {doc.title}
-                </span>
-              </>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {editing ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setEditing(false)}
+                      className="rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-black/[0.09]"
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void onSaveEdit()}
+                      disabled={saving}
+                      className="rounded-full bg-teal-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-teal-700 disabled:opacity-40"
+                    >
+                      {saving ? "保存中…" : "保存"}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={startEdit}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-black/[0.09]"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                      </svg>
+                      编辑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void onDeleteDoc()}
+                      title="删除笔记"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-red-50 hover:text-red-600"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                      删除
+                    </button>
+                  </>
+                )}
+              </div>
             )}
-          </nav>
+          </div>
         </header>
 
         <div
@@ -317,17 +422,47 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
             ) : (
               doc && (
                 <article>
-                  <h1 className="text-2xl font-bold tracking-tight">
-                    {doc.title}
-                  </h1>
-                  <p className="mt-1.5 text-[11px] text-zinc-400 tabular-nums">
-                    {doc.library} ·{" "}
-                    {new Date(doc.created_at * 1000).toLocaleDateString("zh-CN")}{" "}
-                    · {doc.content.length} 字
-                  </p>
-                  <div className="prose prose-zinc mt-5 max-w-none text-sm leading-loose">
-                    <Markdown content={doc.content} />
-                  </div>
+                  {editing ? (
+                    <div className="space-y-3">
+                      {editError && (
+                        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-600/10">
+                          {editError}
+                        </div>
+                      )}
+                      <input
+                        value={editTitle}
+                        maxLength={200}
+                        onChange={(event) => setEditTitle(event.target.value)}
+                        placeholder="标题"
+                        className="w-full rounded-xl bg-white px-3.5 py-2.5 text-base font-semibold ring-1 ring-black/10 outline-none transition focus:ring-2 focus:ring-teal-600"
+                      />
+                      <textarea
+                        value={editContent}
+                        maxLength={200000}
+                        onChange={(event) => setEditContent(event.target.value)}
+                        rows={20}
+                        placeholder="正文（支持 Markdown）"
+                        className="w-full resize-y rounded-xl bg-white px-3.5 py-3 font-mono text-[13px] leading-relaxed ring-1 ring-black/10 outline-none transition focus:ring-2 focus:ring-teal-600"
+                      />
+                      <p className="text-[11px] text-zinc-400">
+                        保存后会自动重建检索索引，AI 问答立刻能看到新内容。
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <h1 className="text-2xl font-bold tracking-tight">
+                        {doc.title}
+                      </h1>
+                      <p className="mt-1.5 text-[11px] text-zinc-400 tabular-nums">
+                        {doc.library} ·{" "}
+                        {new Date(doc.created_at * 1000).toLocaleDateString("zh-CN")}{" "}
+                        · {doc.content.length} 字
+                      </p>
+                      <div className="prose prose-zinc mt-5 max-w-none text-sm leading-loose">
+                        <Markdown content={doc.content} />
+                      </div>
+                    </>
+                  )}
                 </article>
               )
             )}

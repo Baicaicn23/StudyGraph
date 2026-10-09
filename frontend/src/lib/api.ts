@@ -146,6 +146,29 @@ export async function getDocument(id: number): Promise<KnowledgeDocument> {
   return data.document;
 }
 
+export async function updateDocument(
+  id: number,
+  title: string,
+  content: string,
+): Promise<void> {
+  await requestJson("/api/knowledge/document", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, title, content }),
+  });
+}
+
+export async function deleteDocument(id: number): Promise<void> {
+  await requestJson(`/api/knowledge/document?id=${id}`, { method: "DELETE" });
+}
+
+export async function deleteLibrary(name: string): Promise<void> {
+  await requestJson(
+    `/api/knowledge/library?name=${encodeURIComponent(name)}`,
+    { method: "DELETE" },
+  );
+}
+
 export function addNote(
   library: string,
   title: string,
@@ -210,6 +233,14 @@ export function addFeedback(
   return postJson("/api/feedback", { library, question, note });
 }
 
+export async function deleteFeedback(id: number): Promise<void> {
+  await requestJson(`/api/feedback/${id}`, { method: "DELETE" });
+}
+
+export async function deleteQuestion(id: number): Promise<void> {
+  await requestJson(`/api/practice/${id}`, { method: "DELETE" });
+}
+
 export function studyPlan(): Promise<StudyPlan> {
   return requestJson<StudyPlan>("/api/study/plan");
 }
@@ -222,6 +253,7 @@ export async function studyActivity(days = 30): Promise<ActivityDay[]> {
 }
 
 export interface MemoryItem {
+  id: number;
   content: string;
   created_at: number;
 }
@@ -229,6 +261,10 @@ export interface MemoryItem {
 export async function listMemories(): Promise<MemoryItem[]> {
   const data = await requestJson<{ memories: MemoryItem[] }>("/api/memories");
   return data.memories;
+}
+
+export async function deleteMemory(id: number): Promise<void> {
+  await requestJson(`/api/memories/${id}`, { method: "DELETE" });
 }
 
 export function usage(days = 1): Promise<UsageSummary> {
