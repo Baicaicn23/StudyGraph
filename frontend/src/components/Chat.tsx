@@ -358,14 +358,18 @@ export default function Chat() {
   }, [resolvePending]);
 
   /* ---------- 会话切换 ---------- */
-  const startNewChat = useCallback(() => {
-    if (busy) return;
-    sessionIdRef.current = null;
-    threadIdRef.current = "";
-    setStatusLabel("");
-    queueRef.current = "";
-    setMessages([]);
-  }, [busy]);
+  const startNewChat = useCallback(
+    (projectId?: number) => {
+      if (busy) return;
+      sessionIdRef.current = null;
+      threadIdRef.current = "";
+      setStatusLabel("");
+      queueRef.current = "";
+      setMessages([]);
+      if (projectId !== undefined) setActiveProjectId(projectId);
+    },
+    [busy],
+  );
 
   const openSession = useCallback(async (sessionId: number) => {
     if (busyRef.current) return;
@@ -391,18 +395,24 @@ export default function Chat() {
 
   // 全局侧栏点「新对话 / 某条会话」→ 跳回本页时通过 sessionStorage 交接
   useEffect(() => {
-    let action: { type: string; sessionId?: number } | null = null;
+    let action:
+      | { type: string; sessionId?: number; projectId?: number }
+      | null = null;
     try {
       const raw = sessionStorage.getItem("sg-chat-action");
       if (raw) {
-        action = JSON.parse(raw) as { type: string; sessionId?: number };
+        action = JSON.parse(raw) as {
+          type: string;
+          sessionId?: number;
+          projectId?: number;
+        };
         sessionStorage.removeItem("sg-chat-action");
       }
     } catch {
       /* ignore */
     }
     if (!action) return;
-    if (action.type === "new-chat") startNewChat();
+    if (action.type === "new-chat") startNewChat(action.projectId);
     if (action.type === "open" && action.sessionId) {
       void openSession(action.sessionId);
     }

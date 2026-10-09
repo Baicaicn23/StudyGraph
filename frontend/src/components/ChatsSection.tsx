@@ -14,6 +14,7 @@ import {
   listChats,
   listProjects,
   moveChat,
+  renameChat,
   renameProject,
   type ChatProject,
   type ChatSession,
@@ -39,7 +40,11 @@ export function notifyChatsChanged() {
 }
 
 /** 让聊天页执行动作（新对话 / 打开某会话）——跨页面导航的交接棒 */
-export function stashChatAction(action: { type: "new-chat" } | { type: "open"; sessionId: number }) {
+export function stashChatAction(
+  action:
+    | { type: "new-chat"; projectId?: number }
+    | { type: "open"; sessionId: number },
+) {
   try {
     sessionStorage.setItem("sg-chat-action", JSON.stringify(action));
   } catch {
@@ -53,6 +58,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [moving, setMoving] = useState<number | null>(null);
   const [menuFor, setMenuFor] = useState<number | null>(null);
+  const [chatMenuFor, setChatMenuFor] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -132,6 +138,19 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
   const handleDeleteChat = async (sessionId: number) => {
     try {
       await deleteChat(sessionId);
+      setChatMenuFor(null);
+      await refreshLists();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleRenameChat = async (chat: ChatSession) => {
+    const title = window.prompt("重命名对话", chat.title || "新对话")?.trim();
+    if (!title || title === chat.title) return;
+    try {
+      await renameChat(chat.id, title);
+      setChatMenuFor(null);
       await refreshLists();
     } catch {
       /* ignore */
@@ -139,6 +158,11 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
   };
 
   const handleDeleteProject = async (projectId: number) => {
+    if (
+      !window.confirm("确定删除该项目吗？项目里的对话会移到「默认对话空间」。")
+    ) {
+      return;
+    }
     try {
       await deleteProject(projectId);
       setMenuFor(null);
@@ -159,16 +183,18 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
     }
   };
 
-  const handleNewChatInProject = (projectId: number) => {
-    setCollapsed((prev) => ({ ...prev, [`p${projectId}`]: false }));
-    stashChatAction({ type: "new-chat" });
+  const handleNewChatInProject = (projectId: number | null) => {
+    if (projectId !== null) {
+      setCollapsed((prev) => ({ ...prev, [`p${projectId}`]: false }));
+    }
+    stashChatAction({ type: "new-chat", projectId: projectId ?? undefined });
     router.push("/");
   };
 
   const renderSession = (chat: ChatSession) => (
     <div
       key={chat.id}
-      className="group relative flex items-center rounded-lg transition hover:bg-black/[0.04]"
+      className="group relative flex items-center rounded-lg transition hover:bg-black/[0.05]"
     >
       <button
         type="button"
@@ -178,36 +204,90 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
         <span className="min-w-0 flex-1 truncate text-[13px] text-zinc-700">
           {chat.title || "新对话"}
         </span>
-        <span className="shrink-0 text-[11px] tabular-nums text-zinc-400">
+        <span className="shrink-0 text-[11px] tabular-nums text-zinc-400 transition group-hover:opacity-0">
           {relativeTime(chat.updated_at)}
         </span>
       </button>
 
-      {/* 悬停操作：移动 / 删除 */}
-      <div className="absolute right-1.5 flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+      {/* 悬停操作：⋯ 菜单 + 气泡＋直接新建对话（时间在悬停时让位） */}
+      <div className="absolute right-2 flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
         <button
           type="button"
-          title="移动到项目"
-          onClick={() => setMoving((v) => (v === chat.id ? null : chat.id))}
-          className="grid h-6 w-6 place-items-center rounded-md bg-white/90 text-zinc-400 shadow-sm ring-1 ring-black/5 transition hover:text-teal-700"
+          title="对话操作"
+          onClick={() => setChatMenuFor((v) => (v === chat.id ? null : chat.id))}
+          className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 transition hover:bg-black/[0.06] hover:text-zinc-700"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M3 6h18M3 12h18M3 18h18" />
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <circle cx="5" cy="12" r="1.7" />
+            <circle cx="12" cy="12" r="1.7" />
+            <circle cx="19" cy="12" r="1.7" />
           </svg>
         </button>
         <button
           type="button"
-          title="删除对话"
-          onClick={() => void handleDeleteChat(chat.id)}
-          className="grid h-6 w-6 place-items-center rounded-md bg-white/90 text-zinc-400 shadow-sm ring-1 ring-black/5 transition hover:text-red-600"
+          title="新建对话"
+          onClick={() => handleNewChatInProject(chat.project_id)}
+          className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 transition hover:bg-black/[0.06] hover:text-teal-700"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M3 6h18" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            <path d="M12 10v6M9 13h6" />
           </svg>
         </button>
       </div>
+
+      {/* ⋯ 菜单：重命名 / 移动到… / 删除（删除前确认） */}
+      {chatMenuFor === chat.id && (
+        <>
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setChatMenuFor(null)}
+            aria-hidden
+          />
+          <div className="absolute right-2 top-full z-40 mt-1 w-44 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
+            <button
+              type="button"
+              onClick={() => void handleRenameChat(chat)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04]"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
+                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+              </svg>
+              重命名
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setChatMenuFor(null);
+                setMoving(chat.id);
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04]"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
+                <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+              </svg>
+              移动到…
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!window.confirm(`确定删除「${chat.title || "新对话"}」吗？删除后不可恢复。`)) {
+                  return;
+                }
+                void handleDeleteChat(chat.id);
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-red-600 transition hover:bg-red-50"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
+                <path d="M3 6h18" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+              删除
+            </button>
+          </div>
+        </>
+      )}
 
       {moving === chat.id && (
         <div className="absolute right-1 top-full z-30 mt-1 w-44 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
@@ -297,8 +377,9 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
               onClick={() => handleNewChatInProject(project.id)}
               className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 transition hover:bg-black/[0.06] hover:text-teal-700"
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M12 5v14M5 12h14" />
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                <path d="M12 10v6M9 13h6" />
               </svg>
             </button>
           </div>

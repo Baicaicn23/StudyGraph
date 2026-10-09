@@ -340,6 +340,13 @@ export async function moveChat(sessionId: number, projectId: number | null): Pro
   await requestJson(`/api/chats/${sessionId}`, { method: "PUT", body: form });
 }
 
+/** 重命名会话（后端 PUT /api/chats/{id} 支持 title 字段） */
+export async function renameChat(sessionId: number, title: string): Promise<void> {
+  const form = new FormData();
+  form.append("title", title);
+  await requestJson(`/api/chats/${sessionId}`, { method: "PUT", body: form });
+}
+
 export async function deleteChat(sessionId: number): Promise<void> {
   await requestJson(`/api/chats/${sessionId}`, { method: "DELETE" });
 }
