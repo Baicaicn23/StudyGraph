@@ -201,7 +201,10 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
         onClick={() => openSession(chat)}
         className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-8 pr-2 text-left focus-visible:outline-none"
       >
-        <span className="min-w-0 flex-1 truncate text-[13px] text-zinc-700">
+                <span
+          className="fade-x min-w-0 flex-1 text-[13px] text-zinc-700"
+          title={chat.title || "新对话"}
+        >
           {chat.title || "新对话"}
         </span>
         <span className="shrink-0 text-[11px] tabular-nums text-zinc-400 transition group-hover:opacity-0">
@@ -314,7 +317,10 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
               <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
             </svg>
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-700">
+            <span
+              className="fade-x min-w-0 flex-1 text-[13px] font-medium text-zinc-700"
+              title={project.name}
+            >
               {project.name}
             </span>
             {isCollapsed && items.length > 0 && (

@@ -302,7 +302,7 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
         <div className="px-4 pb-2 text-[11px] font-medium text-zinc-400">
           目录（{headings.length}）
         </div>
-        <nav className="flex-1 overflow-y-auto px-2 pb-4">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-4">
           {headings.length === 0 ? (
             <p className="px-2.5 py-2 text-xs text-zinc-400">
               {loading ? "解析中…" : "这篇笔记没有标题结构，无法生成目录。"}
@@ -313,7 +313,8 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
                 key={heading.index}
                 type="button"
                 onClick={() => scrollToHeading(heading.index)}
-                className={`block w-full rounded-lg py-1.5 pr-2 text-left text-xs leading-relaxed transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                title={heading.text}
+                className={`fade-x block w-full rounded-lg py-1.5 pr-2 text-left text-xs leading-relaxed transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
                   activeHeading === heading.index
                     ? "border-l-2 border-teal-600 bg-teal-50/70 pl-2 font-medium text-teal-800"
                     : "border-l-2 border-transparent text-zinc-500"
