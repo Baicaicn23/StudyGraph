@@ -28,11 +28,12 @@ from pydantic import BaseModel, Field
 from ..application import tools
 from ..application.graph import build_graph
 from ..application.guardrails import screen_input, screen_output
+from ..application.image_notes import ImageNoteError, image_to_markdown
 from ..application.learning_service import LearningService
 from ..config import Settings, get_settings, parse_mcp_servers
 from ..domain.errors import LearningError
 from ..infrastructure.embeddings import get_embedder
-from ..infrastructure.extract import ExtractError, extract_text
+from ..infrastructure.extract import ExtractError, extract_text, is_image
 from ..infrastructure.knowledge import KnowledgeStore
 from ..infrastructure.learning_repository import SqliteLearningRepository
 from ..infrastructure.llm import build_chat_model
@@ -233,13 +234,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         data = await file.read()
         if len(data) > request.app.state.settings.max_upload_bytes:
             raise HTTPException(status_code=413, detail="文件太大")
-        try:
-            text = extract_text(file.filename or "", data)
-        except ExtractError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        title = (file.filename or "上传资料").strip()
+
+        # 图片走视觉转写（拍照课件/板书 → Markdown 入库），文本走原抽取管线。
+        if is_image(file.filename or ""):
+            model = request.app.state.model
+            if getattr(model, "_llm_type", "") == "study-mock":
+                raise HTTPException(
+                    status_code=400,
+                    detail="图片识别需要真实视觉模型（当前是 Mock 模式，"
+                    "请在 .env 里配置 provider=openai）",
+                )
+            try:
+                text = await image_to_markdown(model, file.filename or "", data)
+            except ImageNoteError as exc:
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
+        else:
+            try:
+                text = extract_text(file.filename or "", data)
+            except ExtractError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
         if not text.strip():
             raise HTTPException(status_code=400, detail="文件里没有可提取的文本")
-        title = (file.filename or "上传资料").strip()
         document_id = request.app.state.store.add_document(library, title, text)
         return {"id": document_id, "library": library, "title": title, "chars": len(text)}
 

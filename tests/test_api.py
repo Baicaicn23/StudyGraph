@@ -116,6 +116,58 @@ def test_document_detail_returns_full_content(tmp_path) -> None:
     assert missing.status_code == 404
 
 
+def test_upload_image_rejected_in_mock_mode(tmp_path) -> None:
+    with _client(tmp_path) as client:
+        response = client.post(
+            "/api/knowledge/upload",
+            data={"library": "高等数学"},
+            files={"file": ("板书.png", b"\x89PNG-not-really", "image/png")},
+        )
+
+    assert response.status_code == 400
+    assert "视觉模型" in response.json()["detail"]
+
+
+def test_upload_image_transcribes_to_markdown(tmp_path, monkeypatch) -> None:
+    from langchain_core.messages import AIMessage
+
+    from studygraph.config import Settings as _Settings
+    from studygraph.interfaces.api import create_app as _create_app
+
+    settings = _Settings(database_path=str(tmp_path / "vision.db"))
+    app = _create_app(settings)
+
+    class _FakeVisionModel:
+        _llm_type = "fake-vision"
+
+        async def ainvoke(self, messages):
+            # 校验消息结构：文本提示 + base64 图片数据 URI
+            blocks = messages[0].content
+            assert blocks[0]["type"] == "text"
+            image_block = blocks[1]
+            assert image_block["type"] == "image_url"
+            url = image_block["image_url"]["url"]
+            assert url.startswith("data:image/png;base64,")
+            return AIMessage(content="# 敛散性\n\n## 定义\n- 单调有界必收敛")
+
+    with TestClient(app) as client:
+        monkeypatch.setattr(app.state, "model", _FakeVisionModel())
+        response = client.post(
+            "/api/knowledge/upload",
+            data={"library": "高等数学"},
+            files={"file": ("板书.png", b"\x89PNG-fake-bytes", "image/png")},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["chars"] > 0
+
+        doc = client.get(
+            "/api/knowledge/document", params={"id": body["id"]}
+        ).json()["document"]
+        assert "敛散性" in doc["content"]
+        assert "单调有界必收敛" in doc["content"]
+
+
 def test_chat_stream_runs_tools_and_streams(tmp_path) -> None:
     with _client(tmp_path) as client:
         events = _read_events(

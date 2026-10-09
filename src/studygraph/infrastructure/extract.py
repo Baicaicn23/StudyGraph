@@ -1,14 +1,35 @@
-"""从上传文件里抽取纯文本（TXT / Markdown / PDF）——基础设施实现。"""
+"""从上传文件里抽取纯文本（TXT / Markdown / PDF）；图片交给视觉模型转写。"""
 
 from __future__ import annotations
 
 import io
 
 _TEXT_SUFFIXES = (".txt", ".md", ".markdown")
+# 视觉模型支持的图片格式（转 Markdown 入库，见 application/image_notes.py）。
+_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
+_IMAGE_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+}
 
 
 class ExtractError(ValueError):
     pass
+
+
+def is_image(filename: str) -> bool:
+    name = (filename or "").lower()
+    return name.endswith(_IMAGE_SUFFIXES)
+
+
+def image_mime(filename: str) -> str | None:
+    name = (filename or "").lower()
+    for suffix, mime in _IMAGE_MIME.items():
+        if name.endswith(suffix):
+            return mime
+    return None
 
 
 def extract_text(filename: str, data: bytes) -> str:
@@ -17,7 +38,7 @@ def extract_text(filename: str, data: bytes) -> str:
         return data.decode("utf-8", errors="ignore").strip()
     if name.endswith(".pdf"):
         return _extract_pdf(data)
-    raise ExtractError("暂只支持 TXT / Markdown / PDF 文件")
+    raise ExtractError("暂只支持 TXT / Markdown / PDF / 图片文件")
 
 
 def _extract_pdf(data: bytes) -> str:

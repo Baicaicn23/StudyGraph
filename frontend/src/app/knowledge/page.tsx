@@ -487,7 +487,7 @@ export default function KnowledgePage() {
     setError("");
     setMessage("");
     if (!file) {
-      setError("请先选择文件（TXT / Markdown / PDF）");
+      setError("请先选择文件（TXT / Markdown / PDF / 图片）");
       return;
     }
     setUploading(true);
@@ -740,11 +740,11 @@ export default function KnowledgePage() {
             {panel === "upload" && (
               <div className="animate-fade-up rounded-xl bg-black/[0.03] p-4">
                 <h3 className="mb-3 text-sm font-semibold">
-                  上传到「{activeLib}」（TXT / Markdown / PDF）
+                  上传到「{activeLib}」（TXT / Markdown / PDF / 图片）
                 </h3>
                 <input
                   type="file"
-                  accept=".txt,.md,.markdown,.pdf"
+                  accept=".txt,.md,.markdown,.pdf,.png,.jpg,.jpeg,.webp"
                   onChange={(event) =>
                     setFile(event.target.files?.[0] ?? null)
                   }
@@ -758,6 +758,10 @@ export default function KnowledgePage() {
                 >
                   {uploading ? "解析入库中…" : "上传入库"}
                 </button>
+                <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
+                  图片（PNG / JPG / WebP）会由视觉模型转写成 Markdown
+                  笔记后入库，拍照课件、板书都可以；转换需要几秒钟。
+                </p>
               </div>
             )}
 

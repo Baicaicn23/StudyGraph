@@ -24,6 +24,7 @@ interface QaMessage {
 }
 
 const QUICK_ASKS = ["总结这篇笔记", "这篇笔记的重点是什么", "出 3 道相关练习题"];
+const DOC_QA_WIDTH_KEY = "studygraph-doc-qa-width";
 
 /** 从 Markdown 正文提取标题，生成目录（按出现顺序编号，供滚动定位）。 */
 function extractHeadings(content: string): Heading[] {
@@ -81,6 +82,10 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
   const [qaBusy, setQaBusy] = useState(false);
   const [modelLabel, setModelLabel] = useState("");
 
+  // AI 问答栏宽度（可拖拽调节，本地记忆；与知识库页的问答栏互相独立）
+  const [qaWidth, setQaWidth] = useState(384);
+  const [isDragging, setIsDragging] = useState(false);
+
   const contentRef = useRef<HTMLDivElement>(null);
   const qaScrollRef = useRef<HTMLDivElement>(null);
   const qaThreadRef = useRef("");
@@ -103,7 +108,48 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
     getHealth()
       .then((h) => setModelLabel(h.provider === "mock" ? "Mock 模型" : h.provider))
       .catch(() => setModelLabel(""));
+    // 恢复上次调整的问答栏宽度
+    try {
+      const saved = Number(localStorage.getItem(DOC_QA_WIDTH_KEY));
+      if (saved >= 320 && saved <= 720) setQaWidth(saved);
+    } catch {
+      /* ignore */
+    }
   }, [docId]);
+
+  const startQaDrag = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = qaWidth;
+    const minWidth = 320;
+    const maxWidth = Math.min(window.innerWidth * 0.5, 720);
+    let latest = startWidth;
+    setIsDragging(true);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+
+    const onMove = (move: MouseEvent) => {
+      let next = startWidth + (startX - move.clientX);
+      if (Math.abs(next - minWidth) < 14) next = minWidth; // 边界阻尼吸附
+      if (Math.abs(next - maxWidth) < 14) next = maxWidth;
+      latest = Math.max(minWidth, Math.min(maxWidth, next));
+      setQaWidth(latest);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      setIsDragging(false);
+      try {
+        localStorage.setItem(DOC_QA_WIDTH_KEY, String(latest));
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [qaWidth]);
 
   useEffect(() => {
     qaScrollRef.current?.scrollTo({
@@ -289,8 +335,28 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
         </div>
       </section>
 
-      {/* 右栏：绑定当前库 + 当前笔记的 AI 问答 */}
-      <aside className="hidden w-[24rem] shrink-0 flex-col border-l border-black/[0.06] bg-white xl:flex">
+      {/* 右栏：绑定当前库 + 当前笔记的 AI 问答（可拖拽调宽） */}
+      <aside
+        className="relative hidden shrink-0 flex-col border-l border-black/[0.06] bg-white xl:flex"
+        style={{ width: qaWidth }}
+      >
+        {/* 拖拽柄：悬停/拖拽时 3px 主题色高亮 */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          onMouseDown={startQaDrag}
+          onDoubleClick={() => setQaWidth(384)}
+          title="拖拽调节宽度（双击恢复默认）"
+          className="group absolute -left-1 top-0 z-20 h-full w-2 cursor-col-resize"
+        >
+          <div
+            className={`absolute left-1/2 top-0 h-full -translate-x-1/2 transition-all duration-150 ${
+              isDragging
+                ? "w-[3px] bg-teal-600"
+                : "w-px bg-black/[0.06] group-hover:w-[3px] group-hover:bg-teal-600"
+            }`}
+          />
+        </div>
         <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-3">
           <div className="min-w-0">
             <h2 className="text-[15px] font-bold tracking-tight">笔记 AI 问答</h2>
