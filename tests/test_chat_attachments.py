@@ -89,3 +89,19 @@ def test_empty_text_file_rejected(tmp_path) -> None:
         )
         assert rejected.status_code == 400
         assert "没有可提取" in rejected.json()["detail"]
+
+
+def test_image_rejected_fast_on_text_only_model(tmp_path) -> None:
+    """纯文本模型（DeepSeek 等）上传图片应立刻 400，而不是等视觉转写失败。"""
+
+    settings = Settings(
+        database_path=str(tmp_path / "vision.db"),
+        model="deepseek-chat",
+    )
+    with TestClient(create_app(settings)) as client:
+        rejected = client.post(
+            "/api/chat/attachments",
+            files={"file": ("shot.png", b"\x89PNG fake", "image/png")},
+        )
+        assert rejected.status_code == 400
+        assert "不支持识别图片" in rejected.json()["detail"]

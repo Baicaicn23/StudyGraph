@@ -77,7 +77,7 @@ export default function Chat() {
   const [pendingFiles, setPendingFiles] = useState<
     { id: number; filename: string }[]
   >([]);
-  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 每条 AI 回复的学习操作
@@ -299,7 +299,7 @@ export default function Chat() {
   const send = useCallback(
     async (raw?: string) => {
       const text = (raw ?? input).trim();
-      if (!text || busy) return;
+      if (!text || busy || uploadingCount > 0) return;
       setInput("");
       setPickerOpen(false);
       setPlusMenuOpen(false);
@@ -337,6 +337,7 @@ export default function Chat() {
       input,
       busy,
       pendingFiles,
+      uploadingCount,
       getThreadId,
       selected,
       activeProjectId,
@@ -482,7 +483,7 @@ export default function Chat() {
         window.alert("一条消息最多带 6 个附件");
         return;
       }
-      setUploadingFile(true);
+      setUploadingCount((count) => count + 1);
       try {
         const uploaded = await uploadChatAttachment(
           file,
@@ -497,17 +498,15 @@ export default function Chat() {
           error instanceof Error ? error.message : "附件上传失败，请重试",
         );
       } finally {
-        setUploadingFile(false);
+        setUploadingCount((count) => count - 1);
       }
     },
     [pendingFiles.length],
   );
 
-  const uploadManyFiles = async (files: File[]) => {
-    for (const file of files) {
-      await uploadFile(file);
-    }
-  };
+  const uploadManyFiles = (files: File[]) =>
+    // 并行上传：多选 / 多张截图时不用一个等一个
+    Promise.allSettled(files.map((file) => uploadFile(file)));
 
   const handleFileChosen = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -818,13 +817,13 @@ export default function Chat() {
                     setPlusMenuOpen(false);
                     fileInputRef.current?.click();
                   }}
-                  disabled={uploadingFile}
+                  disabled={uploadingCount > 0}
                   className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04] disabled:opacity-50"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                   </svg>
-                  {uploadingFile ? "正在上传…" : "上传文件（PDF/图片/文本）"}
+                  {uploadingCount > 0 ? "正在上传…" : "上传文件（PDF/图片/文本）"}
                 </button>
                 <Link
                   href="/knowledge"
@@ -933,8 +932,8 @@ export default function Chat() {
             </>
           )}
 
-          {/* 待发送附件条 */}
-          {pendingFiles.length > 0 && (
+          {/* 待发送附件条（上传中也有可见反馈） */}
+          {(pendingFiles.length > 0 || uploadingCount > 0) && (
             <div className="animate-fade-up mb-2 flex flex-wrap gap-1.5">
               {pendingFiles.map((file) => (
                 <span
@@ -962,6 +961,12 @@ export default function Chat() {
                   </button>
                 </span>
               ))}
+              {uploadingCount > 0 && (
+                <span className="flex items-center gap-1.5 rounded-full bg-teal-600/10 px-2.5 py-1 text-[11px] font-medium text-teal-700">
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-teal-600/30 border-t-teal-600" />
+                  正在上传{uploadingCount > 1 ? ` ${uploadingCount} 个文件` : "…"}
+                </span>
+              )}
             </div>
           )}
 
@@ -1048,7 +1053,7 @@ export default function Chat() {
             <button
               type="button"
               onClick={() => void send()}
-              disabled={busy || !input.trim()}
+              disabled={busy || uploadingCount > 0 || !input.trim()}
               aria-label="发送"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-600 text-white transition hover:bg-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-95 disabled:opacity-25"
             >
