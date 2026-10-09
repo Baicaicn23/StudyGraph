@@ -132,6 +132,7 @@ export default function ChatSidebar({
       setNewProjectName("");
       setCreatingProject(false);
       await refreshLists();
+      onChatListChanged(); // 同步输入栏的空间选择器
     } catch {
       /* 重名等错误静默 */
     }
@@ -175,6 +176,7 @@ export default function ChatSidebar({
     try {
       await renameProject(project.id, name);
       setProjects(await listProjects());
+      onChatListChanged(); // 同步输入栏的空间选择器
     } catch {
       /* ignore */
     }

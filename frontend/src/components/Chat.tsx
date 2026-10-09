@@ -7,6 +7,7 @@ import type { KeyboardEvent } from "react";
 import {
   addFeedback,
   addNote,
+  createProject,
   generatePractice,
   getHealth,
   listChatMessages,
@@ -102,20 +103,18 @@ export default function Chat() {
   /* ---------- 项目（空间）列表：输入栏下方的空间选择器用 ---------- */
   const [projects, setProjects] = useState<ChatProject[]>([]);
   const [spaceOpen, setSpaceOpen] = useState(false);
+  const [spaceCreating, setSpaceCreating] = useState(false);
+  const [newSpaceName, setNewSpaceName] = useState("");
+  const refreshProjects = useCallback(async () => {
+    try {
+      setProjects(await listProjects());
+    } catch {
+      /* 后端未启动 */
+    }
+  }, []);
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const next = await listProjects();
-        if (!cancelled) setProjects(next);
-      } catch {
-        /* 后端未启动 */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [sidebarSignal]);
+    void refreshProjects();
+  }, [sidebarSignal, refreshProjects]);
 
   // 没选过空间时自动选中「默认对话空间」（后端保证一定存在）
   useEffect(() => {
@@ -124,6 +123,25 @@ export default function Chat() {
     setActiveProjectId(fallback.id);
   }, [projects, activeProjectId]);
   const activeSpace = projects.find((p) => p.id === activeProjectId);
+
+  /** 下拉里直接新建空间：成功后自动选中它 */
+  const handleCreateSpace = useCallback(async () => {
+    const name = newSpaceName.trim();
+    if (!name) {
+      setSpaceCreating(false);
+      return;
+    }
+    try {
+      const created = await createProject(name);
+      setNewSpaceName("");
+      setSpaceCreating(false);
+      await refreshProjects();
+      setActiveProjectId(created.id);
+      refreshSidebar(); // 让侧栏也同步出现这个新空间
+    } catch {
+      /* 重名等错误静默 */
+    }
+  }, [newSpaceName, refreshProjects, refreshSidebar]);
 
   /* ---------- 平滑打字机：token 先入队列，rAF 按需吐字 ---------- */
   const queueRef = useRef("");
@@ -906,7 +924,12 @@ export default function Chat() {
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setSpaceOpen((v) => !v)}
+                onClick={() => {
+                  setSpaceOpen((v) => {
+                    if (!v) void refreshProjects(); // 每次展开都拉最新列表
+                    return !v;
+                  });
+                }}
                 aria-expanded={spaceOpen}
                 title="选择对话空间：新对话与本轮记忆会归属该空间"
                 className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-500 transition hover:bg-black/[0.04] hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
@@ -962,9 +985,41 @@ export default function Chat() {
                     })}
                     {projects.length === 0 && (
                       <p className="px-2.5 py-2 text-[11px] text-zinc-400">
-                        后端连接后会出现「默认对话空间」
+                        还没有其他空间，可在下方新建
                       </p>
                     )}
+
+                    {/* 新建空间入口 */}
+                    <div className="mt-1 border-t border-black/[0.06] pt-1">
+                      {spaceCreating ? (
+                        <input
+                          autoFocus
+                          value={newSpaceName}
+                          onChange={(event) => setNewSpaceName(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") void handleCreateSpace();
+                            if (event.key === "Escape") {
+                              setNewSpaceName("");
+                              setSpaceCreating(false);
+                            }
+                          }}
+                          onBlur={() => void handleCreateSpace()}
+                          placeholder="空间名称，回车确认"
+                          className="mx-1 w-[calc(100%-0.5rem)] rounded-lg bg-zinc-50 px-2.5 py-1.5 text-[13px] ring-1 ring-teal-600 outline-none"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setSpaceCreating(true)}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-teal-700 transition hover:bg-black/[0.04]"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M12 5v14M5 12h14" />
+                          </svg>
+                          新建空间
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </>
               )}
