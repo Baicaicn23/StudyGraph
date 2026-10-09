@@ -314,7 +314,7 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
                 type="button"
                 onClick={() => scrollToHeading(heading.index)}
                 title={heading.text}
-                className={`fade-x block w-full overflow-hidden whitespace-nowrap rounded-lg py-1.5 pr-2 text-left text-xs leading-relaxed transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                className={`block w-full truncate rounded-lg py-1.5 pr-2 text-left text-xs leading-relaxed transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
                   activeHeading === heading.index
                     ? "border-l-2 border-teal-600 bg-teal-50/70 pl-2 font-medium text-teal-800"
                     : "border-l-2 border-transparent text-zinc-500"

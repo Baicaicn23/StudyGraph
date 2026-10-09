@@ -81,20 +81,3 @@ body {
 *::-webkit-scrollbar-track {
   background: transparent;
 }
-
-/* 长文本淡出截断：不显示省略号，超出部分向右渐隐（WorkBuddy 式）。
-   用 mask 而不是叠渐变色块，不依赖背景色，悬停换色也不穿帮。 */
-.fade-x {
-  overflow: hidden;
-  white-space: nowrap;
-  -webkit-mask-image: linear-gradient(
-    to right,
-    #000 calc(100% - 1.25rem),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to right,
-    #000 calc(100% - 1.25rem),
-    transparent 100%
-  );
-}

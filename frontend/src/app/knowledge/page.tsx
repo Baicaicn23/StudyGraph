@@ -725,7 +725,7 @@ export default function KnowledgePage() {
                     }`}
                   >
                     <FolderIcon active={libActive} />
-                    <span className="fade-x min-w-0 flex-1 overflow-hidden whitespace-nowrap">{library.name}</span>
+                    <span className="min-w-0 flex-1 truncate">{library.name}</span>
                     <span className="text-[11px] tabular-nums text-zinc-400">
                       {library.document_count}
                     </span>
@@ -744,7 +744,7 @@ export default function KnowledgePage() {
                       className="ml-3 flex w-[calc(100%-0.75rem)] items-center gap-2 rounded-lg border-l-2 border-transparent py-1.5 pl-2.5 pr-2 text-left text-xs text-zinc-500 transition hover:bg-black/[0.04] hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
                     >
                       <DocIcon className="shrink-0 text-zinc-400" />
-                      <span className="fade-x min-w-0 flex-1 overflow-hidden whitespace-nowrap">{doc.title}</span>
+                      <span className="min-w-0 flex-1 truncate">{doc.title}</span>
                     </button>
                   ))}
               </div>

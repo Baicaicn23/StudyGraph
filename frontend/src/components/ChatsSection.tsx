@@ -202,7 +202,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
         className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-8 pr-2 text-left focus-visible:outline-none"
       >
                 <span
-          className="fade-x min-w-0 flex-1 overflow-hidden whitespace-nowrap text-[13px] text-zinc-700"
+          className="truncate min-w-0 flex-1 text-[13px] text-zinc-700"
           title={chat.title || "新对话"}
         >
           {chat.title || "新对话"}
@@ -318,7 +318,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
               <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
             </svg>
             <span
-              className="fade-x min-w-0 flex-1 overflow-hidden whitespace-nowrap text-[13px] font-medium text-zinc-700"
+              className="truncate min-w-0 flex-1 text-[13px] font-medium text-zinc-700"
               title={project.name}
             >
               {project.name}
