@@ -51,6 +51,20 @@ function extractHeadings(content: string): Heading[] {
   return headings;
 }
 
+/** 媒体查询：宽屏（xl）下AI 问答占一栏并排，窄屏改为浮层抽屉。 */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(query).matches,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
+
 export default function DocPage({
   params,
 }: {
@@ -139,6 +153,9 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
   // AI 问答栏宽度（可拖拽调节，本地记忆；与知识库页的问答栏互相独立）
   const [qaWidth, setQaWidth] = useState(384);
   const [isDragging, setIsDragging] = useState(false);
+  // 窄屏时 AI 问答改为浮层抽屉；宽屏时是否展开由用户控制
+  const isWide = useMediaQuery("(min-width: 1280px)");
+  const [qaExpanded, setQaExpanded] = useState(true);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const qaScrollRef = useRef<HTMLDivElement>(null);
@@ -285,50 +302,8 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
 
   return (
     <div className="flex h-full bg-white">
-      {/* 左栏：正文目录 */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-black/[0.06] bg-white lg:flex">
-        <div className="px-3 pt-4 pb-2">
-          <Link
-            href="/knowledge"
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-black/[0.04] hover:text-zinc-800"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M19 12H5" />
-              <path d="m12 19-7-7 7-7" />
-            </svg>
-            返回知识库
-          </Link>
-        </div>
-        <div className="px-4 pb-2 text-[11px] font-medium text-zinc-400">
-          目录（{headings.length}）
-        </div>
-        <nav className="flex-1 overflow-y-auto px-2 pb-4">
-          {headings.length === 0 ? (
-            <p className="px-2.5 py-2 text-xs text-zinc-400">
-              {loading ? "解析中…" : "这篇笔记没有标题结构，无法生成目录。"}
-            </p>
-          ) : (
-            headings.map((heading) => (
-              <button
-                key={heading.index}
-                type="button"
-                onClick={() => scrollToHeading(heading.index)}
-                className={`block w-full rounded-lg py-1.5 pr-2 text-left text-xs leading-relaxed transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
-                  activeHeading === heading.index
-                    ? "border-l-2 border-teal-600 bg-teal-50/70 pl-2 font-medium text-teal-800"
-                    : "border-l-2 border-transparent text-zinc-500"
-                }`}
-                style={{ paddingLeft: `${0.5 + (heading.level - 1) * 0.75}rem` }}
-              >
-                {heading.text}
-              </button>
-            ))
-          )}
-        </nav>
-      </aside>
-
-      {/* 中栏：笔记正文 */}
-      <section className="flex min-w-0 flex-1 flex-col border-r border-black/[0.06]">
+      {/* 中栏：笔记正文（占满整幅，目录改为顶部吸顶横条） */}
+      <section className="flex min-w-0 flex-1 flex-col">
         <header className="border-b border-black/[0.06] px-6 pt-4 pb-3">
           <div className="flex items-center justify-between gap-3">
             <nav className="flex min-w-0 items-center gap-1.5 text-xs text-zinc-400">
@@ -346,64 +321,101 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
                 </>
               )}
             </nav>
-            {doc && (
-              <div className="flex shrink-0 items-center gap-1.5">
-                {editing ? (
-                  <>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {editing ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(false)}
+                    className="rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-black/[0.09]"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void onSaveEdit()}
+                    disabled={saving}
+                    className="rounded-full bg-teal-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-teal-700 disabled:opacity-40"
+                  >
+                    {saving ? "保存中…" : "保存"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={startEdit}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-black/[0.09]"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                    </svg>
+                    编辑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void onDeleteDoc()}
+                    title="删除笔记"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-red-50 hover:text-red-600"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M3 6h18" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    删除
+                  </button>
+                  {/* AI 问答：窄屏用这个按钮唤出抽屉 */}
+                  {!isWide && (
                     <button
                       type="button"
-                      onClick={() => setEditing(false)}
-                      className="rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-black/[0.09]"
-                    >
-                      取消
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void onSaveEdit()}
-                      disabled={saving}
-                      className="rounded-full bg-teal-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-teal-700 disabled:opacity-40"
-                    >
-                      {saving ? "保存中…" : "保存"}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={startEdit}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-black/[0.09]"
+                      onClick={() => setQaExpanded(true)}
+                      title="打开笔记 AI 问答"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-teal-600/10 px-3 py-1.5 text-xs font-medium text-teal-700 transition hover:bg-teal-600/20"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
                       </svg>
-                      编辑
+                      AI 问答
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void onDeleteDoc()}
-                      title="删除笔记"
-                      className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-red-50 hover:text-red-600"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M3 6h18" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      </svg>
-                      删除
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </header>
+
+        {/* 目录：吸顶横条（省掉一整列纵向空间，横向可滚动） */}
+        {headings.length > 0 && !editing && (
+          <nav className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-black/[0.06] bg-black/[0.015] px-6 py-1.5">
+            <span className="shrink-0 text-[11px] font-medium text-zinc-400">
+              目录
+            </span>
+            {headings.map((heading) => (
+              <button
+                key={heading.index}
+                type="button"
+                onClick={() => scrollToHeading(heading.index)}
+                title={heading.text}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                  activeHeading === heading.index
+                    ? "bg-teal-600/10 font-medium text-teal-800"
+                    : "text-zinc-500 hover:bg-black/[0.05]"
+                }`}
+                style={{ paddingLeft: `${0.625 + (heading.level - 1) * 0.5}rem` }}
+              >
+                {heading.text}
+              </button>
+            ))}
+          </nav>
+        )}
 
         <div
           ref={contentRef}
           onScroll={onContentScroll}
           className="flex-1 overflow-y-auto px-6 py-6"
         >
-          <div className="mx-auto max-w-2xl">
+          <div className="mx-auto max-w-3xl">
             {loading ? (
               <p className="flex items-center gap-2 text-sm text-zinc-500">
                 <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-300 border-t-teal-600" />
@@ -470,28 +482,60 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
         </div>
       </section>
 
-      {/* 右栏：绑定当前库 + 当前笔记的 AI 问答（可拖拽调宽） */}
-      <aside
-        className="relative hidden shrink-0 flex-col border-l border-black/[0.06] bg-white xl:flex"
-        style={{ width: qaWidth }}
-      >
-        {/* 拖拽柄：悬停/拖拽时 3px 主题色高亮 */}
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          onMouseDown={startQaDrag}
-          onDoubleClick={() => setQaWidth(384)}
-          title="拖拽调节宽度（双击恢复默认）"
-          className="group absolute -left-1 top-0 z-20 h-full w-2 cursor-col-resize"
+      {/* 右栏：绑定当前库 + 当前笔记的 AI 问答
+          宽屏：占一栏并排，可折叠成竖条；窄屏：浮层抽屉 */}
+      {isWide && !qaExpanded && (
+        <button
+          type="button"
+          onClick={() => setQaExpanded(true)}
+          title="展开笔记 AI 问答"
+          className="flex w-11 shrink-0 flex-col items-center gap-2 border-l border-black/[0.06] py-4 text-zinc-400 transition hover:bg-black/[0.02] hover:text-teal-700"
         >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
+          </svg>
+          <span className="text-[11px] tracking-wide [writing-mode:vertical-rl]">
+            AI 问答
+          </span>
+        </button>
+      )}
+
+      {!isWide && qaExpanded && (
+        <div
+          className="fixed inset-0 z-40 bg-black/25"
+          onClick={() => setQaExpanded(false)}
+          aria-hidden
+        />
+      )}
+
+      {((isWide && qaExpanded) || (!isWide && qaExpanded)) && (
+      <aside
+        className={`${
+          isWide
+            ? "relative shrink-0 border-l border-black/[0.06]"
+            : "fixed inset-y-0 right-0 z-50 w-[min(90vw,384px)] shadow-2xl"
+        } flex flex-col bg-white`}
+        style={isWide ? { width: qaWidth } : undefined}
+      >
+        {/* 拖拽柄：宽屏可拖拽调宽，双击恢复默认 */}
+        {isWide && (
           <div
-            className={`absolute left-1/2 top-0 h-full -translate-x-1/2 transition-all duration-150 ${
-              isDragging
-                ? "w-[3px] bg-teal-600"
-                : "w-px bg-black/[0.06] group-hover:w-[3px] group-hover:bg-teal-600"
-            }`}
-          />
-        </div>
+            role="separator"
+            aria-orientation="vertical"
+            onMouseDown={startQaDrag}
+            onDoubleClick={() => setQaWidth(384)}
+            title="拖拽调节宽度（双击恢复默认）"
+            className="group absolute -left-1 top-0 z-20 h-full w-2 cursor-col-resize"
+          >
+            <div
+              className={`absolute left-1/2 top-0 h-full -translate-x-1/2 transition-all duration-150 ${
+                isDragging
+                  ? "w-[3px] bg-teal-600"
+                  : "w-px bg-black/[0.06] group-hover:w-[3px] group-hover:bg-teal-600"
+              }`}
+            />
+          </div>
+        )}
         <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-3">
           <div className="min-w-0">
             <h2 className="text-[15px] font-bold tracking-tight">笔记 AI 问答</h2>
@@ -500,6 +544,16 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
               {modelLabel ? ` · ${modelLabel}` : ""}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setQaExpanded(false)}
+            title={isWide ? "收起 AI 问答（正文更宽）" : "关闭"}
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-zinc-400 transition hover:bg-black/[0.05] hover:text-zinc-700"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          </button>
         </div>
 
         <div
@@ -598,6 +652,7 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
           </p>
         </div>
       </aside>
+      )}
     </div>
   );
 }
