@@ -1154,6 +1154,7 @@ dependencies = [
     { name = "langgraph" },
     { name = "langgraph-checkpoint-sqlite" },
     { name = "pypdf" },
+    { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1180,6 +1181,7 @@ requires-dist = [
     { name = "langgraph" },
     { name = "langgraph-checkpoint-sqlite" },
     { name = "pypdf" },
+    { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "uvicorn", extras = ["standard"] },
 ]

@@ -1,7 +1,8 @@
 """运行配置：全部来自环境变量，默认零成本（Mock 模型）。
 
 设计原则：默认值必须让 `uv run python -m studygraph.cli ...` 开箱即用、不消耗
-任何 API 额度。接真实模型只需设置环境变量，不改代码。
+任何 API 额度。接真实模型只需设置环境变量（或项目根目录 `.env`，已被 Git
+忽略），不改代码。
 """
 
 from __future__ import annotations
@@ -9,6 +10,23 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+
+def _load_dotenv() -> None:
+    """加载项目根目录的 .env（不覆盖已有环境变量；文件不存在则跳过）。"""
+
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    # config.py 位于 <root>/src/studygraph/，向上两级是项目根。
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if env_path.is_file():
+        load_dotenv(env_path, override=False)
+
+
+_load_dotenv()
 
 
 @dataclass(frozen=True)
