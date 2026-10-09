@@ -345,12 +345,6 @@ export async function listChatMessages(sessionId: number): Promise<ChatMessage[]
   return data.messages;
 }
 
-export async function moveChat(sessionId: number, projectId: number | null): Promise<void> {
-  const form = new FormData();
-  if (projectId !== null) form.append("project_id", String(projectId));
-  await requestJson(`/api/chats/${sessionId}`, { method: "PUT", body: form });
-}
-
 /** 重命名会话（后端 PUT /api/chats/{id} 支持 title 字段） */
 export async function renameChat(sessionId: number, title: string): Promise<void> {
   const form = new FormData();

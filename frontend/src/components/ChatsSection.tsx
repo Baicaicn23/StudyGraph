@@ -13,7 +13,6 @@ import {
   deleteProject,
   listChats,
   listProjects,
-  moveChat,
   renameChat,
   renameProject,
   type ChatProject,
@@ -62,7 +61,6 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
   const router = useRouter();
   const [projects, setProjects] = useState<ChatProject[]>([]);
   const [chats, setChats] = useState<ChatSession[]>([]);
-  const [movePickerFor, setMovePickerFor] = useState<number | null>(null);
   const [menuFor, setMenuFor] = useState<number | null>(null);
   const [chatMenuFor, setChatMenuFor] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -130,17 +128,6 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
       await refreshLists();
     } catch {
       /* 重名等错误静默 */
-    }
-  };
-
-  const handleMove = async (sessionId: number, projectId: number | null) => {
-    try {
-      await moveChat(sessionId, projectId);
-      setMovePickerFor(null);
-      setChatMenuFor(null);
-      await refreshLists();
-    } catch {
-      /* ignore */
     }
   };
 
@@ -245,112 +232,46 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
         </button>
       </div>
 
-      {/* ⋯ 菜单：重命名 / 移动到其他项目 / 删除（删除前确认）
-          菜单本体两态切换：主菜单 ↔ 目标项目列表，不再套第二层弹窗 */}
+      {/* ⋯ 菜单：只留重命名 / 删除（对话天然归属所在项目，不提供跨项目移动）*/}
       {chatMenuFor === chat.id && (
         <>
           <div
             className="fixed inset-0 z-30"
-            onClick={() => {
-              setChatMenuFor(null);
-              setMovePickerFor(null);
-            }}
+            onClick={() => setChatMenuFor(null)}
             aria-hidden
           />
-          <div className="absolute right-2 top-full z-40 mt-1 w-44 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
-            {movePickerFor === chat.id ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setMovePickerFor(null)}
-                  className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-medium text-zinc-400 transition hover:bg-black/[0.04]"
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="m15 18-6-6 6-6" />
-                  </svg>
-                  选择目标项目
-                </button>
-                <div className="mt-1 max-h-52 overflow-y-auto">
-                  <button
-                    type="button"
-                    disabled={chat.project_id === null}
-                    onClick={() => void handleMove(chat.id, null)}
-                    className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04] disabled:cursor-default disabled:text-zinc-300 disabled:hover:bg-transparent"
-                  >
-                    未分组
-                    {chat.project_id === null && (
-                      <span className="ml-auto text-[10px] text-zinc-300">当前</span>
-                    )}
-                  </button>
-                  {projects.map((project) => (
-                    <button
-                      key={project.id}
-                      type="button"
-                      disabled={project.id === chat.project_id}
-                      onClick={() => void handleMove(chat.id, project.id)}
-                      className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04] disabled:cursor-default disabled:text-zinc-300 disabled:hover:bg-transparent"
-                    >
-                      <span className="truncate">{project.name}</span>
-                      {project.id === chat.project_id && (
-                        <span className="ml-auto shrink-0 pl-2 text-[10px] text-zinc-300">
-                          当前
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-1 border-t border-black/[0.06] px-2.5 pt-1.5 text-[10px] leading-relaxed text-zinc-400">
-                  移动只改变归档位置，对话内容与上下文保持不变
-                </p>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void handleRenameChat(chat)}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04]"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
-                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                  </svg>
-                  重命名
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMovePickerFor(chat.id)}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04]"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
-                    <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-                  </svg>
-                  移动到其他项目
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="ml-auto text-zinc-300">
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (
-                      !window.confirm(
-                        `确定删除「${chat.title || "新对话"}」吗？删除后不可恢复。`,
-                      )
-                    ) {
-                      return;
-                    }
-                    void handleDeleteChat(chat.id);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-red-600 transition hover:bg-red-50"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
-                    <path d="M3 6h18" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                  删除
-                </button>
-              </>
-            )}
+          <div className="absolute right-2 top-full z-40 mt-1 w-40 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
+            <button
+              type="button"
+              onClick={() => void handleRenameChat(chat)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04]"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
+                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+              </svg>
+              重命名
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    `确定删除「${chat.title || "新对话"}」吗？删除后不可恢复。`,
+                  )
+                ) {
+                  return;
+                }
+                void handleDeleteChat(chat.id);
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-red-600 transition hover:bg-red-50"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
+                <path d="M3 6h18" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+              删除
+            </button>
           </div>
         </>
       )}
