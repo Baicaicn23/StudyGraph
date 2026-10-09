@@ -11,6 +11,7 @@ import {
   generatePractice,
   getHealth,
   listChatMessages,
+  listChats,
   listFeedback,
   listLibraries,
   listProjects,
@@ -18,12 +19,11 @@ import {
   streamChat,
   studyPlan,
   type ChatProject,
-  type ChatSession,
   type Library,
   type StudyPlan,
   type StreamEvent,
 } from "@/lib/api";
-import ChatSidebar from "./ChatSidebar";
+import { notifyChatsChanged } from "./ChatsSection";
 import Markdown from "./Markdown";
 
 interface Message {
@@ -89,16 +89,10 @@ export default function Chat() {
     return threadIdRef.current;
   }, []);
 
-  /* ---------- 会话自动保存 / 侧栏 ---------- */
+  /* ---------- 会话自动保存（全局侧栏展示，通过事件通知刷新） ---------- */
   // 当前会话（null = 还没落库，首轮回复后端会自动新建并推回 id）
   const sessionIdRef = useRef<number | null>(null);
-  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
-  const [sidebarSignal, setSidebarSignal] = useState(0);
-  const refreshSidebar = useCallback(
-    () => setSidebarSignal((value) => value + 1),
-    [],
-  );
 
   /* ---------- 项目（空间）列表：输入栏下方的空间选择器用 ---------- */
   const [projects, setProjects] = useState<ChatProject[]>([]);
@@ -114,7 +108,7 @@ export default function Chat() {
   }, []);
   useEffect(() => {
     void refreshProjects();
-  }, [sidebarSignal, refreshProjects]);
+  }, [refreshProjects]);
 
   // 没选过空间时自动选中「默认对话空间」（后端保证一定存在）
   useEffect(() => {
@@ -137,11 +131,11 @@ export default function Chat() {
       setSpaceCreating(false);
       await refreshProjects();
       setActiveProjectId(created.id);
-      refreshSidebar(); // 让侧栏也同步出现这个新空间
+      notifyChatsChanged(); // 让全局侧栏同步出现这个新空间
     } catch {
       /* 重名等错误静默 */
     }
-  }, [newSpaceName, refreshProjects, refreshSidebar]);
+  }, [newSpaceName, refreshProjects]);
 
   /* ---------- 平滑打字机：token 先入队列，rAF 按需吐字 ---------- */
   const queueRef = useRef("");
@@ -267,12 +261,11 @@ export default function Chat() {
       } else if (event.type === "status") {
         setStatusLabel(event.label);
       } else if (event.type === "session") {
-        // 后端自动保存/自动起标题 → 记住会话 id，刷新侧栏
+        // 后端自动保存/自动起标题 → 记住会话 id，通知全局侧栏刷新
         if (sessionIdRef.current === null) {
           sessionIdRef.current = event.id;
-          setActiveSessionId(event.id);
         }
-        refreshSidebar();
+        notifyChatsChanged();
       } else if (event.type === "interrupt") {
         if (fullAccessRef.current) {
           // 允许完全访问：自动同意保存，不再弹确认框
@@ -291,7 +284,7 @@ export default function Chat() {
         appendToAssistant(`\n\n> ⚠️ ${event.message}`);
       }
     },
-    [appendToAssistant, refreshSidebar],
+    [appendToAssistant],
   );
 
   const send = useCallback(
@@ -369,43 +362,51 @@ export default function Chat() {
     if (busy) return;
     sessionIdRef.current = null;
     threadIdRef.current = "";
-    setActiveSessionId(null);
     setStatusLabel("");
     queueRef.current = "";
     setMessages([]);
   }, [busy]);
 
-  /** 在指定项目下新建对话：首轮消息会落到这个项目（记忆也跟着项目隔离） */
-  const startNewChatInProject = useCallback(
-    (projectId: number) => {
-      if (busy) return;
-      sessionIdRef.current = null;
-      threadIdRef.current = "";
-      setActiveSessionId(null);
-      setActiveProjectId(projectId);
+  const openSession = useCallback(async (sessionId: number) => {
+    if (busyRef.current) return;
+    sessionIdRef.current = sessionId;
+    try {
+      const [history, allChats] = await Promise.all([
+        listChatMessages(sessionId),
+        listChats(),
+      ]);
+      const meta = allChats.find((chat) => chat.id === sessionId);
+      threadIdRef.current = meta?.thread_id || `web-s${sessionId}`;
+      setActiveProjectId(meta?.project_id ?? null);
       setStatusLabel("");
       queueRef.current = "";
-      setMessages([]);
-    },
-    [busy],
-  );
-
-  const openSession = useCallback(async (session: ChatSession) => {
-    if (busyRef.current) return;
-    sessionIdRef.current = session.id;
-    threadIdRef.current = session.thread_id || `web-s${session.id}`;
-    setActiveSessionId(session.id);
-    setActiveProjectId(session.project_id);
-    setStatusLabel("");
-    queueRef.current = "";
-    try {
-      const history = await listChatMessages(session.id);
       setMessages(
         history.map((item) => ({ role: item.role, content: item.content })),
       );
     } catch {
+      threadIdRef.current = `web-s${sessionId}`;
       setMessages([]);
     }
+  }, []);
+
+  // 全局侧栏点「新对话 / 某条会话」→ 跳回本页时通过 sessionStorage 交接
+  useEffect(() => {
+    let action: { type: string; sessionId?: number } | null = null;
+    try {
+      const raw = sessionStorage.getItem("sg-chat-action");
+      if (raw) {
+        action = JSON.parse(raw) as { type: string; sessionId?: number };
+        sessionStorage.removeItem("sg-chat-action");
+      }
+    } catch {
+      /* ignore */
+    }
+    if (!action) return;
+    if (action.type === "new-chat") startNewChat();
+    if (action.type === "open" && action.sessionId) {
+      void openSession(action.sessionId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -509,21 +510,7 @@ export default function Chat() {
   );
 
   return (
-    <div className="flex h-full">
-      {/* 会话侧栏（窄屏隐藏） */}
-      <div className="hidden h-full md:block">
-        <ChatSidebar
-          activeSessionId={activeSessionId}
-          busy={busy}
-          onSelectSession={(session) => void openSession(session)}
-          onNewChat={startNewChat}
-          onNewChatInProject={startNewChatInProject}
-          refreshSignal={sidebarSignal}
-          onChatListChanged={refreshSidebar}
-        />
-      </div>
-
-      <div className="relative flex h-full min-w-0 flex-1 flex-col bg-white">
+    <div className="relative flex h-full min-w-0 flex-1 flex-col bg-white">
       {/* 顶部：标题 */}
       <header className="px-6 pt-6 pb-2">
         <h1 className="text-[17px] font-bold tracking-tight">聊天</h1>
@@ -1098,7 +1085,6 @@ export default function Chat() {
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 }

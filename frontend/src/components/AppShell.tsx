@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 import { getHealth } from "@/lib/api";
+import ChatsSection from "./ChatsSection";
 
 function NavIcon({ name }: { name: string }) {
   const common = {
@@ -121,7 +122,8 @@ function AppShellInner({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2.5 pb-4">
+        {/* 功能导航（上）：聊天 / 练习 / 错题 / 复习 / 知识库 */}
+        <nav className="px-2.5 pb-2 pt-1">
           <div className="flex flex-col gap-0.5">
             {NAV_ITEMS.map((item) => {
               const active =
@@ -149,14 +151,25 @@ function AppShellInner({ children }: { children: ReactNode }) {
           </div>
         </nav>
 
-        <div className="border-t border-black/[0.06] px-4 py-3">
-          <div className="flex items-center justify-center gap-2.5 lg:justify-start">
+        {/* 对话 + 项目（下，WorkBuddy 式；窄屏只显示导航） */}
+        <div className="hidden min-h-0 flex-1 lg:flex">
+          <ChatsSection pathname={pathname} />
+        </div>
+
+        <div className="hidden border-t border-black/[0.06] px-4 py-3 lg:block">
+          <div className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 text-[11px] font-semibold text-white">
               学
             </div>
-            <div className="hidden text-[13px] font-medium text-zinc-700 lg:block">
+            <div className="text-[13px] font-medium text-zinc-700">
               本地学习者
             </div>
+          </div>
+        </div>
+        {/* 窄屏底部占位：保持原图标布局 */}
+        <div className="border-t border-black/[0.06] px-4 py-3 lg:hidden">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 text-[11px] font-semibold text-white">
+            学
           </div>
         </div>
       </aside>

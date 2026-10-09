@@ -1,11 +1,11 @@
 "use client";
 
-// 会话侧栏：WorkBuddy 式项目分组。
-// - 项目是文件夹样式的常驻分组，会话直接列在项目下方（右侧相对时间）；
-// - 项目行悬停出「…」菜单（重命名/删除）和「+」（在该项目下新建对话）；
-// - 正在生成的会话显示小转圈（替代时间位置）。
+// 全局侧栏下部的「对话 + 项目」区（WorkBuddy 式）。
+// 所有页面都可见：点会话跳回聊天页并打开；在别的页面也能看到最近的对话。
+// 数据自己拉取；聊天页新建/改标题等动作通过 window 事件 "sg:chats-changed" 通知刷新。
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   createProject,
@@ -30,95 +30,77 @@ function relativeTime(timestamp: number): string {
   return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
-function FolderIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className={className}
-    >
-      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-    </svg>
-  );
+export const CHATS_CHANGED_EVENT = "sg:chats-changed";
+
+export function notifyChatsChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(CHATS_CHANGED_EVENT));
+  }
 }
 
-export default function ChatSidebar({
-  activeSessionId,
-  busy,
-  onSelectSession,
-  onNewChat,
-  onNewChatInProject,
-  refreshSignal,
-  onChatListChanged,
-}: {
-  activeSessionId: number | null;
-  busy: boolean;
-  onSelectSession: (session: ChatSession) => void;
-  onNewChat: () => void;
-  onNewChatInProject: (projectId: number) => void;
-  /** 父组件在会话标题更新等事件后 +1，触发这里刷新列表 */
-  refreshSignal: number;
-  onChatListChanged: () => void;
-}) {
+/** 让聊天页执行动作（新对话 / 打开某会话）——跨页面导航的交接棒 */
+export function stashChatAction(action: { type: "new-chat" } | { type: "open"; sessionId: number }) {
+  try {
+    sessionStorage.setItem("sg-chat-action", JSON.stringify(action));
+  } catch {
+    /* ignore */
+  }
+}
+
+export default function ChatsSection({ pathname }: { pathname: string }) {
+  const router = useRouter();
   const [projects, setProjects] = useState<ChatProject[]>([]);
   const [chats, setChats] = useState<ChatSession[]>([]);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [creatingProject, setCreatingProject] = useState(false);
-  const [moving, setMoving] = useState<number | null>(null); // 正在移动的会话 id
-  const [menuFor, setMenuFor] = useState<number | null>(null); // 打开「…」菜单的项目 id
-  // 折叠状态："all" = 全部对话分组，其余为项目 id 字符串
+  const [moving, setMoving] = useState<number | null>(null);
+  const [menuFor, setMenuFor] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
 
-  const toggleGroup = (key: string) =>
-    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  const reload = useCallback(() => {
+    Promise.all([listProjects(), listChats()])
+      .then(([nextProjects, nextChats]) => {
+        setProjects(nextProjects);
+        setChats(nextChats);
+      })
+      .catch(() => {
+        /* 后端未启动时保持空列表 */
+      });
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const [nextProjects, nextChats] = await Promise.all([
-          listProjects(),
-          listChats(),
-        ]);
-        if (!cancelled) {
-          setProjects(nextProjects);
-          setChats(nextChats);
-        }
-      } catch {
-        /* 后端未启动时保持空列表 */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshSignal]);
+    void reload();
+    const onChange = () => void reload();
+    window.addEventListener(CHATS_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(CHATS_CHANGED_EVENT, onChange);
+  }, [reload]);
+
+  // 路由变化时也刷新一次（从聊天页发完消息回到其他页，标题可能已更新）
+  useEffect(() => {
+    void reload();
+  }, [pathname, reload]);
 
   const knownProjectIds = new Set(projects.map((project) => project.id));
-  // 兜底：挂在不存在项目下的会话按「未分组」展示，避免凭空消失
   const ungrouped = chats.filter(
     (chat) => chat.project_id === null || !knownProjectIds.has(chat.project_id),
   );
 
-  const refreshLists = async () => {
-    const [nextProjects, nextChats] = await Promise.all([
-      listProjects(),
-      listChats(),
-    ]);
-    setProjects(nextProjects);
-    setChats(nextChats);
+  const toggleGroup = (key: string) =>
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const openSession = (chat: ChatSession) => {
+    stashChatAction({ type: "open", sessionId: chat.id });
+    router.push("/");
   };
 
-  /** 从「+」新建项目内对话：先展开该分组，再切换新对话上下文 */
-  const handleNewChatInProject = (projectId: number) => {
-    setCollapsed((prev) => ({ ...prev, [`p${projectId}`]: false }));
-    onNewChatInProject(projectId);
+  const startNewChat = () => {
+    stashChatAction({ type: "new-chat" });
+    router.push("/");
+  };
+
+  const refreshLists = async () => {
+    await reload();
+    notifyChatsChanged();
   };
 
   const handleCreateProject = async () => {
@@ -132,7 +114,6 @@ export default function ChatSidebar({
       setNewProjectName("");
       setCreatingProject(false);
       await refreshLists();
-      onChatListChanged(); // 同步输入栏的空间选择器
     } catch {
       /* 重名等错误静默 */
     }
@@ -143,7 +124,6 @@ export default function ChatSidebar({
       await moveChat(sessionId, projectId);
       setMoving(null);
       await refreshLists();
-      onChatListChanged();
     } catch {
       /* ignore */
     }
@@ -153,7 +133,6 @@ export default function ChatSidebar({
     try {
       await deleteChat(sessionId);
       await refreshLists();
-      onChatListChanged();
     } catch {
       /* ignore */
     }
@@ -164,7 +143,6 @@ export default function ChatSidebar({
       await deleteProject(projectId);
       setMenuFor(null);
       await refreshLists();
-      onChatListChanged();
     } catch {
       /* ignore */
     }
@@ -175,114 +153,89 @@ export default function ChatSidebar({
     if (!name || name === project.name) return;
     try {
       await renameProject(project.id, name);
-      setProjects(await listProjects());
-      onChatListChanged(); // 同步输入栏的空间选择器
+      await refreshLists();
     } catch {
       /* ignore */
     }
   };
 
-  /** 会话行：标题左、相对时间右；正在生成的会话时间位显示小转圈 */
-  const renderSession = (chat: ChatSession) => {
-    const isActive = chat.id === activeSessionId;
-    return (
-      <div
-        key={chat.id}
-        className={`group relative flex items-center rounded-lg transition ${
-          isActive ? "bg-teal-600/[0.09]" : "hover:bg-black/[0.04]"
-        }`}
-      >
-        <button
-          type="button"
-          onClick={() => onSelectSession(chat)}
-          className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-8 pr-2 text-left focus-visible:outline-none"
-        >
-          <span
-            className={`min-w-0 flex-1 truncate text-[13px] ${
-              isActive ? "font-medium text-teal-800" : "text-zinc-700"
-            }`}
-          >
-            {chat.title || "新对话"}
-          </span>
-          {isActive && busy ? (
-            <span className="shrink-0 text-teal-600">
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                aria-hidden
-                className="animate-spin"
-              >
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              </svg>
-            </span>
-          ) : (
-            <span className="shrink-0 text-[11px] tabular-nums text-zinc-400">
-              {relativeTime(chat.updated_at)}
-            </span>
-          )}
-        </button>
-
-        {/* 悬停操作：移动 / 删除 */}
-        <div className="absolute right-1.5 flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
-          <button
-            type="button"
-            title="移动到项目"
-            onClick={() => setMoving((v) => (v === chat.id ? null : chat.id))}
-            className="grid h-6 w-6 place-items-center rounded-md bg-white/90 text-zinc-400 shadow-sm ring-1 ring-black/5 transition hover:text-teal-700"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M3 6h18M3 12h18M3 18h18" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            title="删除对话"
-            onClick={() => void handleDeleteChat(chat.id)}
-            className="grid h-6 w-6 place-items-center rounded-md bg-white/90 text-zinc-400 shadow-sm ring-1 ring-black/5 transition hover:text-red-600"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M3 6h18" />
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
-          </button>
-        </div>
-
-        {/* 移动菜单 */}
-        {moving === chat.id && (
-          <div className="absolute right-1 top-full z-30 mt-1 w-44 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
-            <div className="px-2 py-1 text-[11px] font-medium text-zinc-400">
-              移动到…
-            </div>
-            <button
-              type="button"
-              onClick={() => void handleMove(chat.id, null)}
-              className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04]"
-            >
-              未分组
-            </button>
-            {projects.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                onClick={() => void handleMove(chat.id, project.id)}
-                className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04]"
-              >
-                {project.name}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
+  const handleNewChatInProject = (projectId: number) => {
+    setCollapsed((prev) => ({ ...prev, [`p${projectId}`]: false }));
+    stashChatAction({ type: "new-chat" });
+    router.push("/");
   };
 
-  /** 项目分组：文件夹行（点击折叠/展开；悬停出 … 和 +）+ 会话列表 */
+  const renderSession = (chat: ChatSession) => (
+    <div
+      key={chat.id}
+      className="group relative flex items-center rounded-lg transition hover:bg-black/[0.04]"
+    >
+      <button
+        type="button"
+        onClick={() => openSession(chat)}
+        className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-8 pr-2 text-left focus-visible:outline-none"
+      >
+        <span className="min-w-0 flex-1 truncate text-[13px] text-zinc-700">
+          {chat.title || "新对话"}
+        </span>
+        <span className="shrink-0 text-[11px] tabular-nums text-zinc-400">
+          {relativeTime(chat.updated_at)}
+        </span>
+      </button>
+
+      {/* 悬停操作：移动 / 删除 */}
+      <div className="absolute right-1.5 flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+        <button
+          type="button"
+          title="移动到项目"
+          onClick={() => setMoving((v) => (v === chat.id ? null : chat.id))}
+          className="grid h-6 w-6 place-items-center rounded-md bg-white/90 text-zinc-400 shadow-sm ring-1 ring-black/5 transition hover:text-teal-700"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M3 6h18M3 12h18M3 18h18" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          title="删除对话"
+          onClick={() => void handleDeleteChat(chat.id)}
+          className="grid h-6 w-6 place-items-center rounded-md bg-white/90 text-zinc-400 shadow-sm ring-1 ring-black/5 transition hover:text-red-600"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M3 6h18" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          </svg>
+        </button>
+      </div>
+
+      {moving === chat.id && (
+        <div className="absolute right-1 top-full z-30 mt-1 w-44 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
+          <div className="px-2 py-1 text-[11px] font-medium text-zinc-400">
+            移动到…
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleMove(chat.id, null)}
+            className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04]"
+          >
+            未分组
+          </button>
+          {projects.map((project) => (
+            <button
+              key={project.id}
+              type="button"
+              onClick={() => void handleMove(chat.id, project.id)}
+              className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04]"
+            >
+              {project.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   const renderProject = (project: ChatProject) => {
     const items = chats.filter((chat) => chat.project_id === project.id);
     const key = `p${project.id}`;
@@ -312,7 +265,9 @@ export default function ChatSidebar({
             >
               <path d="m6 9 6 6 6-6" />
             </svg>
-            <FolderIcon className="shrink-0 text-zinc-400" />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
+              <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+            </svg>
             <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-700">
               {project.name}
             </span>
@@ -348,7 +303,6 @@ export default function ChatSidebar({
             </button>
           </div>
 
-          {/* 项目「…」菜单 */}
           {menuFor === project.id && (
             <>
               <div
@@ -399,27 +353,30 @@ export default function ChatSidebar({
   };
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-black/[0.06] bg-zinc-50/80">
-      {/* 新聊天 */}
-      <div className="p-3">
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* 新对话（WorkBuddy「新建任务」式的普通行） */}
+      <div className="px-2.5 pb-1">
         <button
           type="button"
-          onClick={onNewChat}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-3 py-2 text-[13px] font-medium text-white shadow-sm transition hover:bg-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus-visible:outline-none"
+          onClick={startNewChat}
+          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium text-zinc-800 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M12 5v14M5 12h14" />
-          </svg>
+          <span className="text-zinc-500">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v8M8 12h8" />
+            </svg>
+          </span>
           新对话
         </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
-        {/* 未分组兜底：正常情况下所有会话都归属某个空间，这里只在异常数据时出现 */}
+        {/* 未分组兜底：正常情况下所有会话都在空间里 */}
         {ungrouped.length > 0 && (
           <section className="mt-1">
             <div className="flex items-center rounded-lg px-2 py-1.5">
-              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-500">
+              <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-zinc-400">
                 未分组
               </span>
               <span className="text-[11px] tabular-nums text-zinc-400">
@@ -430,8 +387,14 @@ export default function ChatSidebar({
           </section>
         )}
 
-        {/* 项目（空间）分组，默认空间排在最前（后端已排序） */}
+        {/* 项目（空间）分组，默认空间排最前（后端已排序） */}
         {projects.map(renderProject)}
+
+        {projects.length === 0 && ungrouped.length === 0 && (
+          <p className="px-3 py-2 text-[11px] leading-relaxed text-zinc-400">
+            发第一条消息后，对话会自动保存在「默认对话空间」。
+          </p>
+        )}
 
         {/* 新建项目 */}
         {creatingProject ? (
@@ -462,6 +425,6 @@ export default function ChatSidebar({
           </button>
         )}
       </div>
-    </aside>
+    </div>
   );
 }
