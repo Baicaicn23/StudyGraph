@@ -17,7 +17,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import replace
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
@@ -193,6 +193,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def list_libraries(request: Request) -> dict:
         return {"libraries": request.app.state.store.list_libraries()}
 
+    @app.get("/api/knowledge/documents")
+    async def list_documents(
+        request: Request, library: str = Query(min_length=1, max_length=64)
+    ) -> dict:
+        return {"documents": request.app.state.store.list_documents(library)}
+
+    @app.get("/api/knowledge/document")
+    async def get_document(
+        request: Request, id: int = Query(ge=1)
+    ) -> dict:
+        document = request.app.state.store.get_document(id)
+        if document is None:
+            raise HTTPException(status_code=404, detail="资料不存在")
+        return {"document": document}
+
     @app.post("/api/knowledge/notes")
     async def add_note(body: NoteRequest, request: Request) -> dict:
         document_id = request.app.state.store.add_note(
@@ -242,7 +257,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         payload: dict = {
             "messages": [HumanMessage(body.message)],
             "user_id": body.user_id,
-            "memories": learning.memories(body.user_id),
+            "memories": [
+                m["content"] for m in learning.memories(body.user_id)
+            ],
         }
         if body.knowledge_bases:
             payload["knowledge_bases"] = body.knowledge_bases
@@ -307,6 +324,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def study_plan(request: Request, user_id: str = "local") -> dict:
         return request.app.state.learning.plan(user_id)
 
+    @app.get("/api/study/activity")
+    async def study_activity(
+        request: Request,
+        user_id: str = "local",
+        days: int = Query(default=30, ge=1, le=60),
+    ) -> dict:
+        return {"days": request.app.state.learning.activity_series(user_id, days=days)}
+
     @app.get("/api/memories")
     async def list_memories(request: Request, user_id: str = "local") -> dict:
         return {"memories": request.app.state.learning.memories(user_id)}
@@ -318,6 +343,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {
             "total_tokens": repository.total_since(user_id=user_id, since=since),
             "by_model": repository.summary(user_id=user_id, since=since),
+            "by_day": repository.daily_series(user_id=user_id, days=7),
+            "daily_token_budget": request.app.state.settings.daily_token_budget,
         }
 
     return app

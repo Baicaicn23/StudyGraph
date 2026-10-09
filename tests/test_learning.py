@@ -115,7 +115,9 @@ async def test_plan_summarizes_weak_and_due(tmp_path: Path) -> None:
 def test_remember_and_list_memories(tmp_path: Path) -> None:
     _knowledge, learning = _services(tmp_path)
     assert learning.remember("u1", "记住：我在准备月底的微积分测验") == ["我在准备月底的微积分测验"]
-    assert learning.memories("u1") == ["我在准备月底的微积分测验"]
+    assert [m["content"] for m in learning.memories("u1")] == [
+        "我在准备月底的微积分测验"
+    ]
     # 去重
     learning.remember("u1", "记住：我在准备月底的微积分测验")
     assert len(learning.memories("u1")) == 1

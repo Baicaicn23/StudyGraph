@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import datetime
 import sqlite3
 import time
 from pathlib import Path
@@ -240,14 +241,17 @@ class SqliteLearningRepository:
                 (user_id, content, created_at),
             )
 
-    def list_memories(self, user_id: str, *, limit: int = 10) -> list[str]:
+    def list_memories(self, user_id: str, *, limit: int = 10) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT content FROM memories WHERE user_id = ? "
+                "SELECT content, created_at FROM memories WHERE user_id = ? "
                 "ORDER BY created_at DESC, id DESC LIMIT ?",
                 (user_id, limit),
             ).fetchall()
-        return [str(row["content"]) for row in rows]
+        return [
+            {"content": str(row["content"]), "created_at": float(row["created_at"])}
+            for row in rows
+        ]
 
     def count_recent_mistakes(self, user_id: str, *, since: float) -> int:
         with self._connect() as connection:
@@ -257,3 +261,53 @@ class SqliteLearningRepository:
                 (user_id, since),
             ).fetchone()
         return int(row["count"]) if row else 0
+
+    def activity_series(self, user_id: str, *, days: int) -> list[dict[str, Any]]:
+        """按本地日期聚合近 N 天的学习活跃度（热力图数据）。
+
+        - exercises：当天完成的练习作答次数（practice_attempts，按题目归属用户）。
+        - mistakes：当天新增的误区条数（feedback）。
+
+        返回恒为 ``days`` 个条目、从旧到新，没有数据的天补零——前端不用再对齐日期。
+        """
+
+        now = datetime.datetime.now()
+        start = (now - datetime.timedelta(days=days - 1)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        since = start.timestamp()
+        dates = [
+            (start + datetime.timedelta(days=offset)).strftime("%Y-%m-%d")
+            for offset in range(days)
+        ]
+        counts: dict[str, dict[str, int]] = {
+            day: {"exercises": 0, "mistakes": 0} for day in dates
+        }
+
+        with self._connect() as connection:
+            attempt_rows = connection.execute(
+                "SELECT a.created_at AS created_at FROM practice_attempts a "
+                "JOIN practice_questions q ON q.id = a.question_id "
+                "WHERE q.user_id = ? AND a.created_at >= ?",
+                (user_id, since),
+            ).fetchall()
+            feedback_rows = connection.execute(
+                "SELECT created_at FROM feedback "
+                "WHERE user_id = ? AND created_at >= ?",
+                (user_id, since),
+            ).fetchall()
+
+        for row in attempt_rows:
+            key = datetime.datetime.fromtimestamp(row["created_at"]).strftime(
+                "%Y-%m-%d"
+            )
+            if key in counts:
+                counts[key]["exercises"] += 1
+        for row in feedback_rows:
+            key = datetime.datetime.fromtimestamp(row["created_at"]).strftime(
+                "%Y-%m-%d"
+            )
+            if key in counts:
+                counts[key]["mistakes"] += 1
+
+        return [{"date": day, **counts[day]} for day in dates]

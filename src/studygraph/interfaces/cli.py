@@ -127,7 +127,7 @@ async def _amain(settings: Settings, text: str, args: argparse.Namespace) -> Non
             thread=args.thread,
             user_id=user_id,
             auto_approve=args.yes,
-            memories=learning.memories(user_id),
+            memories=[m["content"] for m in learning.memories(user_id)],
         )
     for client in mcp_clients:
         await client.close()

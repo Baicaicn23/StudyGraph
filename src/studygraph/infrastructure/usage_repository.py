@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -70,3 +71,33 @@ class SqliteUsageRepository:
                 (user_id, since),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def daily_series(self, *, user_id: str, days: int) -> list[dict[str, Any]]:
+        """按本地日期聚合近 N 天的 token 消耗（趋势图数据）。
+
+        返回恒为 ``days`` 个条目、从旧到新，没有消耗的天补零。
+        """
+
+        now = datetime.datetime.now()
+        start = (now - datetime.timedelta(days=days - 1)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        since = start.timestamp()
+        dates = [
+            (start + datetime.timedelta(days=offset)).strftime("%Y-%m-%d")
+            for offset in range(days)
+        ]
+        buckets = {day: 0 for day in dates}
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT created_at, total_tokens FROM llm_usage "
+                "WHERE user_id = ? AND created_at >= ?",
+                (user_id, since),
+            ).fetchall()
+        for row in rows:
+            key = datetime.datetime.fromtimestamp(row["created_at"]).strftime(
+                "%Y-%m-%d"
+            )
+            if key in buckets:
+                buckets[key] += int(row["total_tokens"])
+        return [{"date": day, "total_tokens": buckets[day]} for day in dates]

@@ -183,6 +183,47 @@ class KnowledgeStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def get_document(self, document_id: int) -> dict[str, object] | None:
+        """取单份资料的完整内容（正文渲染用）。"""
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id, library, title, content, created_at "
+                "FROM documents WHERE id = ?",
+                (document_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": int(row["id"]),
+            "library": str(row["library"]),
+            "title": str(row["title"]),
+            "content": str(row["content"]),
+            "created_at": float(row["created_at"]),
+        }
+
+    def list_documents(self, library: str) -> list[dict[str, object]]:
+        """列出某学科库下的资料（标题 + 时间 + 字数），供资料列表页使用。"""
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, title, created_at, LENGTH(content) AS chars
+                FROM documents WHERE library = ?
+                ORDER BY created_at DESC, id DESC
+                """,
+                (library,),
+            ).fetchall()
+        return [
+            {
+                "id": int(row["id"]),
+                "title": str(row["title"]),
+                "created_at": float(row["created_at"]),
+                "chars": int(row["chars"]),
+            }
+            for row in rows
+        ]
+
     def list_chunks(self, *, library: str | None = None) -> list[Chunk]:
         sql = "SELECT id, library, title, content FROM chunks"
         params: list[object] = []

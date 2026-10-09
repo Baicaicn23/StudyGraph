@@ -191,6 +191,11 @@ class LearningService:
     def progress(self, user_id: str) -> list[dict[str, Any]]:
         return self.repository.list_progress(user_id)
 
+    def activity_series(self, user_id: str, *, days: int) -> list[dict[str, Any]]:
+        """近 N 天学习活跃度（练习量 + 新增误区，按天聚合），供热力图使用。"""
+
+        return self.repository.activity_series(user_id, days=days)
+
     # -- 长期记忆 -------------------------------------------------------------
 
     def remember(self, user_id: str, text: str) -> list[str]:
@@ -200,7 +205,7 @@ class LearningService:
             self.repository.remember_fact(user_id, fact, created_at=now)
         return facts
 
-    def memories(self, user_id: str, *, limit: int = 10) -> list[str]:
+    def memories(self, user_id: str, *, limit: int = 10) -> list[dict[str, Any]]:
         return self.repository.list_memories(user_id, limit=limit)
 
     # -- 今日复习 -------------------------------------------------------------

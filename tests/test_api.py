@@ -64,6 +64,58 @@ def test_documents_endpoint_uploads_material(tmp_path) -> None:
     assert any(item["name"] == "高等数学" for item in libraries)
 
 
+def test_documents_listing_returns_library_materials(tmp_path) -> None:
+    with _client(tmp_path) as client:
+        client.post(
+            "/api/knowledge/documents",
+            json={
+                "library": "高等数学",
+                "title": "导数讲义",
+                "content": "导数是瞬时变化率。",
+            },
+        )
+        client.post(
+            "/api/knowledge/documents",
+            json={
+                "library": "高等数学",
+                "title": "定积分讲义",
+                "content": "定积分求区间上的累积量，结果是数值。",
+            },
+        )
+        body = client.get(
+            "/api/knowledge/documents", params={"library": "高等数学"}
+        ).json()["documents"]
+        empty = client.get(
+            "/api/knowledge/documents", params={"library": "线性代数"}
+        ).json()["documents"]
+
+    titles = [item["title"] for item in body]
+    assert titles == ["定积分讲义", "导数讲义"]  # 新的在前
+    assert all(item["chars"] > 0 for item in body)
+    assert empty == []
+
+
+def test_document_detail_returns_full_content(tmp_path) -> None:
+    with _client(tmp_path) as client:
+        created = client.post(
+            "/api/knowledge/documents",
+            json={
+                "library": "高等数学",
+                "title": "导数讲义",
+                "content": "导数是瞬时变化率，反映切线斜率。",
+            },
+        ).json()
+        body = client.get(
+            "/api/knowledge/document", params={"id": created["id"]}
+        ).json()["document"]
+        missing = client.get("/api/knowledge/document", params={"id": 99999})
+
+    assert body["title"] == "导数讲义"
+    assert body["library"] == "高等数学"
+    assert "瞬时变化率" in body["content"]
+    assert missing.status_code == 404
+
+
 def test_chat_stream_runs_tools_and_streams(tmp_path) -> None:
     with _client(tmp_path) as client:
         events = _read_events(
@@ -150,6 +202,38 @@ def test_learning_loop_endpoints(tmp_path) -> None:
         assert plan["suggestions"]
 
 
+def test_activity_endpoint_buckets_today(tmp_path) -> None:
+    with _client(tmp_path) as client:
+        # 今天记一条误区 → 自评一次（产生练习作答）
+        client.post(
+            "/api/feedback",
+            json={"library": "线性代数", "question": "什么是特征值？", "note": "概念混淆"},
+        )
+        generated = client.post(
+            "/api/practice/generate", json={"source": "mistakes", "count": 1}
+        ).json()["questions"]
+        client.post(
+            "/api/practice/answer",
+            json={"question_id": generated[0]["id"], "rating": "good"},
+        )
+        body = client.get("/api/study/activity", params={"days": 7}).json()["days"]
+
+    assert len(body) == 7
+    assert [item["date"] for item in body] == sorted(item["date"] for item in body)
+    today = body[-1]
+    assert today["mistakes"] >= 1
+    assert today["exercises"] >= 1
+
+
+def test_usage_includes_budget_and_daily_series(tmp_path) -> None:
+    with _client(tmp_path) as client:
+        body = client.get("/api/usage", params={"days": 1}).json()
+
+    assert body["daily_token_budget"] == 0  # 默认未设预算
+    assert len(body["by_day"]) == 7
+    assert all("total_tokens" in item for item in body["by_day"])
+
+
 def test_chat_turn_records_long_term_memory(tmp_path) -> None:
     with _client(tmp_path) as client:
         _read_events(
@@ -158,7 +242,9 @@ def test_chat_turn_records_long_term_memory(tmp_path) -> None:
             {"message": "记住：我在准备月底的微积分测验", "thread_id": "m1"},
         )
         memories = client.get("/api/memories").json()["memories"]
-    assert "我在准备月底的微积分测验" in memories
+    assert any(
+        "我在准备月底的微积分测验" in item["content"] for item in memories
+    )
 
 
 def test_upload_endpoint_ingests_a_text_file(tmp_path) -> None:

@@ -18,6 +18,11 @@ GET /api/knowledge/libraries
 ```
 
 ```
+GET /api/knowledge/documents?library=线性代数    # 某学科库下的资料列表（新的在前）
+→ {"documents": [{"id": 1, "title": "特征值", "created_at": 1760000000.0, "chars": 120}, ...]}
+```
+
+```
 POST /api/knowledge/notes           # 写入一条笔记
 body: {"library": "线性代数", "title": "特征值", "content": "..."}
 → {"id": 1, "library": "线性代数", "title": "特征值"}
