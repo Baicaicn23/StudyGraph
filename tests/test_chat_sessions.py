@@ -289,6 +289,27 @@ def test_chat_stream_emits_process_steps(tmp_path) -> None:
         assert assistant["steps"][0]["title"] == "理解问题"
 
 
+def test_memories_without_project_fall_back_to_default_space(tmp_path) -> None:
+    """没带project_id 发消息，记忆也要落进默认空间（不能进 project_id='' 的黑洞桶）。"""
+
+    settings = Settings(database_path=str(tmp_path / "api.db"))
+    with TestClient(create_app(settings)) as client:
+        default_id = client.get("/api/projects").json()["projects"][0]["id"]
+
+        _read_events(
+            client,
+            "/api/chat/stream",
+            {"message": "记住：兜底也要记住我", "thread_id": "fb-1"},
+        )
+
+        scoped = client.get(
+            "/api/memories", params={"project_id": default_id}
+        ).json()["memories"]
+        assert any(m["content"] == "兜底也要记住我" for m in scoped), (
+            "记忆应能在默认空间里查到，否则表现为「明明记住了却忘了」"
+        )
+
+
 def test_chat_stream_with_existing_session_reuses_thread(tmp_path) -> None:
     settings = Settings(database_path=str(tmp_path / "api.db"))
     with TestClient(create_app(settings)) as client:

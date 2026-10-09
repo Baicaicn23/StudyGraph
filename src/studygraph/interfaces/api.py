@@ -625,9 +625,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         config = {"configurable": {"thread_id": body.thread_id}}
         learning: LearningService = request.app.state.learning
-        learning.remember(
-            body.user_id, body.message, project_id=str(body.project_id or "")
+        chat = request.app.state.chat
+        # 项目兜底：没带project_id 时归入「默认对话空间」。
+        # 否则记忆会落进project_id="" 的黑洞桶——按项目查询时谁都读不到，
+        # 表现为「明明让它记住了，它却忘了」。
+        project_id = (
+            body.project_id
+            if body.project_id is not None
+            else chat.ensure_default_project(body.user_id)
         )
+        project_key = str(project_id)
+        learning.remember(body.user_id, body.message, project_id=project_key)
 
         # 聊天附件：把抽取出的文本拼进本轮消息，模型就能「看到」PDF/图片内容。
         attachment_meta: list[dict] = []
@@ -660,9 +668,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "user_id": body.user_id,
             "memories": [
                 m["content"]
-                for m in learning.memories(
-                    body.user_id, project_id=str(body.project_id or "")
-                )
+                for m in learning.memories(body.user_id, project_id=project_key)
             ],
             # 掌握度快照：system prompt 据此调整讲解深度（贴合学生水平）。
             "progress": learning.progress(body.user_id),
@@ -672,7 +678,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         # 自动保存：没有 session_id 就新建会话（标题先占位，回复完后自动起名）。
         session = None
-        chat = request.app.state.chat
         if body.session_id is not None:
             session = chat.get_session(body.user_id, body.session_id)
             if session is None:
@@ -680,7 +685,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         else:
             session_id = chat.create_session(
                 user_id=body.user_id,
-                project_id=body.project_id,
+                project_id=project_id,
                 thread_id=body.thread_id,
             )
             session = chat.get_session(body.user_id, session_id)
