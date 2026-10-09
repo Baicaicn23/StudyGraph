@@ -32,6 +32,7 @@ function relativeTime(timestamp: number): string {
 }
 
 export const CHATS_CHANGED_EVENT = "sg:chats-changed";
+export const CHAT_ACTION_EVENT = "sg:chat-action";
 
 export function notifyChatsChanged() {
   if (typeof window !== "undefined") {
@@ -49,6 +50,11 @@ export function stashChatAction(
     sessionStorage.setItem("sg-chat-action", JSON.stringify(action));
   } catch {
     /* ignore */
+  }
+  // 人已在聊天页时 router.push 是空操作、挂载效果不会重跑，
+  // 补发一个事件让聊天页立刻消费这条动作
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(CHAT_ACTION_EVENT));
   }
 }
 

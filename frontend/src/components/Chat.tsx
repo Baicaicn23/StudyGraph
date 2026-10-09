@@ -23,7 +23,7 @@ import {
   type StudyPlan,
   type StreamEvent,
 } from "@/lib/api";
-import { notifyChatsChanged } from "./ChatsSection";
+import { CHAT_ACTION_EVENT, notifyChatsChanged } from "./ChatsSection";
 import Markdown from "./Markdown";
 
 interface Message {
@@ -393,8 +393,8 @@ export default function Chat() {
     }
   }, []);
 
-  // 全局侧栏点「新对话 / 某条会话」→ 跳回本页时通过 sessionStorage 交接
-  useEffect(() => {
+  // 全局侧栏点「新对话 / 某条会话」→ 通过 sessionStorage 交接棒 + 事件通知
+  const consumeChatAction = useCallback(() => {
     let action:
       | { type: string; sessionId?: number; projectId?: number }
       | null = null;
@@ -416,8 +416,19 @@ export default function Chat() {
     if (action.type === "open" && action.sessionId) {
       void openSession(action.sessionId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [startNewChat, openSession]);
+
+  // 跨页跳转进来时：挂载后消费一次交接棒
+  useEffect(() => {
+    consumeChatAction();
+  }, [consumeChatAction]);
+
+  // 人已在聊天页时：侧栏动作通过事件即时送达
+  useEffect(() => {
+    window.addEventListener(CHAT_ACTION_EVENT, consumeChatAction);
+    return () =>
+      window.removeEventListener(CHAT_ACTION_EVENT, consumeChatAction);
+  }, [consumeChatAction]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
