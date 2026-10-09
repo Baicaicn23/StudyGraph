@@ -124,6 +124,10 @@ export async function listLibraries(): Promise<Library[]> {
   return data.libraries;
 }
 
+export async function createLibrary(name: string): Promise<void> {
+  await postJson("/api/knowledge/libraries", { name });
+}
+
 export async function listDocuments(library: string): Promise<DocumentItem[]> {
   const data = await requestJson<{ documents: DocumentItem[] }>(
     `/api/knowledge/documents?library=${encodeURIComponent(library)}`,

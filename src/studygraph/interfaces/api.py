@@ -82,6 +82,10 @@ class DocumentUpdateRequest(BaseModel):
     content: str = Field(min_length=1, max_length=200000)
 
 
+class LibraryRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+
+
 class FeedbackRequest(BaseModel):
     user_id: str = Field(default="local", max_length=64)
     library: str = Field(default="", max_length=64)
@@ -289,6 +293,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/knowledge/libraries")
     async def list_libraries(request: Request) -> dict:
         return {"libraries": request.app.state.store.list_libraries()}
+
+    @app.post("/api/knowledge/libraries")
+    async def create_library(body: LibraryRequest, request: Request) -> dict:
+        """新建知识库（只建空库；重名视为已存在，幂等）。"""
+
+        name = body.name.strip()
+        try:
+            request.app.state.store.ensure_library(name)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"name": name}
 
     @app.get("/api/knowledge/documents")
     async def list_documents(

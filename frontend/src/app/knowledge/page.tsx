@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   addNote,
+  createLibrary,
   deleteDocument,
   deleteLibrary,
   getHealth,
@@ -466,6 +467,30 @@ export default function KnowledgePage() {
     [refreshLibraries],
   );
 
+  /* ---------- 新建知识库 ---------- */
+  const [creatingLib, setCreatingLib] = useState(false);
+  const [newLibName, setNewLibName] = useState("");
+  const createNewLibrary = useCallback(async () => {
+    const name = newLibName.trim();
+    if (!name) {
+      setCreatingLib(false);
+      return;
+    }
+    try {
+      await createLibrary(name);
+      setNewLibName("");
+      setCreatingLib(false);
+      await refreshLibraries();
+      setActiveLib(name); // 建完直接选中，上传/写笔记立刻可用
+      setExpandedLibs((prev) =>
+        prev.includes(name) ? prev : [...prev, name],
+      );
+      setMessage(`已创建知识库「${name}」`);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }, [newLibName, refreshLibraries]);
+
   const modelLabel = provider === "mock" ? "Mock 模型" : provider;
 
   /* ---------- AI 问答 ---------- */
@@ -733,8 +758,40 @@ export default function KnowledgePage() {
           })}
           {libraries.length === 0 && (
             <p className="px-2.5 py-2 text-xs text-zinc-400">
-              还没有学科库，用顶部「上传」建第一个。
+              还没有学科库，点下方「新建知识库」开始。
             </p>
+          )}
+        </div>
+
+        {/* 新建知识库 */}
+        <div className="border-t border-black/[0.06] p-2">
+          {creatingLib ? (
+            <input
+              autoFocus
+              value={newLibName}
+              onChange={(event) => setNewLibName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void createNewLibrary();
+                if (event.key === "Escape") {
+                  setNewLibName("");
+                  setCreatingLib(false);
+                }
+              }}
+              onBlur={() => void createNewLibrary()}
+              placeholder="库名，如：高等数学"
+              className="w-full rounded-lg bg-white px-2.5 py-1.5 text-xs ring-1 ring-teal-600 outline-none"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCreatingLib(true)}
+              className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-black/[0.04] hover:text-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              新建知识库
+            </button>
           )}
         </div>
       </aside>
@@ -892,8 +949,20 @@ export default function KnowledgePage() {
                     <p className="mt-3 text-sm text-zinc-400">
                       {activeLib
                         ? "这个库还没有资料，点右上角「上传」或「写笔记」。"
-                        : "先选择一个学科库"}
+                        : "先在左侧新建或选择一个学科库"}
                     </p>
+                    {libraries.length === 0 && !creatingLib && (
+                      <button
+                        type="button"
+                        onClick={() => setCreatingLib(true)}
+                        className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-teal-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus-visible:outline-none"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        新建第一个知识库
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <ul className="space-y-1">
