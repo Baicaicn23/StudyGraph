@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { ChangeEvent, KeyboardEvent } from "react";
 
 import {
   addFeedback,
@@ -18,6 +18,7 @@ import {
   resumeChat,
   streamChat,
   studyPlan,
+  uploadChatAttachment,
   type ChatProject,
   type Library,
   type StudyPlan,
@@ -29,6 +30,8 @@ import Markdown from "./Markdown";
 interface Message {
   role: "user" | "assistant";
   content: string;
+  /** 用户消息携带的附件文件名（仅用于展示） */
+  attachments?: string[];
 }
 
 interface PendingInterrupt {
@@ -70,6 +73,12 @@ export default function Chat() {
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
   const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  // 聊天附件：待发送的文件（已上传拿到 id），随下一条消息一起发出
+  const [pendingFiles, setPendingFiles] = useState<
+    { id: number; filename: string }[]
+  >([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 每条 AI 回复的学习操作
   const [actionBusy, setActionBusy] = useState<number | null>(null);
@@ -299,9 +308,12 @@ export default function Chat() {
       busyRef.current = true;
       setStatusLabel("正在理解问题…");
       startPump();
+      const attachedNames = pendingFiles.map((file) => file.filename);
+      const attachedIds = pendingFiles.map((file) => file.id);
+      setPendingFiles([]);
       setMessages((prev) => [
         ...prev,
-        { role: "user", content: text },
+        { role: "user", content: text, attachments: attachedNames },
         { role: "assistant", content: "" },
       ]);
       await streamChat(
@@ -311,6 +323,7 @@ export default function Chat() {
           knowledge_bases: selected,
           session_id: sessionIdRef.current ?? undefined,
           project_id: activeProjectId ?? undefined,
+          attachment_ids: attachedIds.length > 0 ? attachedIds : undefined,
         },
         handleEvent,
       );
@@ -323,6 +336,7 @@ export default function Chat() {
     [
       input,
       busy,
+      pendingFiles,
       getThreadId,
       selected,
       activeProjectId,
@@ -385,7 +399,11 @@ export default function Chat() {
       setStatusLabel("");
       queueRef.current = "";
       setMessages(
-        history.map((item) => ({ role: item.role, content: item.content })),
+        history.map((item) => ({
+          role: item.role,
+          content: item.content,
+          attachments: item.attachments ?? [],
+        })),
       );
     } catch {
       threadIdRef.current = `web-s${sessionId}`;
@@ -452,6 +470,38 @@ export default function Chat() {
         144,
       )}px`;
       inputRef.current.focus();
+    }
+  };
+
+  /* ---------- 聊天附件上传 ---------- */
+  const ACCEPTED_FILES = ".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp";
+
+  const handleFileChosen = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // 允许重复选同一个文件
+    if (!file) return;
+    if (pendingFiles.length >= 6) {
+      window.alert("一条消息最多带 6 个附件");
+      return;
+    }
+    setUploadingFile(true);
+    try {
+      const uploaded = await uploadChatAttachment(
+        file,
+        sessionIdRef.current ?? undefined,
+      );
+      setPendingFiles((prev) => [
+        ...prev,
+        { id: uploaded.id, filename: uploaded.filename },
+      ]);
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "附件上传失败，请重试",
+      );
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -732,6 +782,20 @@ export default function Chat() {
                 aria-hidden
               />
               <div className="animate-pop-in absolute bottom-full left-0 z-50 mb-2 w-56 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlusMenuOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  disabled={uploadingFile}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04] disabled:opacity-50"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                  </svg>
+                  {uploadingFile ? "正在上传…" : "上传文件（PDF/图片/文本）"}
+                </button>
                 <Link
                   href="/knowledge"
                   onClick={() => setPlusMenuOpen(false)}
@@ -838,6 +902,47 @@ export default function Chat() {
               </div>
             </>
           )}
+
+          {/* 待发送附件条 */}
+          {pendingFiles.length > 0 && (
+            <div className="animate-fade-up mb-2 flex flex-wrap gap-1.5">
+              {pendingFiles.map((file) => (
+                <span
+                  key={file.id}
+                  className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] text-zinc-600 shadow-sm ring-1 ring-black/10"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                    <path d="M14 2v6h6" />
+                  </svg>
+                  <span className="max-w-[160px] truncate">{file.filename}</span>
+                  <button
+                    type="button"
+                    title="移除附件"
+                    onClick={() =>
+                      setPendingFiles((prev) =>
+                        prev.filter((item) => item.id !== file.id),
+                      )
+                    }
+                    className="text-zinc-400 transition hover:text-red-600"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* 隐藏的文件选择器（+ 菜单「上传文件」触发） */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPTED_FILES}
+            onChange={(event) => void handleFileChosen(event)}
+            className="hidden"
+          />
 
           {/* 输入栏 */}
           <div className="flex items-end gap-1.5 rounded-2xl bg-white p-2 shadow-lg shadow-black/[0.06] ring-1 ring-black/10 transition focus-within:ring-2 focus-within:ring-teal-600">
@@ -1143,7 +1248,23 @@ function MessageRow({
 }) {
   if (message.role === "user") {
     return (
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end gap-1">
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="flex max-w-[85%] flex-wrap justify-end gap-1">
+            {message.attachments.map((name, i) => (
+              <span
+                key={`${name}-${i}`}
+                className="flex items-center gap-1 rounded-full bg-black/[0.05] px-2.5 py-1 text-[11px] text-zinc-600"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                  <path d="M14 2v6h6" />
+                </svg>
+                <span className="max-w-[160px] truncate">{name}</span>
+              </span>
+            ))}
+          </div>
+        )}
         <div className="max-w-[85%] rounded-2xl rounded-br-md bg-teal-600 px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm">
           {message.content}
         </div>

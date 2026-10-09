@@ -30,7 +30,11 @@ def test_document_update_reindexes_content(tmp_path) -> None:
         # 改写正文：旧关键词检索不到，新关键词能检索到
         updated = client.put(
             "/api/knowledge/document",
-            json={"id": doc_id, "title": "导数与微分", "content": "微分是线性主部，泰勒展开是近似工具。"},
+            json={
+                "id": doc_id,
+                "title": "导数与微分",
+                "content": "微分是线性主部，泰勒展开是近似工具。",
+            },
         )
         assert updated.status_code == 200
 

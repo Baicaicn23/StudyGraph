@@ -40,10 +40,22 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     session_id INTEGER NOT NULL,
     role TEXT NOT NULL,
     content TEXT NOT NULL,
+    attachments TEXT NOT NULL DEFAULT '',
     created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_messages_session
     ON chat_messages(session_id, id);
+CREATE TABLE IF NOT EXISTS chat_attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    session_id INTEGER,
+    filename TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'file',
+    content TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_attachments_user
+    ON chat_attachments(user_id, id);
 """
 
 
@@ -76,6 +88,15 @@ class SqliteChatRepository:
         if "is_default" not in project_cols:
             connection.execute(
                 "ALTER TABLE projects ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0"
+            )
+
+        message_cols = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(chat_messages)").fetchall()
+        }
+        if "attachments" not in message_cols:
+            connection.execute(
+                "ALTER TABLE chat_messages ADD COLUMN attachments TEXT NOT NULL DEFAULT ''"
             )
 
     def _connect(self) -> sqlite3.Connection:
@@ -277,18 +298,29 @@ class SqliteChatRepository:
                     "DELETE FROM chat_messages WHERE session_id = ?",
                     (session_id,),
                 )
+                connection.execute(
+                    "DELETE FROM chat_attachments WHERE session_id = ?",
+                    (session_id,),
+                )
             return cursor.rowcount > 0
 
     # -- 消息 -----------------------------------------------------------------
 
     def append_message(
-        self, session_id: int, *, role: str, content: str
+        self,
+        session_id: int,
+        *,
+        role: str,
+        content: str,
+        attachments: str = "",
     ) -> int:
+        """落一条消息；attachments 是附件文件名的 JSON 数组字符串。"""
+
         with self._connect() as connection:
             cursor = connection.execute(
-                "INSERT INTO chat_messages (session_id, role, content, created_at) "
-                "VALUES (?, ?, ?, ?)",
-                (session_id, role, content, time.time()),
+                "INSERT INTO chat_messages (session_id, role, content, attachments, "
+                "created_at) VALUES (?, ?, ?, ?, ?)",
+                (session_id, role, content, attachments, time.time()),
             )
             return int(cursor.lastrowid)
 
@@ -305,8 +337,45 @@ class SqliteChatRepository:
             if owner is None:
                 return []
             rows = connection.execute(
-                "SELECT id, role, content, created_at FROM chat_messages "
-                "WHERE session_id = ? ORDER BY id LIMIT ?",
+                "SELECT id, role, content, attachments, created_at "
+                "FROM chat_messages WHERE session_id = ? ORDER BY id LIMIT ?",
                 (session_id, limit),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    # -- 聊天附件 ---------------------------------------------------------------
+
+    def add_attachment(
+        self,
+        *,
+        user_id: str,
+        session_id: int | None,
+        filename: str,
+        kind: str,
+        content: str,
+    ) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "INSERT INTO chat_attachments (user_id, session_id, filename, kind, "
+                "content, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (user_id, session_id, filename, kind, content, time.time()),
+            )
+            return int(cursor.lastrowid)
+
+    def get_attachments(
+        self, user_id: str, attachment_ids: list[int]
+    ) -> list[dict[str, Any]]:
+        """按 id 批量取附件（校验归属，别人传你的附件 id 直接查不到）。"""
+
+        if not attachment_ids:
+            return []
+        placeholders = ",".join("?" for _ in attachment_ids)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"SELECT id, filename, kind, content FROM chat_attachments "
+                f"WHERE user_id = ? AND id IN ({placeholders})",
+                (user_id, *attachment_ids),
+            ).fetchall()
+        # 按调用方给的顺序返回
+        order = {attachment_id: index for index, attachment_id in enumerate(attachment_ids)}
+        return sorted((dict(row) for row in rows), key=lambda row: order[row["id"]])

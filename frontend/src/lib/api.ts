@@ -297,6 +297,8 @@ export interface ChatMessage {
   id: number;
   role: "user" | "assistant";
   content: string;
+  /** 该消息携带的附件文件名（后端还原好的数组） */
+  attachments?: string[];
   created_at: number;
 }
 
@@ -460,6 +462,19 @@ export interface ChatRequest {
   // 会话自动保存：不传 session_id → 后端新建会话；传了 → 续聊并追加消息。
   session_id?: number;
   project_id?: number;
+  /** 本条消息携带的聊天附件 id（先经 uploadChatAttachment 上传） */
+  attachment_ids?: number[];
+}
+
+/** 上传聊天附件（PDF/TXT/MD 抽文本，图片走视觉转写），返回附件 id 供发消息时携带 */
+export async function uploadChatAttachment(
+  file: File,
+  sessionId?: number,
+): Promise<{ id: number; filename: string; kind: string; chars: number }> {
+  const form = new FormData();
+  form.append("file", file);
+  if (sessionId !== undefined) form.append("session_id", String(sessionId));
+  return requestJson("/api/chat/attachments", { method: "POST", body: form });
 }
 
 export function streamChat(

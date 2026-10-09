@@ -54,6 +54,8 @@ class ChatRequest(BaseModel):
     # project_id 让本轮记忆按项目隔离（不同项目的记忆互不串味）。
     session_id: int | None = None
     project_id: int | None = None
+    # 本条消息携带的聊天附件（先经 /api/chat/attachments 上传拿 id）
+    attachment_ids: list[int] = Field(default_factory=list)
 
 
 class ResumeRequest(BaseModel):
@@ -156,6 +158,7 @@ async def _run_stream(
     user_message: str = "",
     model: object | None = None,
     persist_user: bool = True,
+    attachment_names: list[str] | None = None,
 ):
     """跑图并转成 SSE 流。
 
@@ -171,7 +174,12 @@ async def _run_stream(
     if session is not None and chat is not None:
         try:
             if persist_user:
-                chat.append_message(session["id"], role="user", content=user_message)
+                chat.append_message(
+                    session["id"],
+                    role="user",
+                    content=user_message,
+                    attachments=json.dumps(attachment_names or [], ensure_ascii=False),
+                )
             chat.update_session(user_id, session["id"], touch=True)
             yield _sse("session", {"id": session["id"], "title": session["title"]})
         except Exception:  # noqa: BLE001 — 落库失败不拦对话
@@ -396,6 +404,56 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         document_id = request.app.state.store.add_document(library, title, text)
         return {"id": document_id, "library": library, "title": title, "chars": len(text)}
 
+    @app.post("/api/chat/attachments")
+    async def upload_chat_attachment(
+        request: Request,
+        file: UploadFile = File(...),  # noqa: B008 — FastAPI 的标准依赖注入写法
+        session_id: int | None = Form(default=None),
+        user_id: str = Form(default="local"),
+    ) -> dict:
+        """聊天附件上传：抽取文本（图片走视觉转写）存库，返回附件 id。"""
+
+        data = await file.read()
+        if len(data) > request.app.state.settings.max_upload_bytes:
+            raise HTTPException(status_code=413, detail="文件太大（上限 5MB）")
+        filename = (file.filename or "附件").strip()
+
+        if session_id is not None and request.app.state.chat.get_session(
+            user_id, session_id
+        ) is None:
+            raise HTTPException(status_code=404, detail="会话不存在")
+
+        if is_image(filename):
+            model = request.app.state.model
+            if getattr(model, "_llm_type", "") == "study-mock":
+                raise HTTPException(
+                    status_code=400,
+                    detail="图片识别需要真实视觉模型（当前是 Mock 模式，"
+                    "请在 .env 里配置 provider=openai）",
+                )
+            try:
+                text = await image_to_markdown(model, filename, data)
+            except ImageNoteError as exc:
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
+            kind = "image"
+        else:
+            try:
+                text = extract_text(filename, data)
+            except ExtractError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            kind = "file"
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="文件里没有可提取的文本")
+
+        attachment_id = request.app.state.chat.add_attachment(
+            user_id=user_id,
+            session_id=session_id,
+            filename=filename,
+            kind=kind,
+            content=text,
+        )
+        return {"id": attachment_id, "filename": filename, "kind": kind, "chars": len(text)}
+
     @app.post("/api/chat/stream")
     async def chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:
         # 输入护栏：越界 / 注入 在进入图之前就拦下，直接流式返回拒绝话术。
@@ -411,8 +469,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         learning.remember(
             body.user_id, body.message, project_id=str(body.project_id or "")
         )
+
+        # 聊天附件：把抽取出的文本拼进本轮消息，模型就能「看到」PDF/图片内容。
+        attachment_names: list[str] = []
+        composed = body.message
+        if body.attachment_ids:
+            if len(body.attachment_ids) > 6:
+                raise HTTPException(status_code=400, detail="一条消息最多带 6 个附件")
+            attachments = request.app.state.chat.get_attachments(
+                body.user_id, body.attachment_ids
+            )
+            if attachments:
+                sections = [body.message]
+                attachment_names = [item["filename"] for item in attachments]
+                for item in attachments:
+                    # 单附件最多取前 8000 字，防止长文档撑爆上下文
+                    sections.append(
+                        f"---\n[附件 {item['filename']}]\n{item['content'][:8000]}"
+                    )
+                composed = "\n\n".join(sections)
+
         payload: dict = {
-            "messages": [HumanMessage(body.message)],
+            "messages": [HumanMessage(composed)],
             "user_id": body.user_id,
             "memories": [
                 m["content"]
@@ -450,6 +528,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 user_id=body.user_id,
                 user_message=body.message,
                 model=request.app.state.model,
+                attachment_names=attachment_names or None,
             ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
@@ -606,9 +685,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def chat_messages(
         request: Request, session_id: int, user_id: str = "local"
     ) -> dict:
-        return {
-            "messages": request.app.state.chat.list_messages(user_id, session_id)
-        }
+        messages = request.app.state.chat.list_messages(user_id, session_id)
+        for item in messages:
+            # 附件名落库时是 JSON 数组字符串，回放时还原成列表
+            try:
+                item["attachments"] = json.loads(item.get("attachments") or "[]")
+            except (TypeError, ValueError):
+                item["attachments"] = []
+        return {"messages": messages}
 
     @app.put("/api/chats/{session_id}")
     async def update_chat(
