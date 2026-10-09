@@ -71,6 +71,39 @@ async def test_retrieval_turn_searches_the_library(tmp_path: Path) -> None:
     assert "缩放倍数" in str(final["messages"][-1].content)
 
 
+async def test_library_filter_survives_across_nodes(tmp_path: Path) -> None:
+    """回归（P1 缺陷①）：选中的知识库过滤必须传到 tools 节点。
+
+    LangGraph 各节点在独立 context 执行，contextvar 不跨节点传播——曾经只在
+    agent 节点 set_current_libraries，tools 节点读到 None 导致检索落到全库
+    （选了「高等数学」却返回《四级英语》的片段）。修复后 tools 节点从 state
+    重新设置，这里用"两个库都能命中同一关键词"的布局来锁住这个行为。
+    """
+
+    graph, store = _build(tmp_path)
+    # 两库内容都含与查询重叠的 3-gram（"导数的"），保证全库检索时两边都命中——
+    # 这样才能检验"选中库之后是否真的把另一个库过滤掉"。
+    store.add_note("高等数学", "导数定义", "导数的定义：导数是瞬时变化率，反映切线斜率。")
+    store.add_note("大学英语四级", "导数词汇", "derivative（导数的英文）是四级高频词汇。")
+    config = {"configurable": {"thread_id": "filter-regression"}}
+
+    final, _interrupts = await _run(
+        graph,
+        _payload("我的笔记里怎么讲导数的？", knowledge_bases=["高等数学"]),
+        config,
+    )
+
+    tool_messages = [
+        m.content
+        for m in final["messages"]
+        if isinstance(m, ToolMessage) and m.name == "knowledge_search"
+    ]
+    assert tool_messages, "检索回合应产生 knowledge_search 工具消息"
+    joined = "\n".join(str(content) for content in tool_messages)
+    assert "高等数学" in joined
+    assert "大学英语四级" not in joined, "选了库之后不允许串到未选中的库"
+
+
 async def test_save_note_asks_for_confirmation_then_persists(tmp_path: Path) -> None:
     graph, store = _build(tmp_path)
     config = {"configurable": {"thread_id": "hitl"}}

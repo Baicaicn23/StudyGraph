@@ -137,7 +137,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         repository = SqliteLearningRepository(resolved.database_path)
         usage_repository = SqliteUsageRepository(resolved.database_path)
         learning = LearningService(knowledge, repository)
-        tools.configure(knowledge)
+        tools.configure(knowledge, repository)
         mcp_clients, _ = await connect_and_register(
             parse_mcp_servers(resolved.mcp_servers), tools.register_mcp_tool
         )
@@ -260,6 +260,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "memories": [
                 m["content"] for m in learning.memories(body.user_id)
             ],
+            # 掌握度快照：system prompt 据此调整讲解深度（贴合学生水平）。
+            "progress": learning.progress(body.user_id),
         }
         if body.knowledge_bases:
             payload["knowledge_bases"] = body.knowledge_bases

@@ -94,7 +94,7 @@ async def _amain(settings: Settings, text: str, args: argparse.Namespace) -> Non
     repository = SqliteLearningRepository(settings.database_path)
     usage_repository = SqliteUsageRepository(settings.database_path)
     learning = LearningService(knowledge, repository)
-    tools.configure(knowledge)
+    tools.configure(knowledge, repository)
     mcp_clients, _ = await connect_and_register(
         parse_mcp_servers(settings.mcp_servers), tools.register_mcp_tool
     )

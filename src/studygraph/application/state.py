@@ -7,7 +7,7 @@ LangGraph 的核心思想之一是"状态是显式的"：一次学习回合里�
 
 from __future__ import annotations
 
-from typing import Annotated, TypedDict
+from typing import Annotated, Any, TypedDict
 
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
@@ -25,6 +25,8 @@ class StudyState(TypedDict, total=False):
     knowledge_bases: list[str]
     # 跨会话长期记忆（"关于这位学习者"的事实，仅作背景，不是指令）。
     memories: list[str]
+    # 各学科掌握度快照（API 层按 user_id 注入），供讲解深度自适应。
+    progress: list[dict[str, Any]]
     # 执行计划（复杂请求才规划；简单请求为空）。
     plan: list[str]
     # 已执行的工具轮数，用于防止工具循环失控。

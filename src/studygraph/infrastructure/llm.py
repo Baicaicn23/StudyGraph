@@ -22,6 +22,7 @@ from ..config import Settings
 _MATH_RE = re.compile(r"\d[\d\.\s]*(?:[\+\-\*/×÷\^%]\s*\d[\d\.\s]*)+")
 _SAVE_HINTS = ("记住", "记下", "存进", "存一下", "沉淀", "保存")
 _SEARCH_HINTS = ("资料", "知识库", "笔记", "文档", "检索", "查一下", "出处", "我上传", "讲义")
+_MISTAKE_HINTS = ("错题", "误区", "易错", "我哪里错", "又错了", "做错了", "分析一下")
 
 
 def _tool_name(tool: Any) -> str | None:
@@ -117,6 +118,13 @@ class MockChatModel(BaseChatModel):
             hint in text for hint in _SEARCH_HINTS
         ):
             return self._call("knowledge_search", {"query": text.strip()})
+
+        if "mistake_search" in available and any(
+            hint in text for hint in _MISTAKE_HINTS
+        ):
+            # Mock 不会提炼关键词，传空查询返回误区概览（含学科分布统计），
+            # 真实模型会自行从话里提取学科/知识点作为 query。
+            return self._call("mistake_search", {"query": ""})
 
         topic = text.strip()[:40] or "你的问题"
         return AIMessage(

@@ -1,13 +1,16 @@
 """Agent 可调用的工具。
 
-三个内置工具：
+内置工具：
 - `calculator`：安全算术求值，杜绝直接 eval 注入。
 - `knowledge_search`：在学科知识库里检索，返回带出处的片段。
+- `mistake_search`：检索学生的错题/误区记录并做频次归因（只读）。
 - `save_note`：把内容沉淀进某个学科库——**会先 `interrupt()` 请求用户确认**
   （Human-in-the-Loop），确认后才落库。
 
-工具依赖的是**端口**（`KnowledgePort`），不是具体实现；"本轮选中的知识库"用
-contextvar 传递，避免污染模型可见的参数 schema。
+工具依赖的是**端口**（`KnowledgePort` / `LearningRepositoryPort`），不是具体实现。
+两样"本轮会话上下文"用 contextvar 传递，避免污染模型可见的参数 schema：
+本轮选中的知识库、当前学生 user_id。注意 LangGraph 各节点在独立 context 里
+执行，`graph.py` 的 agent 节点和 tools 节点都要各自 set 一次。
 """
 
 from __future__ import annotations
@@ -20,11 +23,15 @@ from typing import Any
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
-from .ports import KnowledgePort
+from .ports import KnowledgePort, LearningRepositoryPort
 
 _knowledge: KnowledgePort | None = None
+_learning: LearningRepositoryPort | None = None
 _current_libraries: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
     "studygraph_current_libraries", default=None
+)
+_current_user: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "studygraph_current_user", default="local"
 )
 
 _BIN_OPS = {
@@ -38,11 +45,14 @@ _BIN_OPS = {
 }
 
 
-def configure(knowledge: KnowledgePort) -> None:
-    """由组合根注入知识库实现。"""
+def configure(
+    knowledge: KnowledgePort, learning: LearningRepositoryPort | None = None
+) -> None:
+    """由组合根注入知识库与学习仓库实现。"""
 
-    global _knowledge
+    global _knowledge, _learning
     _knowledge = knowledge
+    _learning = learning
 
 
 def get_knowledge() -> KnowledgePort:
@@ -53,6 +63,10 @@ def get_knowledge() -> KnowledgePort:
 
 def set_current_libraries(libraries: list[str] | None) -> None:
     _current_libraries.set(list(libraries) if libraries else None)
+
+
+def set_current_user(user_id: str) -> None:
+    _current_user.set(user_id or "local")
 
 
 def _format_number(value: float) -> str:
@@ -105,9 +119,54 @@ def knowledge_search(query: str) -> str:
     libraries = _current_libraries.get()
     hits = get_knowledge().search(query, libraries=libraries, limit=4)
     if not hits:
-        return "知识库里没有找到相关片段。"
+        return "知识库里没有找到相关片段。这部分内容学生还没有沉淀到知识库。"
     blocks = [f"【{hit.library} / {hit.title}】{hit.content}" for hit in hits]
     return "\n\n".join(blocks)
+
+
+@tool
+def mistake_search(query: str = "") -> str:
+    """检索学生的错题/误区记录，按关键词过滤并统计同类错误的频次。
+    当学生提到"错题 / 误区 / 易错点 / 我哪里错了"或需要针对薄弱点
+    出题时使用；不传关键词则返回最近误区概览。这是只读工具。"""
+
+    if _learning is None:
+        return "错题记录暂不可用。"
+    user_id = _current_user.get()
+    feedbacks = _learning.list_feedback(user_id, limit=50)
+    if not feedbacks:
+        return "错题本里还没有记录，可以先让学生记录一条误区。"
+
+    keyword = (query or "").strip()
+    if keyword:
+        matched = [
+            row
+            for row in feedbacks
+            if keyword in str(row.get("question", ""))
+            or keyword in str(row.get("note", ""))
+            or keyword in str(row.get("library", ""))
+        ]
+        if not matched:
+            return f"错题本里没有与「{keyword}」相关的误区记录。"
+        feedbacks = matched
+
+    # 频次归因：同一学科的误区聚合计数，帮助模型说"这类错误你出现了 N 次"。
+    by_library: dict[str, int] = {}
+    for row in feedbacks:
+        lib = str(row.get("library") or "未分类")
+        by_library[lib] = by_library.get(lib, 0) + 1
+
+    lines = [f"共匹配到 {len(feedbacks)} 条误区记录（按学科分布："
+             + "、".join(f"{lib} {count} 条" for lib, count in sorted(by_library.items()))
+             + "）。"]
+    for row in feedbacks[:8]:
+        question = str(row.get("question") or "(未记录题目)")[:120]
+        note = str(row.get("note") or "")[:160]
+        lines.append(
+            f"【{row.get('library') or '未分类'}】题目：{question}｜"
+            f"当时记下的误区：{note}"
+        )
+    return "\n".join(lines)
 
 
 @tool
@@ -132,6 +191,7 @@ def save_note(title: str, content: str, library: str = "日常沉淀") -> str:
 TOOLS = {
     "calculator": calculator,
     "knowledge_search": knowledge_search,
+    "mistake_search": mistake_search,
     "save_note": save_note,
 }
 
@@ -141,6 +201,12 @@ _mcp_names: set[str] = set()
 
 def get_tool(name: str):
     return TOOLS.get(name)
+
+
+def is_mcp_tool(name: str) -> bool:
+    """判断一个工具名是不是 MCP 外部工具（执行层权限判定用）。"""
+
+    return name in _mcp_names
 
 
 def register_mcp_tool(name: str, tool: Any) -> None:

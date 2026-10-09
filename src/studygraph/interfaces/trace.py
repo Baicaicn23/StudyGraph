@@ -28,12 +28,14 @@ from ..application.trace import diagnose, render
 from ..config import get_settings
 from ..infrastructure.embeddings import get_embedder
 from ..infrastructure.knowledge import KnowledgeStore
+from ..infrastructure.learning_repository import SqliteLearningRepository
 from ..infrastructure.llm import build_chat_model
 
 
 async def _trace(settings, thread: str) -> int:
     knowledge = KnowledgeStore(settings.database_path, embedder=get_embedder(settings))
-    tools.configure(knowledge)
+    # 学习仓库只读使用：给 mistake_search 提供错题数据。
+    tools.configure(knowledge, SqliteLearningRepository(settings.database_path))
     model = build_chat_model(settings)
     async with AsyncSqliteSaver.from_conn_string(settings.database_path) as checkpointer:
         graph = build_graph(

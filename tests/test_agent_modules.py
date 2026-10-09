@@ -129,3 +129,35 @@ async def test_budget_blocks_real_calls(tmp_path: Path) -> None:
     )
 
     assert "预算" in str(final["messages"][-1].content)
+
+
+def test_system_prompt_contains_teaching_charter_and_progress() -> None:
+    from studygraph.application.graph import build_system_prompt
+
+    state = {
+        "messages": [],
+        "agent": "tutor",
+        "progress": [
+            {"library": "线性代数", "mastery": 85},
+            {"library": "高等数学-微积分", "mastery": 40},
+        ],
+    }
+
+    prompt = build_system_prompt("tutor", state)
+
+    # 教学总纲（三条红线）对所有子智能体生效。
+    assert "三条红线" in prompt
+    assert "引导优先于告知" in prompt
+    # 掌握度按从薄弱到较好排列，薄弱学科在前——模型据此调整讲解深度。
+    assert "掌握度" in prompt
+    assert prompt.index("高等数学-微积分（掌握度 40%）") < prompt.index(
+        "线性代数（掌握度 85%）"
+    )
+
+
+def test_system_prompt_omits_progress_when_empty() -> None:
+    from studygraph.application.graph import build_system_prompt
+
+    prompt = build_system_prompt("tutor", {"messages": [], "agent": "tutor"})
+
+    assert "各学科掌握度" not in prompt

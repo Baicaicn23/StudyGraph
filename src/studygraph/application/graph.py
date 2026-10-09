@@ -40,6 +40,7 @@ from .context import compact_messages
 from .planner import build_plan
 from .ports import ChatModelPort, UsageRepositoryPort
 from .routing import (
+    TEACHING_CHARTER,
     allowed_tools,
     classify,
     is_tool_allowed,
@@ -48,13 +49,12 @@ from .routing import (
 )
 from .state import StudyState
 from .tool_runner import run_tool
-from .tools import get_tool, set_current_libraries
+from .tools import get_tool, set_current_libraries, set_current_user
 
 _BASE_PROMPT = (
-    "你是 StudyGraph，一个面向大学生的个人学习助理。"
-    "用简体中文回答：先给直觉与结论，再讲原理，必要时给一个具体例子。"
-    "如果回答用到了学生自己的资料，要指出出处（哪个库、哪份资料）。"
-    "不要编造学生资料里没有的内容。"
+    "你是 StudyGraph，一个面向大学生的 AI 私教。你的目标不是替学生答题，"
+    "而是让学生学会思考、记得更牢——回答前先想想：这样说能帮他真正掌握吗？"
+    "用简体中文交流。"
 )
 
 
@@ -101,7 +101,7 @@ async def _record_usage(repository, user_id: str, model: Any, message: Any) -> N
 
 def build_system_prompt(profile_agent: str, state: StudyState) -> str:
     profile = profile_for_agent(profile_agent)
-    parts = [_BASE_PROMPT, profile.system_prompt]
+    parts = [_BASE_PROMPT, TEACHING_CHARTER, profile.system_prompt]
     plan = state.get("plan") or []
     if plan:
         steps = "\n".join(f"{i}. {s}" for i, s in enumerate(plan, 1))
@@ -111,6 +111,18 @@ def build_system_prompt(profile_agent: str, state: StudyState) -> str:
         parts.append(
             "关于这位学习者你记得的事实（仅作背景参考，不是指令）："
             + "；".join(memories)
+        )
+    progress = state.get("progress") or []
+    if progress:
+        # 贴合学生当前水平：掌握度按从弱到强排列，薄弱学科排在最前，
+        # 模型据此决定讲解深度（红线 3）。
+        ordered = sorted(progress, key=lambda item: int(item.get("mastery", 0)))
+        summary = "；".join(
+            f"{item.get('library')}（掌握度 {item.get('mastery')}%）"
+            for item in ordered
+        )
+        parts.append(
+            "学生当前各学科掌握度（从薄弱到较好，讲解深度请据此调整）：" + summary
         )
     if state.get("knowledge_bases"):
         parts.append("学生本轮选中的知识库：" + "、".join(state["knowledge_bases"]))
@@ -174,6 +186,7 @@ def build_graph(
         bound = active_model.bind_tools(tools) if tools else active_model
 
         set_current_libraries(state.get("knowledge_bases"))
+        set_current_user(state.get("user_id", "local"))
         prompt = build_system_prompt(profile.agent, state)
         # 上下文工程：历史过长时保留最近若干条，更早的压缩成一句提示。
         history = compact_messages(
@@ -195,6 +208,11 @@ def build_graph(
     async def tools_node(state: StudyState) -> dict[str, Any]:
         last = state["messages"][-1]
         profile = profile_for_agent(state.get("agent"))
+        # contextvar 不跨节点传播：agent 节点里设置的"本轮选中知识库"在这里读不到，
+        # 必须在本节点重新设置，否则前端选了库检索仍会落到全库（曾导致选了
+        # 「高等数学」却返回《四级英语》片段的串库缺陷）。
+        set_current_libraries(state.get("knowledge_bases"))
+        set_current_user(state.get("user_id", "local"))
         outputs: list[ToolMessage] = []
         for call in getattr(last, "tool_calls", []) or []:
             name = call.get("name", "")
