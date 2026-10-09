@@ -152,7 +152,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
         </nav>
 
         {/* 对话 + 项目（下，WorkBuddy 式；窄屏只显示导航） */}
-        <div className="hidden min-h-0 flex-1 lg:flex">
+        <div className="hidden min-h-0 min-w-0 flex-1 lg:flex">
           <ChatsSection pathname={pathname} />
         </div>
 

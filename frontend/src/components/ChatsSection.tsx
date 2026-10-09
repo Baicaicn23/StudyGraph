@@ -406,7 +406,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* 新对话（WorkBuddy「新建任务」式的普通行） */}
       <div className="px-2.5 pb-1">
         <button
@@ -424,7 +424,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-2 pb-4">
         {/* 未分组兜底：正常情况下所有会话都在空间里 */}
         {ungrouped.length > 0 && (
           <section className="mt-1">
