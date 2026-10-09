@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS chat_attachments (
     filename TEXT NOT NULL,
     kind TEXT NOT NULL DEFAULT 'file',
     content TEXT NOT NULL DEFAULT '',
+    storage_path TEXT NOT NULL DEFAULT '',
     created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_attachments_user
@@ -97,6 +98,18 @@ class SqliteChatRepository:
         if "attachments" not in message_cols:
             connection.execute(
                 "ALTER TABLE chat_messages ADD COLUMN attachments TEXT NOT NULL DEFAULT ''"
+            )
+
+        attachment_cols = {
+            row["name"]
+            for row in connection.execute(
+                "PRAGMA table_info(chat_attachments)"
+            ).fetchall()
+        }
+        if "storage_path" not in attachment_cols:
+            connection.execute(
+                "ALTER TABLE chat_attachments "
+                "ADD COLUMN storage_path TEXT NOT NULL DEFAULT ''"
             )
 
     def _connect(self) -> sqlite3.Connection:
@@ -353,14 +366,45 @@ class SqliteChatRepository:
         filename: str,
         kind: str,
         content: str,
+        storage_path: str = "",
     ) -> int:
         with self._connect() as connection:
             cursor = connection.execute(
                 "INSERT INTO chat_attachments (user_id, session_id, filename, kind, "
-                "content, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (user_id, session_id, filename, kind, content, time.time()),
+                "content, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    user_id,
+                    session_id,
+                    filename,
+                    kind,
+                    content,
+                    storage_path,
+                    time.time(),
+                ),
             )
             return int(cursor.lastrowid)
+
+    def get_attachment(self, user_id: str, attachment_id: int) -> dict[str, Any] | None:
+        """取单个附件（含落盘路径），校验归属。"""
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id, filename, kind, storage_path FROM chat_attachments "
+                "WHERE id = ? AND user_id = ?",
+                (attachment_id, user_id),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def set_attachment_path(
+        self, user_id: str, attachment_id: int, storage_path: str
+    ) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE chat_attachments SET storage_path = ? "
+                "WHERE id = ? AND user_id = ?",
+                (storage_path, attachment_id, user_id),
+            )
+            return cursor.rowcount > 0
 
     def get_attachments(
         self, user_id: str, attachment_ids: list[int]

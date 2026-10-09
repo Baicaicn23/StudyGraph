@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+
 from fastapi.testclient import TestClient
 
 from studygraph.config import Settings
@@ -44,7 +46,10 @@ def test_attachment_upload_txt_and_send_with_message(tmp_path) -> None:
         messages = client.get(f"/api/chats/{session_id}/messages").json()["messages"]
         user_messages = [m for m in messages if m["role"] == "user"]
         assert user_messages[0]["content"] == "帮我讲讲附件里的内容"
-        assert user_messages[0]["attachments"] == ["导数讲义.txt"]
+        # 附件元信息（id/名字/类型）随消息落库，前端据此展示与预览
+        assert user_messages[0]["attachments"] == [
+            {"id": attachment_id, "name": "导数讲义.txt", "kind": "file"}
+        ]
 
 
 def test_attachment_ownership_and_missing_session(tmp_path) -> None:
@@ -101,3 +106,48 @@ def test_image_rejected_on_mock_model(tmp_path) -> None:
         )
         assert rejected.status_code == 400
         assert "Mock" in rejected.json()["detail"]
+
+
+# 1x1 红色 PNG（最小合法图片）
+_TINY_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ"
+    "AAAABJRU5ErkJggg=="
+)
+
+
+def test_image_preview_raw_endpoint_with_ownership(tmp_path, monkeypatch) -> None:
+    """图片附件落盘后可通过 /raw 预览，且别人拿不到。"""
+
+    async def fake_vision(model, filename, data):
+        return "（一张纯色小图）"
+
+    monkeypatch.setattr(
+        "studygraph.interfaces.api.image_to_markdown", fake_vision
+    )
+    settings = Settings(
+        database_path=str(tmp_path / "preview.db"),
+        llm_provider="openai",
+        model="test-vision",
+        openai_api_key="test-key",
+        openai_base_url="http://127.0.0.1:1/v1",
+    )
+    with TestClient(create_app(settings)) as client:
+        uploaded = client.post(
+            "/api/chat/attachments",
+            files={"file": ("shot.png", _TINY_PNG, "image/png")},
+        ).json()
+        assert uploaded["kind"] == "image"
+
+        raw = client.get(f"/api/chat/attachments/{uploaded['id']}/raw")
+        assert raw.status_code == 200
+        assert raw.headers["content-type"] == "image/png"
+        assert raw.content == _TINY_PNG, "预览应返回原始图片字节"
+
+        # 越权预览返回 404
+        assert (
+            client.get(
+                f"/api/chat/attachments/{uploaded['id']}/raw",
+                params={"user_id": "bob"},
+            ).status_code
+            == 404
+        )

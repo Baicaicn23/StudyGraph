@@ -7,6 +7,7 @@ import type { ChangeEvent, ClipboardEvent, DragEvent, KeyboardEvent } from "reac
 import {
   addFeedback,
   addNote,
+  attachmentRawUrl,
   createProject,
   generatePractice,
   getHealth,
@@ -19,6 +20,7 @@ import {
   streamChat,
   studyPlan,
   uploadChatAttachment,
+  type AttachmentMeta,
   type ChatProject,
   type Library,
   type StudyPlan,
@@ -30,8 +32,8 @@ import Markdown from "./Markdown";
 interface Message {
   role: "user" | "assistant";
   content: string;
-  /** 用户消息携带的附件文件名（仅用于展示） */
-  attachments?: string[];
+  /** 用户消息携带的附件（用于展示与点击预览） */
+  attachments?: AttachmentMeta[];
 }
 
 interface PendingInterrupt {
@@ -74,10 +76,9 @@ export default function Chat() {
   const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   // 聊天附件：待发送的文件（已上传拿到 id），随下一条消息一起发出
-  const [pendingFiles, setPendingFiles] = useState<
-    { id: number; filename: string }[]
-  >([]);
+  const [pendingFiles, setPendingFiles] = useState<AttachmentMeta[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
+  const [preview, setPreview] = useState<AttachmentMeta | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 每条 AI 回复的学习操作
@@ -308,12 +309,12 @@ export default function Chat() {
       busyRef.current = true;
       setStatusLabel("正在理解问题…");
       startPump();
-      const attachedNames = pendingFiles.map((file) => file.filename);
+      const attached = pendingFiles;
       const attachedIds = pendingFiles.map((file) => file.id);
       setPendingFiles([]);
       setMessages((prev) => [
         ...prev,
-        { role: "user", content: text, attachments: attachedNames },
+        { role: "user", content: text, attachments: attached },
         { role: "assistant", content: "" },
       ]);
       await streamChat(
@@ -491,7 +492,11 @@ export default function Chat() {
         );
         setPendingFiles((prev) => [
           ...prev,
-          { id: uploaded.id, filename: uploaded.filename },
+          {
+            id: uploaded.id,
+            name: uploaded.filename,
+            kind: uploaded.kind === "image" ? "image" : "file",
+          },
         ]);
       } catch (error) {
         window.alert(
@@ -533,6 +538,16 @@ export default function Chat() {
     if (files.length === 0) return;
     void uploadManyFiles(files);
   };
+
+  // 预览浮层：Esc 关闭
+  useEffect(() => {
+    if (!preview) return;
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setPreview(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [preview]);
 
   /* ---------- 消息学习操作 ---------- */
   const userTextBefore = (index: number): string => {
@@ -745,6 +760,7 @@ export default function Chat() {
                       setExpandedMsg((v) => (v === index ? null : index))
                     }
                     onAction={(action) => void runMessageAction(index, action)}
+                    onPreviewAttachment={(file) => setPreview(file)}
                   />
                 </div>
               ))}
@@ -752,6 +768,30 @@ export default function Chat() {
           )}
         </div>
       </div>
+
+      {/* 附件图片预览浮层 */}
+      {preview && preview.kind === "image" && (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/70 p-6"
+          onClick={() => setPreview(null)}
+        >
+          <img
+            src={attachmentRawUrl(preview.id)}
+            alt={preview.name}
+            className="max-h-[80vh] max-w-full rounded-lg object-contain shadow-2xl"
+          />
+          <div className="mt-3 flex items-center gap-3 text-xs text-white/80">
+            <span className="max-w-[60vw] truncate">{preview.name}</span>
+            <button
+              type="button"
+              onClick={() => setPreview(null)}
+              className="rounded-full bg-white/15 px-3 py-1 transition hover:bg-white/25"
+            >
+              关闭（Esc）
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 返回最新 */}
       {showScrollBtn && (
@@ -938,13 +978,28 @@ export default function Chat() {
               {pendingFiles.map((file) => (
                 <span
                   key={file.id}
-                  className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] text-zinc-600 shadow-sm ring-1 ring-black/10"
+                  className="flex items-center gap-1.5 rounded-full bg-white py-1 pl-1 pr-2 text-[11px] text-zinc-600 shadow-sm ring-1 ring-black/10"
                 >
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-                    <path d="M14 2v6h6" />
-                  </svg>
-                  <span className="max-w-[160px] truncate">{file.filename}</span>
+                  {file.kind === "image" ? (
+                    <button
+                      type="button"
+                      title="点击预览大图"
+                      onClick={() => setPreview(file)}
+                      className="h-6 w-6 overflow-hidden rounded-full ring-1 ring-black/10 transition hover:ring-teal-600"
+                    >
+                      <img
+                        src={attachmentRawUrl(file.id)}
+                        alt={file.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ) : (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="ml-1 shrink-0 text-zinc-400">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                      <path d="M14 2v6h6" />
+                    </svg>
+                  )}
+                  <span className="max-w-[140px] truncate">{file.name}</span>
                   <button
                     type="button"
                     title="移除附件"
@@ -1276,6 +1331,7 @@ function MessageRow({
   expanded,
   onToggleExpand,
   onAction,
+  onPreviewAttachment,
 }: {
   message: Message;
   busy: boolean;
@@ -1291,22 +1347,38 @@ function MessageRow({
   expanded: boolean;
   onToggleExpand: () => void;
   onAction: (action: "kb" | "practice" | "mistake") => void;
+  onPreviewAttachment: (file: AttachmentMeta) => void;
 }) {
   if (message.role === "user") {
     return (
       <div className="flex flex-col items-end gap-1">
         {message.attachments && message.attachments.length > 0 && (
           <div className="flex max-w-[85%] flex-wrap justify-end gap-1">
-            {message.attachments.map((name, i) => (
+            {message.attachments.map((file) => (
               <span
-                key={`${name}-${i}`}
-                className="flex items-center gap-1 rounded-full bg-black/[0.05] px-2.5 py-1 text-[11px] text-zinc-600"
+                key={file.id}
+                className="flex items-center gap-1.5 rounded-full bg-black/[0.05] py-1 pl-1 pr-2.5 text-[11px] text-zinc-600"
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-                  <path d="M14 2v6h6" />
-                </svg>
-                <span className="max-w-[160px] truncate">{name}</span>
+                {file.kind === "image" ? (
+                  <button
+                    type="button"
+                    title="点击预览大图"
+                    onClick={() => onPreviewAttachment(file)}
+                    className="h-7 w-7 overflow-hidden rounded-full ring-1 ring-black/10 transition hover:ring-teal-600"
+                  >
+                    <img
+                      src={attachmentRawUrl(file.id)}
+                      alt={file.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                ) : (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="ml-1 shrink-0 text-zinc-400">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                    <path d="M14 2v6h6" />
+                  </svg>
+                )}
+                <span className="max-w-[160px] truncate">{file.name}</span>
               </span>
             ))}
           </div>

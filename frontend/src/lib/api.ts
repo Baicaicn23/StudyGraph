@@ -293,12 +293,19 @@ export interface ChatSession {
   updated_at: number;
 }
 
+/** 聊天附件元信息（后端随消息一起存，前端据此渲染与预览） */
+export interface AttachmentMeta {
+  id: number;
+  name: string;
+  kind: "image" | "file";
+}
+
 export interface ChatMessage {
   id: number;
   role: "user" | "assistant";
   content: string;
-  /** 该消息携带的附件文件名（后端还原好的数组） */
-  attachments?: string[];
+  /** 该消息携带的附件（后端还原好的数组） */
+  attachments?: AttachmentMeta[];
   created_at: number;
 }
 
@@ -475,6 +482,11 @@ export async function uploadChatAttachment(
   form.append("file", file);
   if (sessionId !== undefined) form.append("session_id", String(sessionId));
   return requestJson("/api/chat/attachments", { method: "POST", body: form });
+}
+
+/** 附件原文件地址（图片预览用，后端带归属校验） */
+export function attachmentRawUrl(attachmentId: number): string {
+  return `${API_BASE}/api/chat/attachments/${attachmentId}/raw`;
 }
 
 export function streamChat(

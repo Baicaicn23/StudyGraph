@@ -18,10 +18,11 @@ import json
 import time
 from contextlib import asynccontextmanager
 from dataclasses import replace
+from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.types import Command
@@ -114,6 +115,21 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def _attachment_dir(settings: Settings) -> Path:
+    """附件落盘目录：与数据库同级的 attachments/。"""
+
+    return Path(settings.database_path).parent / "attachments"
+
+
+_IMAGE_MIME_BY_SUFFIX = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+}
+
+
 # 工具名 → 用户能看懂的状态文案（前端状态行直接展示）。
 _TOOL_STATUS = {
     "knowledge_search": "检索知识库",
@@ -158,7 +174,7 @@ async def _run_stream(
     user_message: str = "",
     model: object | None = None,
     persist_user: bool = True,
-    attachment_names: list[str] | None = None,
+    attachment_meta: list[dict] | None = None,
 ):
     """跑图并转成 SSE 流。
 
@@ -178,7 +194,9 @@ async def _run_stream(
                     session["id"],
                     role="user",
                     content=user_message,
-                    attachments=json.dumps(attachment_names or [], ensure_ascii=False),
+                    attachments=json.dumps(
+                        attachment_meta or [], ensure_ascii=False
+                    ),
                 )
             chat.update_session(user_id, session["id"], touch=True)
             yield _sse("session", {"id": session["id"], "title": session["title"]})
@@ -453,7 +471,36 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             kind=kind,
             content=text,
         )
+        # 原文件落盘，供前端「点击预览」用（只存图片，PDF 等暂不重复存）
+        if kind == "image":
+            suffix = Path(filename).suffix.lower() or ".png"
+            if suffix not in _IMAGE_MIME_BY_SUFFIX:
+                suffix = ".png"
+            directory = _attachment_dir(request.app.state.settings)
+            directory.mkdir(parents=True, exist_ok=True)
+            target = directory / f"{attachment_id}{suffix}"
+            target.write_bytes(data)
+            request.app.state.chat.set_attachment_path(
+                user_id, attachment_id, str(target)
+            )
         return {"id": attachment_id, "filename": filename, "kind": kind, "chars": len(text)}
+
+    @app.get("/api/chat/attachments/{attachment_id}/raw")
+    async def chat_attachment_raw(
+        request: Request, attachment_id: int, user_id: str = "local"
+    ) -> FileResponse:
+        """附件原文件（图片预览），带归属校验。"""
+
+        record = request.app.state.chat.get_attachment(user_id, attachment_id)
+        if record is None or not record["storage_path"]:
+            raise HTTPException(status_code=404, detail="附件不存在")
+        path = Path(record["storage_path"])
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="附件文件已丢失")
+        media_type = _IMAGE_MIME_BY_SUFFIX.get(
+            path.suffix.lower(), "application/octet-stream"
+        )
+        return FileResponse(path, media_type=media_type)
 
     @app.post("/api/chat/stream")
     async def chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:
@@ -472,7 +519,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
         # 聊天附件：把抽取出的文本拼进本轮消息，模型就能「看到」PDF/图片内容。
-        attachment_names: list[str] = []
+        attachment_meta: list[dict] = []
         composed = body.message
         if body.attachment_ids:
             if len(body.attachment_ids) > 6:
@@ -482,7 +529,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             if attachments:
                 sections = [body.message]
-                attachment_names = [item["filename"] for item in attachments]
+                attachment_meta = [
+                    {
+                        "id": item["id"],
+                        "name": item["filename"],
+                        "kind": item["kind"],
+                    }
+                    for item in attachments
+                ]
                 for item in attachments:
                     # 单附件最多取前 8000 字，防止长文档撑爆上下文
                     sections.append(
@@ -529,7 +583,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 user_id=body.user_id,
                 user_message=body.message,
                 model=request.app.state.model,
-                attachment_names=attachment_names or None,
+                attachment_meta=attachment_meta or None,
             ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
