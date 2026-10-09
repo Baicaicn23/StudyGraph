@@ -9,6 +9,13 @@ export interface Library {
   document_count: number;
 }
 
+export interface DocumentItem {
+  id: number;
+  title: string;
+  created_at: number;
+  chars: number;
+}
+
 export interface Question {
   id: number;
   library: string;
@@ -43,6 +50,7 @@ export interface StudyPlan {
 
 export interface UsageSummary {
   total_tokens: number;
+  daily_token_budget?: number;
   by_model: {
     model: string;
     input_tokens: number;
@@ -50,6 +58,13 @@ export interface UsageSummary {
     total_tokens: number;
     calls: number;
   }[];
+  by_day?: { date: string; total_tokens: number }[];
+}
+
+export interface ActivityDay {
+  date: string;
+  exercises: number;
+  mistakes: number;
 }
 
 export interface AnswerResult {
@@ -94,11 +109,40 @@ function postJson<T>(path: string, body: unknown): Promise<T> {
 
 // --- 知识库 ---------------------------------------------------------------
 
+export async function getHealth(): Promise<{
+  status: string;
+  provider: string;
+}> {
+  return requestJson<{ status: string; provider: string }>("/api/health");
+}
+
 export async function listLibraries(): Promise<Library[]> {
   const data = await requestJson<{ libraries: Library[] }>(
     "/api/knowledge/libraries",
   );
   return data.libraries;
+}
+
+export async function listDocuments(library: string): Promise<DocumentItem[]> {
+  const data = await requestJson<{ documents: DocumentItem[] }>(
+    `/api/knowledge/documents?library=${encodeURIComponent(library)}`,
+  );
+  return data.documents;
+}
+
+export interface KnowledgeDocument {
+  id: number;
+  library: string;
+  title: string;
+  content: string;
+  created_at: number;
+}
+
+export async function getDocument(id: number): Promise<KnowledgeDocument> {
+  const data = await requestJson<{ document: KnowledgeDocument }>(
+    `/api/knowledge/document?id=${id}`,
+  );
+  return data.document;
 }
 
 export function addNote(
@@ -165,8 +209,20 @@ export function studyPlan(): Promise<StudyPlan> {
   return requestJson<StudyPlan>("/api/study/plan");
 }
 
-export async function listMemories(): Promise<string[]> {
-  const data = await requestJson<{ memories: string[] }>("/api/memories");
+export async function studyActivity(days = 30): Promise<ActivityDay[]> {
+  const data = await requestJson<{ days: ActivityDay[] }>(
+    `/api/study/activity?days=${days}`,
+  );
+  return data.days;
+}
+
+export interface MemoryItem {
+  content: string;
+  created_at: number;
+}
+
+export async function listMemories(): Promise<MemoryItem[]> {
+  const data = await requestJson<{ memories: MemoryItem[] }>("/api/memories");
   return data.memories;
 }
 
