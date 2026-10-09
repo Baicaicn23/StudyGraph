@@ -73,6 +73,11 @@ export default function ChatSidebar({
   const [creatingProject, setCreatingProject] = useState(false);
   const [moving, setMoving] = useState<number | null>(null); // 正在移动的会话 id
   const [menuFor, setMenuFor] = useState<number | null>(null); // 打开「…」菜单的项目 id
+  // 折叠状态："all" = 全部对话分组，其余为项目 id 字符串
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (key: string) =>
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +113,12 @@ export default function ChatSidebar({
     ]);
     setProjects(nextProjects);
     setChats(nextChats);
+  };
+
+  /** 从「+」新建项目内对话：先展开该分组，再切换新对话上下文 */
+  const handleNewChatInProject = (projectId: number) => {
+    setCollapsed((prev) => ({ ...prev, [`p${projectId}`]: false }));
+    onNewChatInProject(projectId);
   };
 
   const handleCreateProject = async () => {
@@ -269,22 +280,45 @@ export default function ChatSidebar({
     );
   };
 
-  /** 项目分组：文件夹行（悬停出 … 和 +）+ 常驻会话列表 */
+  /** 项目分组：文件夹行（点击折叠/展开；悬停出 … 和 +）+ 会话列表 */
   const renderProject = (project: ChatProject) => {
     const items = chats.filter((chat) => chat.project_id === project.id);
+    const key = `p${project.id}`;
+    const isCollapsed = Boolean(collapsed[key]);
     return (
       <section key={project.id} className="mt-1">
         <div className="group relative flex items-center rounded-lg px-2 py-1.5 transition hover:bg-black/[0.03]">
           <button
             type="button"
-            onClick={() => onNewChatInProject(project.id)}
-            title="在该项目下新建对话"
+            onClick={() => toggleGroup(key)}
+            title={isCollapsed ? "展开项目" : "折叠项目"}
             className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none"
           >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+              className={`shrink-0 text-zinc-300 transition-transform ${
+                isCollapsed ? "-rotate-90" : ""
+              }`}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
             <FolderIcon className="shrink-0 text-zinc-400" />
             <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-700">
               {project.name}
             </span>
+            {isCollapsed && items.length > 0 && (
+              <span className="shrink-0 text-[11px] tabular-nums text-zinc-400">
+                {items.length}
+              </span>
+            )}
           </button>
 
           <div className="flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
@@ -303,7 +337,7 @@ export default function ChatSidebar({
             <button
               type="button"
               title="新对话"
-              onClick={() => onNewChatInProject(project.id)}
+              onClick={() => handleNewChatInProject(project.id)}
               className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 transition hover:bg-black/[0.06] hover:text-teal-700"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -343,13 +377,14 @@ export default function ChatSidebar({
           )}
         </div>
         <div className="space-y-0.5">
-          {items.length > 0 ? (
-            items.map(renderSession)
-          ) : (
-            <p className="py-1 pl-8 pr-2 text-[11px] text-zinc-400">
-              还没有对话，点项目名或「+」开始
-            </p>
-          )}
+          {!isCollapsed &&
+            (items.length > 0 ? (
+              items.map(renderSession)
+            ) : (
+              <p className="py-1 pl-8 pr-2 text-[11px] text-zinc-400">
+                还没有对话，点「+」开始
+              </p>
+            ))}
         </div>
       </section>
     );
@@ -372,24 +407,47 @@ export default function ChatSidebar({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
-        {/* 未分组（全部对话的兜底分组） */}
+        {/* 未分组（全部对话的兜底分组，可折叠） */}
         <section className="mt-1">
-          <div className="flex items-center rounded-lg px-2 py-1.5">
+          <button
+            type="button"
+            onClick={() => toggleGroup("all")}
+            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-black/[0.03] focus-visible:outline-none"
+          >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+              className={`shrink-0 text-zinc-300 transition-transform ${
+                collapsed.all ? "-rotate-90" : ""
+              }`}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
             <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-500">
               全部对话
             </span>
-            <span className="text-[11px] tabular-nums text-zinc-400">
-              {ungrouped.length}
-            </span>
-          </div>
-          <div className="space-y-0.5">
-            {ungrouped.length > 0 ? (
-              ungrouped.map(renderSession)
-            ) : (
-              <p className="py-1 pl-8 pr-2 text-[11px] text-zinc-400">
-                发一条消息就会自动保存到这里
-              </p>
+            {collapsed.all && ungrouped.length > 0 && (
+              <span className="text-[11px] tabular-nums text-zinc-400">
+                {ungrouped.length}
+              </span>
             )}
+          </button>
+          <div className="space-y-0.5">
+            {!collapsed.all &&
+              (ungrouped.length > 0 ? (
+                ungrouped.map(renderSession)
+              ) : (
+                <p className="py-1 pl-8 pr-2 text-[11px] text-zinc-400">
+                  发一条消息就会自动保存到这里
+                </p>
+              ))}
           </div>
         </section>
 
