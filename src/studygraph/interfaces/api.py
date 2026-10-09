@@ -425,17 +425,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         if is_image(filename):
             model = request.app.state.model
-            settings = request.app.state.settings
-            model_name = (settings.model or "").lower()
-            # 秒拒：纯文本模型（Mock / DeepSeek 等）直接告诉用户不支持识图，
-            # 而不是等视觉转写请求失败——那个等待又慢又让人摸不着头脑。
-            if getattr(model, "_llm_type", "") == "study-mock" or any(
-                hint in model_name for hint in ("deepseek",)
-            ):
+            # Mock 模型不支持识图（真实模型如 deepseek-flash 已实测可转写图片）
+            if getattr(model, "_llm_type", "") == "study-mock":
                 raise HTTPException(
                     status_code=400,
-                    detail=f"当前模型（{settings.model}）不支持识别图片，"
-                    "请在 .env 里配置视觉模型（如 gpt-4o / qwen-vl）后再传图",
+                    detail="当前是 Mock 模式，不支持识别图片；"
+                    "请在 .env 里配置真实模型后再传图",
                 )
             try:
                 text = await image_to_markdown(model, filename, data)
