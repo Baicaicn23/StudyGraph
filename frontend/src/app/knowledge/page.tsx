@@ -300,8 +300,6 @@ export default function KnowledgePage() {
   const [activeLib, setActiveLib] = useState("");
   const [expandedLibs, setExpandedLibs] = useState<string[]>([]);
   const [treeSearch, setTreeSearch] = useState("");
-  // 目录树折叠：收起成图标条，把宽度让给正文（阅读更舒服）
-  const [treeCollapsed, setTreeCollapsed] = useState(false);
 
   const [panel, setPanel] = useState<"upload" | "note" | null>(null);
   const [message, setMessage] = useState("");
@@ -660,49 +658,10 @@ export default function KnowledgePage() {
 
   return (
     <div className="relative flex h-full bg-white">
-      {/* 栏一：目录树（可折叠成图标条，给正文让出宽度） */}
-      <aside
-        className={`hidden shrink-0 flex-col border-r border-black/[0.06] bg-white transition-[width] duration-200 lg:flex ${
-          treeCollapsed ? "w-11" : "w-56 xl:w-60"
-        }`}
-      >
-        {treeCollapsed ? (
-          <>
-            <button
-              type="button"
-              onClick={() => setTreeCollapsed(false)}
-              title="展开目录"
-              className="mx-auto mt-4 grid h-8 w-8 place-items-center rounded-lg text-zinc-400 transition hover:bg-black/[0.05] hover:text-zinc-700"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="m9 18 6-6-6-6" />
-              </svg>
-            </button>
-            <div className="mt-3 flex flex-col items-center gap-1 overflow-y-auto px-1 pb-4">
-              {filteredLibs.map((library) => (
-                <button
-                  key={library.name}
-                  type="button"
-                  title={library.name}
-                  onClick={() => {
-                    setActiveLib(library.name);
-                    setTreeCollapsed(false);
-                  }}
-                  className={`grid h-8 w-8 place-items-center rounded-lg text-[11px] font-medium transition ${
-                    library.name === activeLib
-                      ? "bg-teal-600/10 text-teal-700"
-                      : "text-zinc-400 hover:bg-black/[0.05]"
-                  }`}
-                >
-                  {library.name.slice(0, 1)}
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <>
-        <div className="flex items-center gap-1 px-3 pt-4 pb-2">
-          <div className="relative flex-1">
+      {/* 栏一：目录树 */}
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-black/[0.06] bg-white lg:flex xl:w-60">
+        <div className="px-3 pt-4 pb-2">
+          <div className="relative">
             <svg
               width="13"
               height="13"
@@ -725,16 +684,6 @@ export default function KnowledgePage() {
               className="w-full rounded-xl bg-black/[0.03] py-1.5 pl-8 pr-3 text-xs outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 focus:ring-teal-600"
             />
           </div>
-          <button
-            type="button"
-            onClick={() => setTreeCollapsed(true)}
-            title="收起目录（正文更宽）"
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-zinc-400 transition hover:bg-black/[0.05] hover:text-zinc-700"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="m15 18-6-6 6-6" />
-            </svg>
-          </button>
         </div>
         <div
           className="flex-1 overflow-y-auto px-2 pb-4"
@@ -807,8 +756,6 @@ export default function KnowledgePage() {
             </p>
           )}
         </div>
-          </>
-        )}
       </aside>
 
       {/* 栏二：内容区（浏览列表 / 文档详情） */}
