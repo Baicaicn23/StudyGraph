@@ -105,8 +105,10 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
     router.push("/");
   };
 
+  // 顶部「新对话」固定落在默认对话空间（不继承当前选中的空间）
   const startNewChat = () => {
-    stashChatAction({ type: "new-chat" });
+    const defaultProject = projects.find((p) => p.is_default);
+    stashChatAction({ type: "new-chat", projectId: defaultProject?.id });
     router.push("/");
   };
 
