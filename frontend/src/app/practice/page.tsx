@@ -10,6 +10,7 @@ import {
   studyPlan,
   type AnswerResult,
   type Library,
+  type PracticeDifficulty,
   type PracticeRating,
   type PracticeSource,
   type Question,
@@ -48,6 +49,26 @@ const RATINGS: { value: PracticeRating; label: string; cls: string }[] = [
 const STAR_KEY = "studygraph-starred-questions";
 const MISTAKE_MARKER = "【你当时记下的误区】";
 
+/** 难度档位的展示标签与配色（数据色 teal 主导，迁移档用暖色点缀区分）。 */
+const DIFFICULTY_TAGS: Record<string, { label: string; cls: string }> = {
+  basic: { label: "基础", cls: "bg-black/[0.05] text-zinc-600" },
+  apply: { label: "进阶", cls: "bg-teal-600/10 text-teal-700" },
+  transfer: { label: "迁移", cls: "bg-amber-500/10 text-amber-700" },
+};
+
+function DifficultyTag({ difficulty }: { difficulty?: string }) {
+  if (!difficulty) return null;
+  const tag = DIFFICULTY_TAGS[difficulty];
+  if (!tag) return null;
+  return (
+    <span
+      className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium leading-4 ${tag.cls}`}
+    >
+      {tag.label}
+    </span>
+  );
+}
+
 /** 错题模板的题干自带误区标记，按标记拆成「正文 + 误区」两段渲染。 */
 function splitMistake(prompt: string): { main: string; note: string | null } {
   const index = prompt.indexOf(MISTAKE_MARKER);
@@ -63,6 +84,7 @@ export default function PracticePage() {
   const [source, setSource] = useState<PracticeSource>("knowledge_base");
   const [library, setLibrary] = useState("");
   const [count, setCount] = useState(3);
+  const [difficulty, setDifficulty] = useState<PracticeDifficulty>("auto");
   const [generated, setGenerated] = useState<Question[]>([]);
   const [queue, setQueue] = useState<Question[]>([]);
   const [weak, setWeak] = useState<WeakLibrary[]>([]);
@@ -117,6 +139,7 @@ export default function PracticePage() {
         source,
         source === "knowledge_base" ? library : "",
         count,
+        difficulty,
       );
       setGenerated(questions);
       setGenMsg(`已生成 ${questions.length} 道题，已加入今日待复习`);
@@ -225,6 +248,23 @@ export default function PracticePage() {
                   </label>
                 )}
               </div>
+
+              {/* 难度选择：auto 按学科掌握度自动分档 */}
+              <label className="mt-3 block text-[11px] text-zinc-400">
+                难度
+                <select
+                  value={difficulty}
+                  onChange={(event) =>
+                    setDifficulty(event.target.value as PracticeDifficulty)
+                  }
+                  className={`mt-1.5 block w-full ${selectClass}`}
+                >
+                  <option value="auto">自动（按掌握度）</option>
+                  <option value="basic">基础（记忆与理解）</option>
+                  <option value="apply">进阶（情境应用）</option>
+                  <option value="transfer">迁移（举一反三）</option>
+                </select>
+              </label>
 
               {/* 数量步进器 + 生成按钮 同行 */}
               <div className="mt-3 flex items-end gap-3">
@@ -338,6 +378,7 @@ export default function PracticePage() {
                             来自你的误区
                           </span>
                         )}
+                        <DifficultyTag difficulty={question.difficulty} />
                       </div>
                       <p className="line-clamp-3 whitespace-pre-wrap leading-relaxed text-zinc-700">
                         {question.prompt}
@@ -491,6 +532,7 @@ export default function PracticePage() {
                             来自你的误区
                           </span>
                         )}
+                        <DifficultyTag difficulty={question.difficulty} />
                         <span className="flex-1" />
                         <button
                           type="button"

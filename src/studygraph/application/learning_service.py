@@ -13,6 +13,7 @@ from ..domain.memory import extract_facts
 from ..domain.quiz import (
     build_excerpt_instruction,
     build_mistake_instruction,
+    normalize_difficulty,
     template_excerpt_question,
     template_mistake_question,
 )
@@ -23,6 +24,8 @@ from .question_writer import write_question
 SOURCES = ("knowledge_base", "mistakes")
 _WEEK_SECONDS = 7 * 24 * 60 * 60
 _WEAK_MASTERY = 60
+# auto 难度分档：按学科掌握度自动选档，贴合"最近发展区"。
+_DIFFICULTY_BY_MASTERY = ((40, "basic"), (80, "apply"))  # >=80 → transfer
 
 
 class LearningService:
@@ -31,6 +34,22 @@ class LearningService:
     ) -> None:
         self.knowledge = knowledge
         self.repository = repository
+
+    def _resolve_difficulty(self, user_id: str, library: str, difficulty: str) -> str:
+        """把请求难度解析成三档之一；`auto` 按当前学科掌握度自动分档。"""
+
+        if difficulty == "auto":
+            mastery = self.repository.get_mastery(user_id, library)
+            for threshold, tier in _DIFFICULTY_BY_MASTERY:
+                if mastery < threshold:
+                    return tier
+            return "transfer"
+        resolved = normalize_difficulty(difficulty)
+        if resolved is None:
+            raise LearningError(
+                "难度只能是 basic（基础）/ apply（进阶）/ transfer（迁移）/ auto"
+            )
+        return resolved
 
     # -- 错题 -----------------------------------------------------------------
 
@@ -54,24 +73,44 @@ class LearningService:
         library: str = "",
         count: int = 3,
         model: ChatModelPort | None = None,
+        difficulty: str = "auto",
     ) -> list[dict[str, Any]]:
         if count < 1 or count > 10:
             raise LearningError("每次可生成 1 到 10 道练习题")
         if source not in SOURCES:
             raise LearningError(f"不支持的出题来源：{source}")
+        if difficulty != "auto" and normalize_difficulty(difficulty) is None:
+            raise LearningError(
+                "难度只能是 basic（基础）/ apply（进阶）/ transfer（迁移）/ auto"
+            )
         if source == "mistakes":
             return await self._from_mistakes(
-                user_id=user_id, library=library, count=count, model=model
+                user_id=user_id,
+                library=library,
+                count=count,
+                model=model,
+                difficulty=difficulty,
             )
         return await self._from_library(
-            user_id=user_id, library=library, count=count, model=model
+            user_id=user_id,
+            library=library,
+            count=count,
+            model=model,
+            difficulty=difficulty,
         )
 
     async def _from_library(
-        self, *, user_id: str, library: str, count: int, model: ChatModelPort | None
+        self,
+        *,
+        user_id: str,
+        library: str,
+        count: int,
+        model: ChatModelPort | None,
+        difficulty: str,
     ) -> list[dict[str, Any]]:
         if not library.strip():
             raise LearningError("请先选择知识库")
+        resolved = self._resolve_difficulty(user_id, library, difficulty)
         used = self.repository.used_chunk_ids(user_id)
         candidates = [
             chunk
@@ -84,8 +123,8 @@ class LearningService:
         for chunk in candidates:
             written = await write_question(
                 model,
-                build_excerpt_instruction(chunk.content),
-                fallback=template_excerpt_question(chunk.content),
+                build_excerpt_instruction(chunk.content, resolved),
+                fallback=template_excerpt_question(chunk.content, resolved),
             )
             created.append(
                 self._store_question(
@@ -96,12 +135,19 @@ class LearningService:
                     source="knowledge_base",
                     source_chunk_id=chunk.id,
                     source_feedback_id=None,
+                    difficulty=resolved,
                 )
             )
         return created
 
     async def _from_mistakes(
-        self, *, user_id: str, library: str, count: int, model: ChatModelPort | None
+        self,
+        *,
+        user_id: str,
+        library: str,
+        count: int,
+        model: ChatModelPort | None,
+        difficulty: str,
     ) -> list[dict[str, Any]]:
         rows = self.repository.unused_mistakes(user_id, library, limit=count)
         if not rows:
@@ -110,12 +156,19 @@ class LearningService:
         for row in rows:
             question = str(row["question"])
             note = str(row["note"])
+            # 每条误区按它自己学科的掌握度分档（auto 时）。
+            resolved = self._resolve_difficulty(user_id, str(row["library"]), difficulty)
             written = await write_question(
                 model,
                 build_mistake_instruction(
-                    subject=str(row["library"]), question=question, note=note
+                    subject=str(row["library"]),
+                    question=question,
+                    note=note,
+                    difficulty=resolved,
                 ),
-                fallback=template_mistake_question(question=question, note=note),
+                fallback=template_mistake_question(
+                    question=question, note=note, difficulty=resolved
+                ),
             )
             created.append(
                 self._store_question(
@@ -126,6 +179,7 @@ class LearningService:
                     source="mistake",
                     source_chunk_id=None,
                     source_feedback_id=int(row["id"]),
+                    difficulty=resolved,
                 )
             )
         return created
@@ -140,6 +194,7 @@ class LearningService:
         source: str,
         source_chunk_id: int | None,
         source_feedback_id: int | None,
+        difficulty: str = "basic",
     ) -> dict[str, Any]:
         question_id = self.repository.insert_question(
             user_id=user_id,
@@ -148,6 +203,7 @@ class LearningService:
             source=source,
             source_chunk_id=source_chunk_id,
             source_feedback_id=source_feedback_id,
+            difficulty=difficulty,
         )
         return {
             "id": question_id,
@@ -155,6 +211,7 @@ class LearningService:
             "prompt": written_prompt,
             "source": source,
             "generator": generator,
+            "difficulty": difficulty,
             "due_at": time.time(),
         }
 

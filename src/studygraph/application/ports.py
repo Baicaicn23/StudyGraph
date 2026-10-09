@@ -44,6 +44,7 @@ class LearningRepositoryPort(Protocol):
         source: str,
         source_chunk_id: int | None,
         source_feedback_id: int | None,
+        difficulty: str = "basic",
     ) -> int: ...
 
     def used_chunk_ids(self, user_id: str) -> set[int]: ...

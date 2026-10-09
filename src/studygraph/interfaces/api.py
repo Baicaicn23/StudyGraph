@@ -76,6 +76,8 @@ class GenerateRequest(BaseModel):
     source: str = Field(default="knowledge_base", max_length=32)
     library: str = Field(default="", max_length=64)
     count: int = Field(default=3, ge=1, le=10)
+    # 难度：basic / apply / transfer / auto（auto 按该学科掌握度自动分档）
+    difficulty: str = Field(default="auto", max_length=16)
 
 
 class AnswerRequest(BaseModel):
@@ -303,6 +305,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 library=body.library,
                 count=body.count,
                 model=request.app.state.model,
+                difficulty=body.difficulty,
             )
         except LearningError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

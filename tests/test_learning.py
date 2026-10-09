@@ -80,6 +80,135 @@ async def test_generate_from_mistakes_respects_library_filter(tmp_path: Path) ->
     assert questions[0]["library"] == "微积分"
 
 
+async def test_generate_difficulty_explicit_and_invalid(tmp_path: Path) -> None:
+    knowledge, learning = _services(tmp_path)
+    knowledge.add_note("高等数学", "导数", "导数是瞬时变化率，反映切线斜率。")
+
+    # 显式难度落到生成的题目上（含模板兜底题面里的难度标记）。
+    questions = await learning.generate(
+        user_id="u1",
+        source="knowledge_base",
+        library="高等数学",
+        count=1,
+        model=None,
+        difficulty="transfer",
+    )
+    assert questions[0]["difficulty"] == "transfer"
+    assert "迁移" in questions[0]["prompt"]
+
+    # 非法难度直接拒绝。
+    with pytest.raises(LearningError):
+        await learning.generate(
+            user_id="u1",
+            source="knowledge_base",
+            library="高等数学",
+            difficulty="impossible",
+        )
+
+
+async def test_generate_difficulty_auto_follows_mastery(tmp_path: Path) -> None:
+    knowledge, learning = _services(tmp_path)
+    knowledge.add_note("高等数学", "导数", "导数是瞬时变化率，反映切线斜率。")
+    knowledge.add_note("线性代数", "特征值", "特征值描述线性变换的缩放倍数。")
+    knowledge.add_note("大学物理", "加速度", "加速度是速度对时间的导数。")
+
+    # 掌握度 20 → 基础；60 → 进阶；90 → 迁移（auto 分档）。
+    learning.repository.set_mastery("u1", "高等数学", 20, updated_at=0)
+    learning.repository.set_mastery("u1", "线性代数", 60, updated_at=0)
+    learning.repository.set_mastery("u1", "大学物理", 90, updated_at=0)
+
+    basic = await learning.generate(
+        user_id="u1", source="knowledge_base", library="高等数学", count=1,
+        model=None, difficulty="auto",
+    )
+    apply_ = await learning.generate(
+        user_id="u1", source="knowledge_base", library="线性代数", count=1,
+        model=None, difficulty="auto",
+    )
+    transfer = await learning.generate(
+        user_id="u1", source="knowledge_base", library="大学物理", count=1,
+        model=None, difficulty="auto",
+    )
+
+    assert basic[0]["difficulty"] == "basic"
+    assert apply_[0]["difficulty"] == "apply"
+    assert transfer[0]["difficulty"] == "transfer"
+
+
+async def test_difficulty_survives_storage_roundtrip(tmp_path: Path) -> None:
+    knowledge, learning = _services(tmp_path)
+    knowledge.add_note("高等数学", "导数", "导数是瞬时变化率，反映切线斜率。")
+
+    created = await learning.generate(
+        user_id="u1",
+        source="knowledge_base",
+        library="高等数学",
+        count=1,
+        model=None,
+        difficulty="apply",
+    )
+
+    due = learning.due_questions("u1")
+    assert len(due) == 1
+    assert due[0]["difficulty"] == "apply"
+    assert due[0]["id"] == created[0]["id"]
+
+
+async def test_repository_migrates_legacy_db_without_difficulty(
+    tmp_path: Path,
+) -> None:
+    import sqlite3
+
+    from studygraph.infrastructure.learning_repository import SqliteLearningRepository
+
+    db = tmp_path / "legacy.db"
+    # 手工造一个"旧版"practice_questions（没有 difficulty 列）。
+    with sqlite3.connect(db) as connection:
+        connection.execute(
+            """
+            CREATE TABLE practice_questions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                library TEXT NOT NULL,
+                prompt TEXT NOT NULL,
+                source TEXT NOT NULL,
+                source_chunk_id INTEGER,
+                source_feedback_id INTEGER,
+                created_at REAL NOT NULL,
+                due_at REAL NOT NULL,
+                answered_count INTEGER NOT NULL DEFAULT 0,
+                last_rating TEXT
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO practice_questions (user_id, library, prompt, source, "
+            "created_at, due_at) VALUES ('u0', '旧库', '旧题', 'knowledge_base', 0, 0)"
+        )
+
+    repository = SqliteLearningRepository(db)  # 构造时应自动补列
+
+    columns = {
+        row["name"]
+        for row in repository._connect().execute(
+            "PRAGMA table_info(practice_questions)"
+        ).fetchall()
+    }
+    assert "difficulty" in columns
+    # 旧数据按默认 basic 读取；insert 带难度也正常。
+    assert repository.due_questions("u0")[0]["difficulty"] == "basic"
+    repository.insert_question(
+        user_id="u0",
+        library="旧库",
+        prompt="新题",
+        source="knowledge_base",
+        source_chunk_id=None,
+        source_feedback_id=None,
+        difficulty="transfer",
+    )
+    assert repository.due_questions("u0")[-1]["difficulty"] == "transfer"
+
+
 async def test_answer_updates_mastery_and_schedule(tmp_path: Path) -> None:
     _knowledge, learning = _services(tmp_path)
     learning.add_feedback(user_id="u1", library="线性代数", question="q", note="n")

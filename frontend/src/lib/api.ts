@@ -22,6 +22,7 @@ export interface Question {
   prompt: string;
   source: string;
   generator?: string;
+  difficulty?: string;
   due_at: number;
   answered_count?: number;
   last_rating?: string | null;
@@ -165,14 +166,18 @@ export async function uploadDocument(
 
 // --- 学习闭环 -------------------------------------------------------------
 
+// 出题难度：auto 按学科掌握度自动分档（<40 基础 / <80 进阶 / >=80 迁移）
+export type PracticeDifficulty = "auto" | "basic" | "apply" | "transfer";
+
 export async function generatePractice(
   source: PracticeSource,
   library: string,
   count: number,
+  difficulty: PracticeDifficulty = "auto",
 ): Promise<Question[]> {
   const data = await postJson<{ questions: Question[] }>(
     "/api/practice/generate",
-    { source, library, count },
+    { source, library, count, difficulty },
   );
   return data.questions;
 }

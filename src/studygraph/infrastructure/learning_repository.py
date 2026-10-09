@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS practice_questions (
     created_at REAL NOT NULL,
     due_at REAL NOT NULL,
     answered_count INTEGER NOT NULL DEFAULT 0,
-    last_rating TEXT
+    last_rating TEXT,
+    difficulty TEXT NOT NULL DEFAULT 'basic'
 );
 CREATE INDEX IF NOT EXISTS idx_pq_due ON practice_questions(user_id, due_at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pq_feedback
@@ -71,6 +72,23 @@ class SqliteLearningRepository:
         with self._connect() as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.executescript(_SCHEMA)
+            self._migrate(connection)
+
+    @staticmethod
+    def _migrate(connection: sqlite3.Connection) -> None:
+        """旧库平滑迁移：缺哪列补哪列（CREATE TABLE IF NOT EXISTS 不会改老表）。"""
+
+        existing = {
+            row["name"]
+            for row in connection.execute(
+                "PRAGMA table_info(practice_questions)"
+            ).fetchall()
+        }
+        if "difficulty" not in existing:
+            connection.execute(
+                "ALTER TABLE practice_questions "
+                "ADD COLUMN difficulty TEXT NOT NULL DEFAULT 'basic'"
+            )
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path, timeout=5.0)
@@ -111,6 +129,7 @@ class SqliteLearningRepository:
         source: str,
         source_chunk_id: int | None,
         source_feedback_id: int | None,
+        difficulty: str = "basic",
     ) -> int:
         now = time.time()
         with self._connect() as connection:
@@ -118,8 +137,8 @@ class SqliteLearningRepository:
                 """
                 INSERT INTO practice_questions (
                     user_id, library, prompt, source, source_chunk_id,
-                    source_feedback_id, created_at, due_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    source_feedback_id, created_at, due_at, difficulty
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     user_id,
@@ -130,6 +149,7 @@ class SqliteLearningRepository:
                     source_feedback_id,
                     now,
                     now,
+                    difficulty,
                 ),
             )
             return int(cursor.lastrowid)
@@ -194,7 +214,8 @@ class SqliteLearningRepository:
     def due_questions(self, user_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT id, library, prompt, source, due_at, answered_count, last_rating "
+                "SELECT id, library, prompt, source, due_at, answered_count, "
+                "last_rating, difficulty "
                 "FROM practice_questions WHERE user_id = ? AND due_at <= ? "
                 "ORDER BY due_at, id LIMIT ?",
                 (user_id, time.time(), limit),
