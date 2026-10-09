@@ -74,10 +74,11 @@ export default function ChatSidebar({
     };
   }, [refreshSignal]);
 
-  const grouped = (projectId: number | null) =>
-    chats.filter((chat) => chat.project_id === projectId);
-
-  const ungrouped = grouped(null);
+  const knownProjectIds = new Set(projects.map((project) => project.id));
+  // 兜底：挂在不存在项目下的会话按「未分组」展示，避免凭空消失
+  const ungrouped = chats.filter(
+    (chat) => chat.project_id === null || !knownProjectIds.has(chat.project_id),
+  );
 
   const handleCreateProject = async () => {
     const name = newProjectName.trim();
@@ -265,7 +266,7 @@ export default function ChatSidebar({
 
         {/* 项目分组 */}
         {projects.map((project) => {
-          const items = grouped(project.id);
+          const items = chats.filter((chat) => chat.project_id === project.id);
           return (
             <section key={project.id} className="mt-3">
               <div
