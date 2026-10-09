@@ -235,10 +235,80 @@ export function usage(days = 1): Promise<UsageSummary> {
   return requestJson<UsageSummary>(`/api/usage?days=${days}`);
 }
 
+// --- 会话（项目分组 + 自动保存）---------------------------------------------
+
+export interface ChatProject {
+  id: number;
+  name: string;
+  created_at: number;
+}
+
+export interface ChatSession {
+  id: number;
+  project_id: number | null;
+  thread_id: string;
+  title: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  created_at: number;
+}
+
+export async function listProjects(): Promise<ChatProject[]> {
+  const data = await requestJson<{ projects: ChatProject[] }>("/api/projects");
+  return data.projects;
+}
+
+export async function createProject(name: string): Promise<ChatProject> {
+  const form = new FormData();
+  form.append("name", name);
+  return requestJson("/api/projects", { method: "POST", body: form });
+}
+
+export async function renameProject(id: number, name: string): Promise<void> {
+  const form = new FormData();
+  form.append("name", name);
+  await requestJson(`/api/projects/${id}`, { method: "PUT", body: form });
+}
+
+export async function deleteProject(id: number): Promise<void> {
+  await requestJson(`/api/projects/${id}`, { method: "DELETE" });
+}
+
+export async function listChats(projectId?: number): Promise<ChatSession[]> {
+  const query = projectId !== undefined ? `?project_id=${projectId}` : "";
+  const data = await requestJson<{ chats: ChatSession[] }>(`/api/chats${query}`);
+  return data.chats;
+}
+
+export async function listChatMessages(sessionId: number): Promise<ChatMessage[]> {
+  const data = await requestJson<{ messages: ChatMessage[] }>(
+    `/api/chats/${sessionId}/messages`,
+  );
+  return data.messages;
+}
+
+export async function moveChat(sessionId: number, projectId: number | null): Promise<void> {
+  const form = new FormData();
+  if (projectId !== null) form.append("project_id", String(projectId));
+  await requestJson(`/api/chats/${sessionId}`, { method: "PUT", body: form });
+}
+
+export async function deleteChat(sessionId: number): Promise<void> {
+  await requestJson(`/api/chats/${sessionId}`, { method: "DELETE" });
+}
+
 // --- 聊天（SSE）-----------------------------------------------------------
 
 export type StreamEvent =
   | { type: "token"; content: string }
+  | { type: "status"; label: string }
+  | { type: "session"; id: number; title: string }
   | {
       type: "interrupt";
       action: string;
@@ -269,6 +339,14 @@ function parseEvent(raw: string): StreamEvent | null {
   switch (event) {
     case "token":
       return { type: "token", content: String(payload.content ?? "") };
+    case "status":
+      return { type: "status", label: String(payload.label ?? "") };
+    case "session":
+      return {
+        type: "session",
+        id: Number(payload.id ?? 0),
+        title: String(payload.title ?? ""),
+      };
     case "interrupt":
       return {
         type: "interrupt",
@@ -331,6 +409,9 @@ export interface ChatRequest {
   thread_id: string;
   user_id?: string;
   knowledge_bases?: string[];
+  // 会话自动保存：不传 session_id → 后端新建会话；传了 → 续聊并追加消息。
+  session_id?: number;
+  project_id?: number;
 }
 
 export function streamChat(
@@ -344,6 +425,16 @@ export function resumeChat(
   threadId: string,
   approved: boolean,
   onEvent: (event: StreamEvent) => void,
+  sessionId?: number,
 ): Promise<void> {
-  return stream("/api/chat/resume", { thread_id: threadId, approved }, onEvent);
+  return stream(
+    "/api/chat/resume",
+    {
+      thread_id: threadId,
+      approved,
+      session_id: sessionId,
+      user_id: "local",
+    },
+    onEvent,
+  );
 }

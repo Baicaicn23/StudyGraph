@@ -5,6 +5,8 @@
 SSE 事件协议（每行一个事件，`data` 为 JSON）：
 
     event: token      data: {"content": "..."}
+    event: status     data: {"label": "检索知识库"}        # 节点/工具进展
+    event: session    data: {"id": 3, "title": "导数与极限"}  # 会话保存/自动标题
     event: interrupt  data: {"action": "save_note", "library": "...", ...}
     event: done       data: {}
     event: error      data: {"message": "..."}
@@ -30,8 +32,10 @@ from ..application.graph import build_graph
 from ..application.guardrails import screen_input, screen_output
 from ..application.image_notes import ImageNoteError, image_to_markdown
 from ..application.learning_service import LearningService
+from ..application.title_writer import generate_title
 from ..config import Settings, get_settings, parse_mcp_servers
 from ..domain.errors import LearningError
+from ..infrastructure.chat_repository import SqliteChatRepository
 from ..infrastructure.embeddings import get_embedder
 from ..infrastructure.extract import ExtractError, extract_text, is_image
 from ..infrastructure.knowledge import KnowledgeStore
@@ -46,11 +50,18 @@ class ChatRequest(BaseModel):
     thread_id: str = Field(default="web", max_length=64)
     user_id: str = Field(default="local", max_length=64)
     knowledge_bases: list[str] = Field(default_factory=list)
+    # 会话持久化：session_id 指向已保存的会话；缺省时自动新建（自动保存）。
+    # project_id 让本轮记忆按项目隔离（不同项目的记忆互不串味）。
+    session_id: int | None = None
+    project_id: int | None = None
 
 
 class ResumeRequest(BaseModel):
     thread_id: str = Field(default="web", max_length=64)
     approved: bool = False
+    # resume 时补齐会话归属：回答写回这个会话，但不重复落用户消息。
+    session_id: int | None = None
+    user_id: str = Field(default="local", max_length=64)
 
 
 class NoteRequest(BaseModel):
@@ -91,8 +102,70 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-async def _run_stream(graph, payload: object, config: dict):
+# 工具名 → 用户能看懂的状态文案（前端状态行直接展示）。
+_TOOL_STATUS = {
+    "knowledge_search": "检索知识库",
+    "mistake_search": "查阅错题记录",
+    "save_note": "整理笔记",
+}
+_NODE_STATUS = {"route": "理解问题", "plan": "制定学习计划"}
+
+
+def _tool_status(name: str) -> str:
+    return _TOOL_STATUS.get(name, f"调用工具 {name}")
+
+
+def _status_from_update(chunk: dict) -> str | None:
+    """从 updates 流里提取一条状态文案；没有值得播报的返回 None。
+
+    agent 节点结束时若带着工具调用，说明接下来要跑工具——此刻播报
+    「检索知识库…」正好卡在工具执行**之前**，用户能看到实时动作。
+    """
+
+    node = next(iter(chunk))
+    update = chunk[node]
+    if node in _NODE_STATUS:
+        return _NODE_STATUS[node]
+    if node == "agent":
+        messages = update.get("messages", []) if isinstance(update, dict) else []
+        for message in messages:
+            calls = getattr(message, "tool_calls", None) or []
+            if calls:
+                return _tool_status(calls[0]["name"])
+    return None
+
+
+async def _run_stream(
+    graph,
+    payload: object,
+    config: dict,
+    *,
+    chat: object | None = None,
+    session: dict | None = None,
+    user_id: str = "local",
+    user_message: str = "",
+    model: object | None = None,
+    persist_user: bool = True,
+):
+    """跑图并转成 SSE 流。
+
+    - ``status`` 事件：让前端在等待时显示「理解问题 / 检索知识库…」；
+    - 会话持久化：session 传入就落库消息，标题还是「新对话」时让模型
+      起一个短标题。落库失败不影响对话本身。
+    - ``persist_user=False`` 用于 interrupt 后的 resume：用户消息在首段
+      已经落过库，这里只负责补上续写出的回答。
+    """
+
     interrupted = False
+    answer_parts: list[str] = []
+    if session is not None and chat is not None:
+        try:
+            if persist_user:
+                chat.append_message(session["id"], role="user", content=user_message)
+            chat.update_session(user_id, session["id"], touch=True)
+            yield _sse("session", {"id": session["id"], "title": session["title"]})
+        except Exception:  # noqa: BLE001 — 落库失败不拦对话
+            session = None
     try:
         async for mode, chunk in graph.astream(
             payload, config, stream_mode=["messages", "updates"]
@@ -100,14 +173,27 @@ async def _run_stream(graph, payload: object, config: dict):
             if mode == "messages":
                 message, _meta = chunk
                 if isinstance(message, (AIMessage, AIMessageChunk)) and message.content:
+                    answer_parts.append(str(message.content))
                     yield _sse("token", {"content": message.content})
             elif isinstance(chunk, dict) and "__interrupt__" in chunk:
                 interrupted = True
                 yield _sse("interrupt", chunk["__interrupt__"][0].value)
+            elif isinstance(chunk, dict) and chunk:
+                status = _status_from_update(chunk)
+                if status:
+                    yield _sse("status", {"label": status})
         if not interrupted:
             warning = await _screen_last_answer(graph, config)
             if warning:
                 yield _sse("guard", {"reason": warning})
+            if session is not None and chat is not None:
+                answer = "".join(answer_parts).strip()
+                if answer:
+                    chat.append_message(session["id"], role="assistant", content=answer)
+                if session["title"] in ("", "新对话"):
+                    title = await generate_title(model, user_message)
+                    chat.update_session(user_id, session["id"], title=title)
+                    yield _sse("session", {"id": session["id"], "title": title})
         yield _sse("done", {})
     except Exception as exc:  # noqa: BLE001 - 把失败作为事件返回，而不是断连
         yield _sse("error", {"message": f"{type(exc).__name__}: {exc}"})
@@ -139,6 +225,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         repository = SqliteLearningRepository(resolved.database_path)
         usage_repository = SqliteUsageRepository(resolved.database_path)
+        chat_repository = SqliteChatRepository(resolved.database_path)
         learning = LearningService(knowledge, repository)
         tools.configure(knowledge, repository)
         mcp_clients, _ = await connect_and_register(
@@ -162,6 +249,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.settings = resolved
             app.state.store = knowledge
             app.state.learning = learning
+            app.state.chat = chat_repository
             app.state.model = model
             app.state.usage = usage_repository
             app.state.graph = build_graph(
@@ -271,20 +359,49 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         config = {"configurable": {"thread_id": body.thread_id}}
         learning: LearningService = request.app.state.learning
-        learning.remember(body.user_id, body.message)
+        learning.remember(
+            body.user_id, body.message, project_id=str(body.project_id or "")
+        )
         payload: dict = {
             "messages": [HumanMessage(body.message)],
             "user_id": body.user_id,
             "memories": [
-                m["content"] for m in learning.memories(body.user_id)
+                m["content"]
+                for m in learning.memories(
+                    body.user_id, project_id=str(body.project_id or "")
+                )
             ],
             # 掌握度快照：system prompt 据此调整讲解深度（贴合学生水平）。
             "progress": learning.progress(body.user_id),
         }
         if body.knowledge_bases:
             payload["knowledge_bases"] = body.knowledge_bases
+
+        # 自动保存：没有 session_id 就新建会话（标题先占位，回复完后自动起名）。
+        session = None
+        chat = request.app.state.chat
+        if body.session_id is not None:
+            session = chat.get_session(body.user_id, body.session_id)
+            if session is None:
+                raise HTTPException(status_code=404, detail="会话不存在")
+        else:
+            session_id = chat.create_session(
+                user_id=body.user_id,
+                project_id=body.project_id,
+                thread_id=body.thread_id,
+            )
+            session = chat.get_session(body.user_id, session_id)
         return StreamingResponse(
-            _run_stream(request.app.state.graph, payload, config),
+            _run_stream(
+                request.app.state.graph,
+                payload,
+                config,
+                chat=chat,
+                session=session,
+                user_id=body.user_id,
+                user_message=body.message,
+                model=request.app.state.model,
+            ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -292,8 +409,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/chat/resume")
     async def chat_resume(body: ResumeRequest, request: Request) -> StreamingResponse:
         config = {"configurable": {"thread_id": body.thread_id}}
+        session = None
+        if body.session_id is not None:
+            session = request.app.state.chat.get_session(body.user_id, body.session_id)
         return StreamingResponse(
-            _run_stream(request.app.state.graph, Command(resume=body.approved), config),
+            _run_stream(
+                request.app.state.graph,
+                Command(resume=body.approved),
+                config,
+                chat=request.app.state.chat,
+                session=session,
+                user_id=body.user_id,
+                model=request.app.state.model,
+                persist_user=False,
+            ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -353,9 +482,94 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> dict:
         return {"days": request.app.state.learning.activity_series(user_id, days=days)}
 
+    # -- 项目与会话（WorkBuddy 式分组） ----------------------------------------
+
+    @app.post("/api/projects")
+    async def create_project(request: Request, user_id: str = "local", name: str = Form(...)) -> dict:  # noqa: E501
+        name = name.strip()[:64]
+        if not name:
+            raise HTTPException(status_code=400, detail="项目名不能为空")
+        try:
+            project_id = request.app.state.chat.create_project(
+                user_id=user_id, name=name
+            )
+        except Exception as exc:  # noqa: BLE001 — UNIQUE 冲突 → 409 已存在
+            if "UNIQUE" in str(exc):
+                raise HTTPException(status_code=409, detail="同名项目已存在") from exc
+            raise
+        return {"id": project_id, "name": name}
+
+    @app.get("/api/projects")
+    async def list_projects(request: Request, user_id: str = "local") -> dict:
+        return {"projects": request.app.state.chat.list_projects(user_id)}
+
+    @app.put("/api/projects/{project_id}")
+    async def rename_project(
+        request: Request, project_id: int, user_id: str = "local", name: str = Form(...)
+    ) -> dict:
+        if not request.app.state.chat.rename_project(
+            user_id, project_id, name.strip()[:64]
+        ):
+            raise HTTPException(status_code=404, detail="项目不存在")
+        return {"id": project_id, "name": name.strip()}
+
+    @app.delete("/api/projects/{project_id}")
+    async def delete_project(
+        request: Request, project_id: int, user_id: str = "local"
+    ) -> dict:
+        if not request.app.state.chat.delete_project(user_id, project_id):
+            raise HTTPException(status_code=404, detail="项目不存在")
+        return {"deleted": project_id}
+
+    @app.get("/api/chats")
+    async def list_chats(
+        request: Request,
+        user_id: str = "local",
+        project_id: int | None = Query(default=None),
+    ) -> dict:
+        return {"chats": request.app.state.chat.list_sessions(user_id, project_id=project_id)}
+
+    @app.get("/api/chats/{session_id}/messages")
+    async def chat_messages(
+        request: Request, session_id: int, user_id: str = "local"
+    ) -> dict:
+        return {
+            "messages": request.app.state.chat.list_messages(user_id, session_id)
+        }
+
+    @app.put("/api/chats/{session_id}")
+    async def update_chat(
+        request: Request,
+        session_id: int,
+        user_id: str = "local",
+        title: str | None = Form(default=None),
+        project_id: int | None = Form(default=None),
+    ) -> dict:
+        updated = request.app.state.chat.update_session(
+            user_id, session_id, title=(title or None), project_id=project_id, touch=True
+        )
+        if not updated:
+            raise HTTPException(status_code=404, detail="会话不存在")
+        return {"id": session_id}
+
+    @app.delete("/api/chats/{session_id}")
+    async def delete_chat(
+        request: Request, session_id: int, user_id: str = "local"
+    ) -> dict:
+        if not request.app.state.chat.delete_session(user_id, session_id):
+            raise HTTPException(status_code=404, detail="会话不存在")
+        return {"deleted": session_id}
+
     @app.get("/api/memories")
-    async def list_memories(request: Request, user_id: str = "local") -> dict:
-        return {"memories": request.app.state.learning.memories(user_id)}
+    async def list_memories(
+        request: Request, user_id: str = "local", project_id: int | None = Query(default=None)
+    ) -> dict:
+        # project_id 缺省 → 全部记忆；传了 → 只看该项目的（记忆按项目隔离）。
+        return {
+            "memories": request.app.state.learning.memories(
+                user_id, project_id=str(project_id or "")
+            )
+        }
 
     @app.get("/api/usage")
     async def usage(request: Request, user_id: str = "local", days: int = 1) -> dict:

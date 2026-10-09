@@ -9,15 +9,18 @@ import {
   addNote,
   generatePractice,
   getHealth,
+  listChatMessages,
   listFeedback,
   listLibraries,
   resumeChat,
   streamChat,
   studyPlan,
+  type ChatSession,
   type Library,
   type StudyPlan,
   type StreamEvent,
 } from "@/lib/api";
+import ChatSidebar from "./ChatSidebar";
 import Markdown from "./Markdown";
 
 interface Message {
@@ -83,6 +86,63 @@ export default function Chat() {
     return threadIdRef.current;
   }, []);
 
+  /* ---------- 会话自动保存 / 侧栏 ---------- */
+  // 当前会话（null = 还没落库，首轮回复后端会自动新建并推回 id）
+  const sessionIdRef = useRef<number | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  const [sidebarSignal, setSidebarSignal] = useState(0);
+  const refreshSidebar = useCallback(
+    () => setSidebarSignal((value) => value + 1),
+    [],
+  );
+
+  /* ---------- 平滑打字机：token 先入队列，rAF 按需吐字 ---------- */
+  const queueRef = useRef("");
+  const rafRef = useRef<number | null>(null);
+  const busyRef = useRef(false);
+  const appendToAssistant = useCallback((delta: string) => {
+    setMessages((prev) => {
+      const next = [...prev];
+      const last = next[next.length - 1];
+      if (last && last.role === "assistant") {
+        next[next.length - 1] = { ...last, content: last.content + delta };
+      }
+      return next;
+    });
+  }, []);
+  const pumpRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    pumpRef.current = () => {
+      const queue = queueRef.current;
+      if (queue) {
+        // 自适应速度：积压越多吐得越快，积压小则逐字浮现
+        const size = Math.max(2, Math.ceil(queue.length / 12));
+        queueRef.current = queue.slice(size);
+        appendToAssistant(queue.slice(0, size));
+      }
+      if (queueRef.current || busyRef.current) {
+        rafRef.current = window.requestAnimationFrame(() => pumpRef.current());
+      } else {
+        rafRef.current = null;
+      }
+    };
+  }, [appendToAssistant]);
+  useEffect(
+    () => () => {
+      if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current);
+    },
+    [],
+  );
+  const startPump = useCallback(() => {
+    if (rafRef.current === null) {
+      rafRef.current = window.requestAnimationFrame(() => pumpRef.current());
+    }
+  }, []);
+
+  /* ---------- 状态行（理解问题 / 检索知识库…） ---------- */
+  const [statusLabel, setStatusLabel] = useState("");
+
   const refreshLibraries = useCallback(async () => {
     try {
       setLibraries(await listLibraries());
@@ -127,32 +187,33 @@ export default function Chat() {
     );
   };
 
-  const appendToAssistant = useCallback((delta: string) => {
-    setMessages((prev) => {
-      const next = [...prev];
-      const last = next[next.length - 1];
-      if (last && last.role === "assistant") {
-        next[next.length - 1] = { ...last, content: last.content + delta };
-      }
-      return next;
-    });
-  }, []);
-
   const handleEvent = useCallback(
     (event: StreamEvent) => {
-      if (event.type === "token") appendToAssistant(event.content);
-      else if (event.type === "interrupt")
+      if (event.type === "token") {
+        // token 进队列，由打字机节奏渲染，避免一坨糊出来
+        queueRef.current += event.content;
+      } else if (event.type === "status") {
+        setStatusLabel(event.label);
+      } else if (event.type === "session") {
+        // 后端自动保存/自动起标题 → 记住会话 id，刷新侧栏
+        if (sessionIdRef.current === null) {
+          sessionIdRef.current = event.id;
+          setActiveSessionId(event.id);
+        }
+        refreshSidebar();
+      } else if (event.type === "interrupt") {
         setPending({
           library: event.library,
           title: event.title,
           preview: event.preview,
         });
-      else if (event.type === "guard")
+      } else if (event.type === "guard") {
         appendToAssistant(`\n\n> 🚧 护栏提示：${event.reason}`);
-      else if (event.type === "error")
+      } else if (event.type === "error") {
         appendToAssistant(`\n\n> ⚠️ ${event.message}`);
+      }
     },
-    [appendToAssistant],
+    [appendToAssistant, refreshSidebar],
   );
 
   const send = useCallback(
@@ -164,15 +225,26 @@ export default function Chat() {
       setPlusMenuOpen(false);
       if (inputRef.current) inputRef.current.style.height = "auto";
       setBusy(true);
+      busyRef.current = true;
+      setStatusLabel("正在理解问题…");
+      startPump();
       setMessages((prev) => [
         ...prev,
         { role: "user", content: text },
         { role: "assistant", content: "" },
       ]);
       await streamChat(
-        { message: text, thread_id: getThreadId(), knowledge_bases: selected },
+        {
+          message: text,
+          thread_id: getThreadId(),
+          knowledge_bases: selected,
+          session_id: sessionIdRef.current ?? undefined,
+          project_id: activeProjectId ?? undefined,
+        },
         handleEvent,
       );
+      busyRef.current = false;
+      setStatusLabel("");
       await refreshLibraries();
       await refreshPlan();
       setBusy(false);
@@ -182,9 +254,11 @@ export default function Chat() {
       busy,
       getThreadId,
       selected,
+      activeProjectId,
       handleEvent,
       refreshLibraries,
       refreshPlan,
+      startPump,
     ],
   );
 
@@ -192,12 +266,48 @@ export default function Chat() {
     async (approved: boolean) => {
       setPending(null);
       setBusy(true);
-      await resumeChat(getThreadId(), approved, handleEvent);
+      busyRef.current = true;
+      startPump();
+      await resumeChat(
+        getThreadId(),
+        approved,
+        handleEvent,
+        sessionIdRef.current ?? undefined,
+      );
+      busyRef.current = false;
       await refreshLibraries();
       setBusy(false);
     },
-    [getThreadId, handleEvent, refreshLibraries],
+    [getThreadId, handleEvent, refreshLibraries, startPump],
   );
+
+  /* ---------- 会话切换 ---------- */
+  const startNewChat = useCallback(() => {
+    if (busy) return;
+    sessionIdRef.current = null;
+    threadIdRef.current = "";
+    setActiveSessionId(null);
+    setStatusLabel("");
+    queueRef.current = "";
+    setMessages([]);
+  }, [busy]);
+
+  const openSession = useCallback(async (session: ChatSession) => {
+    if (busyRef.current) return;
+    sessionIdRef.current = session.id;
+    threadIdRef.current = session.thread_id || `web-s${session.id}`;
+    setActiveSessionId(session.id);
+    setStatusLabel("");
+    queueRef.current = "";
+    try {
+      const history = await listChatMessages(session.id);
+      setMessages(
+        history.map((item) => ({ role: item.role, content: item.content })),
+      );
+    } catch {
+      setMessages([]);
+    }
+  }, []);
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -300,7 +410,21 @@ export default function Chat() {
   );
 
   return (
-    <div className="relative flex h-full flex-col bg-white">
+    <div className="flex h-full">
+      {/* 会话侧栏（窄屏隐藏） */}
+      <div className="hidden h-full md:block">
+        <ChatSidebar
+          activeSessionId={activeSessionId}
+          activeProjectId={activeProjectId}
+          onSelectSession={(session) => void openSession(session)}
+          onNewChat={startNewChat}
+          onSelectProject={setActiveProjectId}
+          refreshSignal={sidebarSignal}
+          onChatListChanged={refreshSidebar}
+        />
+      </div>
+
+      <div className="relative flex h-full min-w-0 flex-1 flex-col bg-white">
       {/* 顶部：标题 */}
       <header className="px-6 pt-6 pb-2">
         <h1 className="text-[17px] font-bold tracking-tight">聊天</h1>
@@ -418,6 +542,9 @@ export default function Chat() {
                     message={message}
                     busy={busy}
                     index={index}
+                    statusLabel={
+                      busy && index === messages.length - 1 ? statusLabel : ""
+                    }
                     actionBusy={actionBusy === index}
                     feedback={actionFeedback[index]}
                     libraries={libraries}
@@ -733,6 +860,7 @@ export default function Chat() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -741,6 +869,7 @@ function MessageRow({
   message,
   busy,
   index,
+  statusLabel,
   actionBusy,
   feedback,
   libraries,
@@ -755,6 +884,7 @@ function MessageRow({
   message: Message;
   busy: boolean;
   index: number;
+  statusLabel?: string;
   actionBusy: boolean;
   feedback?: string;
   libraries: Library[];
@@ -787,6 +917,17 @@ function MessageRow({
       </div>
       <div className="min-w-0 flex-1">
         <div className="rounded-2xl rounded-tl-lg bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_2px_8px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.04]">
+          {/* 状态行：让等待过程可见（理解问题 / 检索知识库…） */}
+          {busy && statusLabel && (
+            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-teal-700">
+              <span className="flex gap-0.5">
+                <span className="h-1 w-1 animate-bounce rounded-full bg-teal-600 [animation-delay:0ms]" />
+                <span className="h-1 w-1 animate-bounce rounded-full bg-teal-600 [animation-delay:120ms]" />
+                <span className="h-1 w-1 animate-bounce rounded-full bg-teal-600 [animation-delay:240ms]" />
+              </span>
+              {statusLabel}
+            </div>
+          )}
           {message.content ? (
             <div className="prose prose-zinc max-w-none text-sm">
               <Markdown content={shown} />

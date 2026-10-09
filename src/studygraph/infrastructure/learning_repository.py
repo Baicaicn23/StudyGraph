@@ -59,8 +59,9 @@ CREATE TABLE IF NOT EXISTS memories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
     content TEXT NOT NULL,
+    project_id TEXT NOT NULL DEFAULT '',
     created_at REAL NOT NULL,
-    UNIQUE (user_id, content)
+    UNIQUE (user_id, project_id, content)
 );
 """
 
@@ -88,6 +89,21 @@ class SqliteLearningRepository:
             connection.execute(
                 "ALTER TABLE practice_questions "
                 "ADD COLUMN difficulty TEXT NOT NULL DEFAULT 'basic'"
+            )
+
+        memory_cols = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(memories)").fetchall()
+        }
+        if "project_id" not in memory_cols:
+            # 记忆按项目隔离：老数据全部归入默认空间（''），不丢内容。
+            connection.execute(
+                "ALTER TABLE memories ADD COLUMN project_id TEXT NOT NULL DEFAULT ''"
+            )
+            # 旧表只有 (user_id, content) 唯一约束；新数据由新 UNIQUE 索引管。
+            connection.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_project "
+                "ON memories(user_id, project_id, content)"
             )
 
     def _connect(self) -> sqlite3.Connection:
@@ -254,21 +270,33 @@ class SqliteLearningRepository:
 
     # -- 记忆 -----------------------------------------------------------------
 
-    def remember_fact(self, user_id: str, content: str, *, created_at: float) -> None:
+    def remember_fact(
+        self, user_id: str, content: str, *, created_at: float, project_id: str = ""
+    ) -> None:
         with self._connect() as connection:
             connection.execute(
-                "INSERT OR IGNORE INTO memories(user_id, content, created_at) "
-                "VALUES (?, ?, ?)",
-                (user_id, content, created_at),
+                "INSERT OR IGNORE INTO memories(user_id, content, project_id, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (user_id, content, project_id, created_at),
             )
 
-    def list_memories(self, user_id: str, *, limit: int = 10) -> list[dict[str, Any]]:
+    def list_memories(
+        self, user_id: str, *, project_id: str = "", limit: int = 10
+    ) -> list[dict[str, Any]]:
+        """取某用户（可再按项目过滤）的记忆，最新在前。"""
         with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT content, created_at FROM memories WHERE user_id = ? "
-                "ORDER BY created_at DESC, id DESC LIMIT ?",
-                (user_id, limit),
-            ).fetchall()
+            if project_id:
+                rows = connection.execute(
+                    "SELECT content, created_at FROM memories WHERE user_id = ? "
+                    "AND project_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
+                    (user_id, project_id, limit),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT content, created_at FROM memories WHERE user_id = ? "
+                    "ORDER BY created_at DESC, id DESC LIMIT ?",
+                    (user_id, limit),
+                ).fetchall()
         return [
             {"content": str(row["content"]), "created_at": float(row["created_at"])}
             for row in rows

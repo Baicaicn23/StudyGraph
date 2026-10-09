@@ -255,15 +255,23 @@ class LearningService:
 
     # -- 长期记忆 -------------------------------------------------------------
 
-    def remember(self, user_id: str, text: str) -> list[str]:
+    def remember(
+        self, user_id: str, text: str, *, project_id: str = ""
+    ) -> list[str]:
         facts = extract_facts(text)
         now = time.time()
         for fact in facts:
-            self.repository.remember_fact(user_id, fact, created_at=now)
+            self.repository.remember_fact(
+                user_id, fact, created_at=now, project_id=project_id
+            )
         return facts
 
-    def memories(self, user_id: str, *, limit: int = 10) -> list[dict[str, Any]]:
-        return self.repository.list_memories(user_id, limit=limit)
+    def memories(
+        self, user_id: str, *, project_id: str = "", limit: int = 10
+    ) -> list[dict[str, Any]]:
+        return self.repository.list_memories(
+            user_id, project_id=project_id, limit=limit
+        )
 
     # -- 今日复习 -------------------------------------------------------------
 

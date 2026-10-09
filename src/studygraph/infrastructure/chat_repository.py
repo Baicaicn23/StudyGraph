@@ -1,0 +1,239 @@
+"""聊天会话持久化——项目分组 + 自动保存的消息记录。
+
+WorkBuddy 式会话模型：
+- `projects`：项目（空间），会话按项目分组，项目删除后会话回到未分组；
+- `chat_sessions`：一次对话（自动保存、自动起标题）；
+- `chat_messages`：对话的逐条消息（便于列表回放，检查点里的历史只服务图状态）。
+
+与 `SqliteLearningRepository` 共用同一个 SQLite 文件，但职责独立。
+"""
+
+from __future__ import annotations
+
+import sqlite3
+import time
+from pathlib import Path
+from typing import Any
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    UNIQUE (user_id, name)
+);
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    project_id INTEGER,
+    thread_id TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '新对话',
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user
+    ON chat_sessions(user_id, updated_at DESC);
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_messages_session
+    ON chat_messages(session_id, id);
+"""
+
+
+class SqliteChatRepository:
+    def __init__(self, db_path: str | Path) -> None:
+        self.db_path = str(db_path)
+        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        with self._connect() as connection:
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.executescript(_SCHEMA)
+            self._migrate(connection)
+
+    @staticmethod
+    def _migrate(connection: sqlite3.Connection) -> None:
+        """旧库平滑迁移：CREATE TABLE IF NOT EXISTS 不会改老表，缺哪列补哪列。"""
+
+        existing = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(chat_sessions)").fetchall()
+        }
+        if "thread_id" not in existing:
+            connection.execute(
+                "ALTER TABLE chat_sessions ADD COLUMN thread_id TEXT NOT NULL DEFAULT ''"
+            )
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self.db_path, timeout=5.0)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA busy_timeout = 5000")
+        return connection
+
+    # -- 项目 -----------------------------------------------------------------
+
+    def create_project(self, *, user_id: str, name: str) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "INSERT INTO projects (user_id, name, created_at) VALUES (?, ?, ?)",
+                (user_id, name.strip(), time.time()),
+            )
+            return int(cursor.lastrowid)
+
+    def list_projects(self, user_id: str) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT id, name, created_at FROM projects WHERE user_id = ? "
+                "ORDER BY created_at, id",
+                (user_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def rename_project(self, user_id: str, project_id: int, name: str) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE projects SET name = ? WHERE id = ? AND user_id = ?",
+                (name.strip(), project_id, user_id),
+            )
+            return cursor.rowcount > 0
+
+    def delete_project(self, user_id: str, project_id: int) -> bool:
+        """删除项目：会话回到未分组（project_id 置空），不删聊天记录。"""
+
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM projects WHERE id = ? AND user_id = ?",
+                (project_id, user_id),
+            )
+            if cursor.rowcount:
+                connection.execute(
+                    "UPDATE chat_sessions SET project_id = NULL "
+                    "WHERE project_id = ? AND user_id = ?",
+                    (project_id, user_id),
+                )
+            return cursor.rowcount > 0
+
+    # -- 会话 -----------------------------------------------------------------
+
+    def create_session(
+        self,
+        *,
+        user_id: str,
+        project_id: int | None = None,
+        thread_id: str = "",
+        title: str = "新对话",
+    ) -> int:
+        now = time.time()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "INSERT INTO chat_sessions (user_id, project_id, thread_id, title, "
+                "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (user_id, project_id, thread_id, title, now, now),
+            )
+            return int(cursor.lastrowid)
+
+    def get_session(self, user_id: str, session_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id, user_id, project_id, thread_id, title, created_at, "
+                "updated_at FROM chat_sessions WHERE id = ? AND user_id = ?",
+                (session_id, user_id),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def list_sessions(
+        self, user_id: str, *, project_id: int | None = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        query = (
+            "SELECT id, project_id, thread_id, title, created_at, updated_at "
+            "FROM chat_sessions WHERE user_id = ?"
+        )
+        params: list[Any] = [user_id]
+        if project_id is not None:
+            query += " AND project_id = ?"
+            params.append(project_id)
+        query += " ORDER BY updated_at DESC, id DESC LIMIT ?"
+        params.append(limit)
+        with self._connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [dict(row) for row in rows]
+
+    def update_session(
+        self,
+        user_id: str,
+        session_id: int,
+        *,
+        title: str | None = None,
+        project_id: int | None = None,
+        touch: bool = False,
+    ) -> bool:
+        sets: list[str] = []
+        params: list[Any] = []
+        if title is not None:
+            sets.append("title = ?")
+            params.append(title)
+        if project_id is not None:
+            sets.append("project_id = ?")
+            params.append(project_id)
+        if touch:
+            sets.append("updated_at = ?")
+            params.append(time.time())
+        if not sets:
+            return False
+        params.extend([session_id, user_id])
+        with self._connect() as connection:
+            cursor = connection.execute(
+                f"UPDATE chat_sessions SET {', '.join(sets)} "
+                "WHERE id = ? AND user_id = ?",
+                params,
+            )
+            return cursor.rowcount > 0
+
+    def delete_session(self, user_id: str, session_id: int) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM chat_sessions WHERE id = ? AND user_id = ?",
+                (session_id, user_id),
+            )
+            if cursor.rowcount:
+                connection.execute(
+                    "DELETE FROM chat_messages WHERE session_id = ?",
+                    (session_id,),
+                )
+            return cursor.rowcount > 0
+
+    # -- 消息 -----------------------------------------------------------------
+
+    def append_message(
+        self, session_id: int, *, role: str, content: str
+    ) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "INSERT INTO chat_messages (session_id, role, content, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (session_id, role, content, time.time()),
+            )
+            return int(cursor.lastrowid)
+
+    def list_messages(
+        self, user_id: str, session_id: int, *, limit: int = 200
+    ) -> list[dict[str, Any]]:
+        """回放某个会话的消息（校验会话归属，防止越权读取）。"""
+
+        with self._connect() as connection:
+            owner = connection.execute(
+                "SELECT id FROM chat_sessions WHERE id = ? AND user_id = ?",
+                (session_id, user_id),
+            ).fetchone()
+            if owner is None:
+                return []
+            rows = connection.execute(
+                "SELECT id, role, content, created_at FROM chat_messages "
+                "WHERE session_id = ? ORDER BY id LIMIT ?",
+                (session_id, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
