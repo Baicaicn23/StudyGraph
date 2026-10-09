@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
     name TEXT NOT NULL,
+    is_default INTEGER NOT NULL DEFAULT 0,
     created_at REAL NOT NULL,
     UNIQUE (user_id, name)
 );
@@ -68,6 +69,15 @@ class SqliteChatRepository:
                 "ALTER TABLE chat_sessions ADD COLUMN thread_id TEXT NOT NULL DEFAULT ''"
             )
 
+        project_cols = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(projects)").fetchall()
+        }
+        if "is_default" not in project_cols:
+            connection.execute(
+                "ALTER TABLE projects ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0"
+            )
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path, timeout=5.0)
         connection.row_factory = sqlite3.Row
@@ -84,11 +94,62 @@ class SqliteChatRepository:
             )
             return int(cursor.lastrowid)
 
+    DEFAULT_SPACE_NAME = "默认对话空间"
+
+    def ensure_default_project(self, user_id: str) -> int:
+        """保证用户有且只有一个「默认对话空间」，并把无主会话归入其中。
+
+        - 已有 is_default=1 的项目 → 直接返回；
+        - 没有但建过同名项目 → 收编为默认空间；
+        - 都没有 → 新建。最后把 project_id 为空的会话全部归入。
+        """
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id FROM projects WHERE user_id = ? AND is_default = 1",
+                (user_id,),
+            ).fetchone()
+            if row is None:
+                existing = connection.execute(
+                    "SELECT id FROM projects WHERE user_id = ? AND name = ?",
+                    (user_id, self.DEFAULT_SPACE_NAME),
+                ).fetchone()
+                if existing is not None:
+                    connection.execute(
+                        "UPDATE projects SET is_default = 1 WHERE id = ?",
+                        (existing["id"],),
+                    )
+                    default_id = int(existing["id"])
+                else:
+                    cursor = connection.execute(
+                        "INSERT INTO projects (user_id, name, is_default, created_at) "
+                        "VALUES (?, ?, 1, ?)",
+                        (user_id, self.DEFAULT_SPACE_NAME, time.time()),
+                    )
+                    default_id = int(cursor.lastrowid)
+            else:
+                default_id = int(row["id"])
+            connection.execute(
+                "UPDATE chat_sessions SET project_id = ? "
+                "WHERE user_id = ? AND project_id IS NULL",
+                (default_id, user_id),
+            )
+        return default_id
+
+    def get_project(self, user_id: str, project_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id, user_id, name, is_default, created_at "
+                "FROM projects WHERE id = ? AND user_id = ?",
+                (project_id, user_id),
+            ).fetchone()
+        return dict(row) if row else None
+
     def list_projects(self, user_id: str) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT id, name, created_at FROM projects WHERE user_id = ? "
-                "ORDER BY created_at, id",
+                "SELECT id, name, is_default, created_at FROM projects "
+                "WHERE user_id = ? ORDER BY is_default DESC, created_at, id",
                 (user_id,),
             ).fetchall()
         return [dict(row) for row in rows]
@@ -102,18 +163,30 @@ class SqliteChatRepository:
             return cursor.rowcount > 0
 
     def delete_project(self, user_id: str, project_id: int) -> bool:
-        """删除项目：会话回到未分组（project_id 置空），不删聊天记录。"""
+        """删除项目：会话归入默认空间（绝不丢聊天记录）；默认空间本身不可删。"""
 
         with self._connect() as connection:
+            row = connection.execute(
+                "SELECT is_default FROM projects WHERE id = ? AND user_id = ?",
+                (project_id, user_id),
+            ).fetchone()
+            if row is None or row["is_default"]:
+                return False
+            default_row = connection.execute(
+                "SELECT id FROM projects WHERE user_id = ? AND is_default = 1",
+                (user_id,),
+            ).fetchone()
+            default_id = int(default_row["id"]) if default_row else None
             cursor = connection.execute(
                 "DELETE FROM projects WHERE id = ? AND user_id = ?",
                 (project_id, user_id),
             )
             if cursor.rowcount:
+                # 会话挪进默认空间；万一默认空间缺失（理论不可能）才退回未分组
                 connection.execute(
-                    "UPDATE chat_sessions SET project_id = NULL "
+                    "UPDATE chat_sessions SET project_id = ? "
                     "WHERE project_id = ? AND user_id = ?",
-                    (project_id, user_id),
+                    (default_id, project_id, user_id),
                 )
             return cursor.rowcount > 0
 

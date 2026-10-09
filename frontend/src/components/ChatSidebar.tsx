@@ -365,13 +365,19 @@ export default function ChatSidebar({
                 >
                   重命名项目
                 </button>
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteProject(project.id)}
-                  className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] text-red-600 transition hover:bg-red-50"
-                >
-                  删除项目（对话保留）
-                </button>
+                {Boolean(project.is_default) ? (
+                  <div className="px-2.5 py-1.5 text-[11px] text-zinc-400">
+                    默认对话空间，不可删除
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteProject(project.id)}
+                    className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] text-red-600 transition hover:bg-red-50"
+                  >
+                    删除项目（对话保留）
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -407,51 +413,22 @@ export default function ChatSidebar({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
-        {/* 未分组（全部对话的兜底分组，可折叠） */}
-        <section className="mt-1">
-          <button
-            type="button"
-            onClick={() => toggleGroup("all")}
-            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-black/[0.03] focus-visible:outline-none"
-          >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-              className={`shrink-0 text-zinc-300 transition-transform ${
-                collapsed.all ? "-rotate-90" : ""
-              }`}
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-500">
-              全部对话
-            </span>
-            {collapsed.all && ungrouped.length > 0 && (
+        {/* 未分组兜底：正常情况下所有会话都归属某个空间，这里只在异常数据时出现 */}
+        {ungrouped.length > 0 && (
+          <section className="mt-1">
+            <div className="flex items-center rounded-lg px-2 py-1.5">
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-500">
+                未分组
+              </span>
               <span className="text-[11px] tabular-nums text-zinc-400">
                 {ungrouped.length}
               </span>
-            )}
-          </button>
-          <div className="space-y-0.5">
-            {!collapsed.all &&
-              (ungrouped.length > 0 ? (
-                ungrouped.map(renderSession)
-              ) : (
-                <p className="py-1 pl-8 pr-2 text-[11px] text-zinc-400">
-                  发一条消息就会自动保存到这里
-                </p>
-              ))}
-          </div>
-        </section>
+            </div>
+            <div className="space-y-0.5">{ungrouped.map(renderSession)}</div>
+          </section>
+        )}
 
-        {/* 项目分组 */}
+        {/* 项目（空间）分组，默认空间排在最前（后端已排序） */}
         {projects.map(renderProject)}
 
         {/* 新建项目 */}

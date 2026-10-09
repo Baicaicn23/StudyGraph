@@ -240,6 +240,7 @@ export function usage(days = 1): Promise<UsageSummary> {
 export interface ChatProject {
   id: number;
   name: string;
+  is_default?: number; // 1 = 默认对话空间（不可删除）
   created_at: number;
 }
 

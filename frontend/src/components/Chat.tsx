@@ -12,9 +12,11 @@ import {
   listChatMessages,
   listFeedback,
   listLibraries,
+  listProjects,
   resumeChat,
   streamChat,
   studyPlan,
+  type ChatProject,
   type ChatSession,
   type Library,
   type StudyPlan,
@@ -96,6 +98,32 @@ export default function Chat() {
     () => setSidebarSignal((value) => value + 1),
     [],
   );
+
+  /* ---------- 项目（空间）列表：输入栏下方的空间选择器用 ---------- */
+  const [projects, setProjects] = useState<ChatProject[]>([]);
+  const [spaceOpen, setSpaceOpen] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const next = await listProjects();
+        if (!cancelled) setProjects(next);
+      } catch {
+        /* 后端未启动 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sidebarSignal]);
+
+  // 没选过空间时自动选中「默认对话空间」（后端保证一定存在）
+  useEffect(() => {
+    if (activeProjectId !== null || projects.length === 0) return;
+    const fallback = projects.find((p) => p.is_default) ?? projects[0];
+    setActiveProjectId(fallback.id);
+  }, [projects, activeProjectId]);
+  const activeSpace = projects.find((p) => p.id === activeProjectId);
 
   /* ---------- 平滑打字机：token 先入队列，rAF 按需吐字 ---------- */
   const queueRef = useRef("");
@@ -826,37 +854,6 @@ export default function Chat() {
               placeholder="输入你的问题，或描述你要生成的复习材料…"
               className="max-h-36 min-w-0 flex-1 resize-none self-center bg-transparent px-1 py-1.5 text-sm outline-none placeholder:text-zinc-400"
             />
-            {/* 权限开关：允许完全访问（开 = 敏感操作自动同意，仿 WorkBuddy） */}
-            <button
-              type="button"
-              onClick={toggleFullAccess}
-              title={
-                fullAccess
-                  ? "已开启：保存笔记等操作自动同意，不再逐次询问。点击关闭。"
-                  : "已关闭：保存笔记等敏感操作需要你逐次确认。点击开启「允许完全访问」。"
-              }
-              className={`hidden shrink-0 self-center items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none lg:inline-flex ${
-                fullAccess
-                  ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                  : "border-black/[0.08] text-zinc-400 hover:text-zinc-600"
-              }`}
-            >
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 8v4l2.5 2.5" />
-              </svg>
-              {fullAccess ? "允许完全访问" : "逐步确认"}
-            </button>
             <button
               type="button"
               onClick={() => setPickerOpen((v) => !v)}
@@ -901,6 +898,108 @@ export default function Chat() {
                   <path d="m5 12 7-7 7 7" />
                 </svg>
               )}
+            </button>
+          </div>
+          {/* 空间 + 权限行（仿 WorkBuddy：输入栏下方选择工作空间） */}
+          <div className="mt-2 flex items-center gap-3">
+            {/* 空间选择器：新对话会存到选中的空间，记忆也按空间隔离 */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setSpaceOpen((v) => !v)}
+                aria-expanded={spaceOpen}
+                title="选择对话空间：新对话与本轮记忆会归属该空间"
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-500 transition hover:bg-black/[0.04] hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+                </svg>
+                {activeSpace ? activeSpace.name : "选择空间"}
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={`transition-transform ${spaceOpen ? "rotate-180" : ""}`}>
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+
+              {spaceOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setSpaceOpen(false)}
+                    aria-hidden
+                  />
+                  <div className="animate-pop-in absolute bottom-full left-0 z-50 mb-2 w-52 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
+                    <div className="px-2.5 py-1.5 text-[11px] font-medium text-zinc-400">
+                      对话空间
+                    </div>
+                    {projects.map((project) => {
+                      const checked = project.id === activeProjectId;
+                      return (
+                        <button
+                          key={project.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveProjectId(project.id);
+                            setSpaceOpen(false);
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-zinc-700 transition hover:bg-black/[0.04]"
+                        >
+                          <span className="w-4 shrink-0 text-teal-600">
+                            {checked && (
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <path d="m5 13 4 4L19 7" />
+                              </svg>
+                            )}
+                          </span>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
+                            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+                          </svg>
+                          <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                          {Boolean(project.is_default) && (
+                            <span className="shrink-0 text-[10px] text-zinc-400">默认</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                    {projects.length === 0 && (
+                      <p className="px-2.5 py-2 text-[11px] text-zinc-400">
+                        后端连接后会出现「默认对话空间」
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 权限开关：允许完全访问（开 = 敏感操作自动同意） */}
+            <button
+              type="button"
+              onClick={toggleFullAccess}
+              title={
+                fullAccess
+                  ? "已开启：保存笔记等操作自动同意，不再逐次询问。点击关闭。"
+                  : "已关闭：保存笔记等敏感操作需要你逐次确认。点击开启「允许完全访问」。"
+              }
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                fullAccess
+                  ? "bg-red-50 text-red-600 hover:bg-red-100"
+                  : "text-zinc-400 hover:bg-black/[0.04] hover:text-zinc-600"
+              }`}
+            >
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v4l2.5 2.5" />
+              </svg>
+              {fullAccess ? "允许完全访问" : "逐步确认"}
             </button>
           </div>
           <p className="mt-2 text-center text-[11px] text-zinc-400">

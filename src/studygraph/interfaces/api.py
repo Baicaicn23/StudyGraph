@@ -501,7 +501,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/projects")
     async def list_projects(request: Request, user_id: str = "local") -> dict:
-        return {"projects": request.app.state.chat.list_projects(user_id)}
+        chat = request.app.state.chat
+        # 首次访问自动建「默认对话空间」，并把历史无主会话归入其中
+        chat.ensure_default_project(user_id)
+        return {"projects": chat.list_projects(user_id)}
 
     @app.put("/api/projects/{project_id}")
     async def rename_project(
@@ -517,6 +520,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def delete_project(
         request: Request, project_id: int, user_id: str = "local"
     ) -> dict:
+        project = request.app.state.chat.get_project(user_id, project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail="项目不存在")
+        if project.get("is_default"):
+            raise HTTPException(status_code=400, detail="默认对话空间不能删除")
         if not request.app.state.chat.delete_project(user_id, project_id):
             raise HTTPException(status_code=404, detail="项目不存在")
         return {"deleted": project_id}

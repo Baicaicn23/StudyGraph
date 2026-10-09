@@ -15,19 +15,48 @@ from studygraph.interfaces.api import _status_from_update, create_app
 
 # -- 仓储层：项目 / 会话 / 消息 -----------------------------------------------
 
-def test_project_delete_returns_sessions_to_ungrouped(tmp_path) -> None:
+def test_default_space_is_created_once_and_adopts_ungrouped(tmp_path) -> None:
     repo = SqliteChatRepository(tmp_path / "chat.db")
+    # 无主会话先存在（历史数据）
+    stray = repo.create_session(user_id="u", thread_id="t0")
+
+    first = repo.ensure_default_project("u")
+    second = repo.ensure_default_project("u")
+    assert first == second, "重复调用应返回同一个默认空间"
+
+    projects = repo.list_projects("u")
+    assert len(projects) == 1
+    assert projects[0]["name"] == repo.DEFAULT_SPACE_NAME
+    assert projects[0]["is_default"] == 1
+
+    # 无主会话被收编进默认空间
+    assert repo.get_session("u", stray)["project_id"] == first
+
+
+def test_default_space_adopts_same_name_project(tmp_path) -> None:
+    repo = SqliteChatRepository(tmp_path / "chat.db")
+    manually = repo.create_project(user_id="u", name=repo.DEFAULT_SPACE_NAME)
+    default_id = repo.ensure_default_project("u")
+    assert default_id == manually, "同名项目应收编为默认空间，而不是再建一个"
+    assert len(repo.list_projects("u")) == 1
+
+
+def test_project_delete_moves_sessions_to_default_space(tmp_path) -> None:
+    repo = SqliteChatRepository(tmp_path / "chat.db")
+    default_id = repo.ensure_default_project("u")
     project_id = repo.create_project(user_id="u", name="考研数学")
     session_id = repo.create_session(user_id="u", project_id=project_id, thread_id="t1")
 
-    assert [p["name"] for p in repo.list_projects("u")] == ["考研数学"]
+    # 默认空间不可删除
+    assert repo.delete_project("u", default_id) is False
+    assert any(p["id"] == default_id for p in repo.list_projects("u"))
 
-    # 删项目 → 会话保留，回到未分组
+    # 删普通项目 → 会话挪进默认空间，而不是被删掉
     assert repo.delete_project("u", project_id) is True
-    assert repo.list_projects("u") == []
+    assert repo.list_projects("u")[0]["id"] == default_id
     sessions = repo.list_sessions("u")
     assert sessions[0]["id"] == session_id
-    assert sessions[0]["project_id"] is None
+    assert sessions[0]["project_id"] == default_id
     assert sessions[0]["thread_id"] == "t1"
 
 
@@ -298,6 +327,14 @@ def test_chat_stream_rejects_foreign_session(tmp_path) -> None:
 def test_project_endpoints_crud(tmp_path) -> None:
     settings = Settings(database_path=str(tmp_path / "api.db"))
     with TestClient(create_app(settings)) as client:
+        # 首次列出 → 自动创建默认对话空间且排最前
+        seeded = client.get("/api/projects", params={"user_id": "alice"}).json()[
+            "projects"
+        ]
+        assert seeded[0]["name"] == "默认对话空间"
+        assert seeded[0]["is_default"] == 1
+        default_id = seeded[0]["id"]
+
         created = client.post(
             "/api/projects", data={"name": "线代冲刺"}, params={"user_id": "alice"}
         ).json()
@@ -320,8 +357,16 @@ def test_project_endpoints_crud(tmp_path) -> None:
         projects = client.get("/api/projects", params={"user_id": "alice"}).json()[
             "projects"
         ]
-        assert [p["name"] for p in projects] == ["线代总复习"]
+        assert [p["name"] for p in projects] == ["默认对话空间", "线代总复习"]
 
+        # 默认空间删除被拒：400
+        blocked = client.delete(
+            f"/api/projects/{default_id}", params={"user_id": "alice"}
+        )
+        assert blocked.status_code == 400
+        assert "不能删除" in blocked.json()["detail"]
+
+        # 普通项目可删
         deleted = client.delete(
             f"/api/projects/{project_id}", params={"user_id": "alice"}
         )
