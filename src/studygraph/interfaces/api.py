@@ -138,9 +138,109 @@ _TOOL_STATUS = {
 }
 _NODE_STATUS = {"route": "理解问题", "plan": "制定学习计划"}
 
+# 意图 → 中文标签（思考过程里告诉用户「它在判断什么」）。键取自
+# application.routing 的常量：concept_explain / practice / progress /
+# retrieval / calculation / smalltalk。
+_INTENT_LABEL = {
+    "concept_explain": "讲解知识点",
+    "practice": "出练习题",
+    "progress": "查看学习进度",
+    "retrieval": "检索学习资料",
+    "calculation": "计算求解",
+    "smalltalk": "日常问答",
+}
+
 
 def _tool_status(name: str) -> str:
     return _TOOL_STATUS.get(name, f"调用工具 {name}")
+
+
+def _summarize_tool_args(name: str, args: dict) -> str:
+    """工具参数摘要：让「调用了什么」在过程流里一目了然。"""
+
+    def text(key: str, limit: int = 40) -> str:
+        value = args.get(key)
+        if not isinstance(value, str) or not value.strip():
+            return ""
+        value = value.strip().replace("\n", " ")
+        return value if len(value) <= limit else f"{value[:limit]}…"
+
+    if name == "knowledge_search":
+        return " · ".join(p for p in (text("library", 16), text("query")) if p)
+    if name == "mistake_search":
+        return " · ".join(p for p in (text("library", 16), text("question")) if p)
+    if name == "save_note":
+        return " · ".join(p for p in (text("library", 16), text("title")) if p)
+    return " · ".join(
+        f"{k}={v}" for k, v in list(args.items())[:2] if isinstance(v, (str, int))
+    )[:80]
+
+
+def _steps_from_update(chunk: dict) -> list[dict]:
+    """把一次节点更新翻译成「过程步骤」，供前端渲染 WorkBuddy 式思考流。
+
+    节点返回的都是结构化状态（意图 / 计划 / 工具调用 / 工具结果），
+    这里只做翻译，不掺任何生成内容。
+    """
+
+    node = next(iter(chunk))
+    update = chunk[node]
+    if not isinstance(update, dict):
+        return []
+
+    if node == "route":
+        intent = str(update.get("intent", ""))
+        agent = str(update.get("agent", ""))
+        label = _INTENT_LABEL.get(intent, "综合问答")
+        suffix = f"，已切换到「{agent}」模式。" if agent else "。"
+        return [
+            {
+                "kind": "thinking",
+                "title": "理解问题",
+                "detail": f"判断为「{label}」{suffix}",
+            }
+        ]
+
+    if node == "plan":
+        plan = update.get("plan") or []
+        if not plan:
+            return []
+        lines = "\n".join(f"{i}. {step}" for i, step in enumerate(plan, 1))
+        return [{"kind": "thinking", "title": "制定学习计划", "detail": lines}]
+
+    if node == "agent":
+        steps: list[dict] = []
+        for message in update.get("messages", []):
+            for call in getattr(message, "tool_calls", None) or []:
+                name = call.get("name", "")
+                args = call.get("args") or {}
+                steps.append(
+                    {
+                        "kind": "tool",
+                        "title": _tool_status(name),
+                        "detail": _summarize_tool_args(name, args),
+                    }
+                )
+        return steps
+
+    if node == "tools":
+        steps = []
+        for message in update.get("messages", []):
+            name = getattr(message, "name", "") or "工具"
+            content = str(getattr(message, "content", ""))
+            failed = content.startswith("[tool_error") or content.startswith(
+                ("[tool_not_allowed", "[unknown_tool")
+            )
+            steps.append(
+                {
+                    "kind": "tool",
+                    "title": f"{_tool_status(name)} · {'失败' if failed else '完成'}",
+                    "detail": content[:120].replace("\n", " "),
+                }
+            )
+        return steps
+
+    return []
 
 
 def _status_from_update(chunk: dict) -> str | None:
@@ -187,6 +287,7 @@ async def _run_stream(
 
     interrupted = False
     answer_parts: list[str] = []
+    steps: list[dict] = []
     if session is not None and chat is not None:
         try:
             if persist_user:
@@ -215,6 +316,11 @@ async def _run_stream(
                 interrupted = True
                 yield _sse("interrupt", chunk["__interrupt__"][0].value)
             elif isinstance(chunk, dict) and chunk:
+                new_steps = _steps_from_update(chunk)
+                if new_steps:
+                    steps.extend(new_steps)
+                    for step in new_steps:
+                        yield _sse("step", step)
                 status = _status_from_update(chunk)
                 if status:
                     yield _sse("status", {"label": status})
@@ -225,7 +331,12 @@ async def _run_stream(
             if session is not None and chat is not None:
                 answer = "".join(answer_parts).strip()
                 if answer:
-                    chat.append_message(session["id"], role="assistant", content=answer)
+                    chat.append_message(
+                        session["id"],
+                        role="assistant",
+                        content=answer,
+                        steps=json.dumps(steps, ensure_ascii=False),
+                    )
                 if session["title"] in ("", "新对话"):
                     title = await generate_title(model, user_message)
                     chat.update_session(user_id, session["id"], title=title)
@@ -742,11 +853,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> dict:
         messages = request.app.state.chat.list_messages(user_id, session_id)
         for item in messages:
-            # 附件名落库时是 JSON 数组字符串，回放时还原成列表
+            # 附件名/过程步骤落库时是 JSON 字符串，回放时还原成列表
             try:
                 item["attachments"] = json.loads(item.get("attachments") or "[]")
             except (TypeError, ValueError):
                 item["attachments"] = []
+            try:
+                item["steps"] = json.loads(item.get("steps") or "[]")
+            except (TypeError, ValueError):
+                item["steps"] = []
         return {"messages": messages}
 
     @app.put("/api/chats/{session_id}")

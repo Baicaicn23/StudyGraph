@@ -266,6 +266,29 @@ def test_chat_stream_autosaves_session_with_status_and_title(tmp_path) -> None:
         assert chats[0]["title"] != "新对话"
 
 
+def test_chat_stream_emits_process_steps(tmp_path) -> None:
+    """过程流：节点更新要翻译成 step 事件，并随助手消息落库（历史可见）。"""
+
+    settings = Settings(database_path=str(tmp_path / "api.db"))
+    with TestClient(create_app(settings)) as client:
+        events = _read_events(
+            client,
+            "/api/chat/stream",
+            {"message": "帮我总结今天的错题", "thread_id": "steps-1"},
+        )
+        steps = [data for name, data in events if name == "step"]
+        assert steps, "应播报过程步骤（思考/工具）"
+        assert steps[0]["kind"] == "thinking"
+        assert steps[0]["title"] == "理解问题"
+        assert all({"kind", "title", "detail"} <= set(step) for step in steps)
+
+        session_id = next(d for n, d in events if n == "session")["id"]
+        messages = client.get(f"/api/chats/{session_id}/messages").json()["messages"]
+        assistant = next(m for m in messages if m["role"] == "assistant")
+        assert assistant["steps"], "助手消息应带着过程步骤落库"
+        assert assistant["steps"][0]["title"] == "理解问题"
+
+
 def test_chat_stream_with_existing_session_reuses_thread(tmp_path) -> None:
     settings = Settings(database_path=str(tmp_path / "api.db"))
     with TestClient(create_app(settings)) as client:

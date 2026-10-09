@@ -306,6 +306,8 @@ export interface ChatMessage {
   content: string;
   /** 该消息携带的附件（后端还原好的数组） */
   attachments?: AttachmentMeta[];
+  /** 该轮的过程步骤（后端随消息落库，历史回放可见） */
+  steps?: AgentStep[];
   created_at: number;
 }
 
@@ -362,9 +364,17 @@ export async function deleteChat(sessionId: number): Promise<void> {
 
 // --- 聊天（SSE）-----------------------------------------------------------
 
+/** 过程步骤：思考（thinking）/ 工具调用（tool），由后端节点更新翻译而来 */
+export interface AgentStep {
+  kind: "thinking" | "tool";
+  title: string;
+  detail: string;
+}
+
 export type StreamEvent =
   | { type: "token"; content: string }
   | { type: "status"; label: string }
+  | { type: "step"; kind: "thinking" | "tool"; title: string; detail: string }
   | { type: "session"; id: number; title: string }
   | {
       type: "interrupt";

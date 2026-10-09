@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     role TEXT NOT NULL,
     content TEXT NOT NULL,
     attachments TEXT NOT NULL DEFAULT '',
+    steps TEXT NOT NULL DEFAULT '',
     created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_messages_session
@@ -98,6 +99,10 @@ class SqliteChatRepository:
         if "attachments" not in message_cols:
             connection.execute(
                 "ALTER TABLE chat_messages ADD COLUMN attachments TEXT NOT NULL DEFAULT ''"
+            )
+        if "steps" not in message_cols:
+            connection.execute(
+                "ALTER TABLE chat_messages ADD COLUMN steps TEXT NOT NULL DEFAULT ''"
             )
 
         attachment_cols = {
@@ -326,14 +331,15 @@ class SqliteChatRepository:
         role: str,
         content: str,
         attachments: str = "",
+        steps: str = "",
     ) -> int:
-        """落一条消息；attachments 是附件文件名的 JSON 数组字符串。"""
+        """落一条消息；attachments / steps 是 JSON 字符串（附件元信息 / 过程步骤）。"""
 
         with self._connect() as connection:
             cursor = connection.execute(
                 "INSERT INTO chat_messages (session_id, role, content, attachments, "
-                "created_at) VALUES (?, ?, ?, ?, ?)",
-                (session_id, role, content, attachments, time.time()),
+                "steps, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (session_id, role, content, attachments, steps, time.time()),
             )
             return int(cursor.lastrowid)
 
@@ -350,7 +356,7 @@ class SqliteChatRepository:
             if owner is None:
                 return []
             rows = connection.execute(
-                "SELECT id, role, content, attachments, created_at "
+                "SELECT id, role, content, attachments, steps, created_at "
                 "FROM chat_messages WHERE session_id = ? ORDER BY id LIMIT ?",
                 (session_id, limit),
             ).fetchall()

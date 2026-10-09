@@ -21,6 +21,7 @@ import {
   studyPlan,
   uploadChatAttachment,
   type AttachmentMeta,
+  type AgentStep,
   type ChatProject,
   type Library,
   type StudyPlan,
@@ -34,6 +35,10 @@ interface Message {
   content: string;
   /** 用户消息携带的附件（用于展示与点击预览） */
   attachments?: AttachmentMeta[];
+  /** 助手消息的过程步骤（思考 / 工具调用） */
+  steps?: AgentStep[];
+  /** 该轮开始时间戳，用于展示「已处理 40s」 */
+  startedAt?: number;
 }
 
 interface PendingInterrupt {
@@ -62,6 +67,14 @@ const QUICK_COMMANDS = [
   "帮我总结知识点",
   "帮我分析我的错题",
 ];
+
+/** 耗时展示：42s / 1m42s（对齐 WorkBuddy 的「已处理 1m42s」） */
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return rest > 0 ? `${minutes}m${rest}s` : `${minutes}m`;
+}
 
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -270,6 +283,19 @@ export default function Chat() {
         queueRef.current += event.content;
       } else if (event.type === "status") {
         setStatusLabel(event.label);
+      } else if (event.type === "step") {
+        // 过程步骤（思考 / 工具调用）挂到当前这条助手消息上，按 WorkBuddy 式过程流展示
+        setMessages((prev) => {
+          if (prev.length === 0) return prev;
+          const next = [...prev];
+          const last = { ...next[next.length - 1] };
+          last.steps = [
+            ...(last.steps ?? []),
+            { kind: event.kind, title: event.title, detail: event.detail },
+          ];
+          next[next.length - 1] = last;
+          return next;
+        });
       } else if (event.type === "session") {
         // 后端自动保存/自动起标题 → 记住会话 id，通知全局侧栏刷新
         if (sessionIdRef.current === null) {
@@ -315,7 +341,7 @@ export default function Chat() {
       setMessages((prev) => [
         ...prev,
         { role: "user", content: text, attachments: attached },
-        { role: "assistant", content: "" },
+        { role: "assistant", content: "", steps: [], startedAt: Date.now() },
       ]);
       await streamChat(
         {
@@ -405,6 +431,7 @@ export default function Chat() {
           role: item.role,
           content: item.content,
           attachments: item.attachments ?? [],
+          steps: item.steps ?? [],
         })),
       );
     } catch {
@@ -1349,6 +1376,26 @@ function MessageRow({
   onAction: (action: "kb" | "practice" | "mistake") => void;
   onPreviewAttachment: (file: AttachmentMeta) => void;
 }) {
+  const steps = message.steps ?? [];
+  // 流式进行中默认展开过程，结束后折叠；用户手动切换后以用户选择为准
+  const [traceOverride, setTraceOverride] = useState<boolean | null>(null);
+  const traceOpen = traceOverride ?? busy;
+  const [thinkingOpen, setThinkingOpen] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!busy || !message.startedAt) return;
+    // 只在定时器回调里 setState（每秒一跳），避免在 effect 体内同步 setState
+    const timer = window.setInterval(() => {
+      if (message.startedAt) {
+        setElapsed(Math.round((Date.now() - message.startedAt) / 1000));
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [busy, message.startedAt]);
+
+  const elapsedLabel = elapsed > 0 ? `已处理 ${formatDuration(elapsed)}` : "";
+
   if (message.role === "user") {
     return (
       <div className="flex flex-col items-end gap-1">
@@ -1400,34 +1447,126 @@ function MessageRow({
         SG
       </div>
       <div className="min-w-0 flex-1">
-        <div className="rounded-2xl rounded-tl-lg bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_2px_8px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.04]">
-          {/* 状态行：让等待过程可见（理解问题 / 检索知识库…） */}
-          {busy && statusLabel && (
-            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-teal-700">
-              <span className="flex gap-0.5">
-                <span className="h-1 w-1 animate-bounce rounded-full bg-teal-600 [animation-delay:0ms]" />
-                <span className="h-1 w-1 animate-bounce rounded-full bg-teal-600 [animation-delay:120ms]" />
-                <span className="h-1 w-1 animate-bounce rounded-full bg-teal-600 [animation-delay:240ms]" />
-              </span>
-              {statusLabel}
+        {/* WorkBuddy 式过程卡片：头部（名称/耗时）→ 思考与工具步骤 → 最终回答 */}
+        <div className="overflow-hidden rounded-2xl rounded-tl-lg bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_2px_8px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.04]">
+          {/* 头部 */}
+          <div className="flex items-center gap-2 px-4 pt-3">
+            <span className="text-[13px] font-semibold text-zinc-900">
+              StudyGraph 智能体
+            </span>
+            {elapsedLabel && (
+              <span className="text-[11px] text-zinc-400">{elapsedLabel}</span>
+            )}
+            {steps.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setTraceOverride(!traceOpen)}
+                className="ml-auto text-[11px] text-zinc-400 transition hover:text-zinc-600"
+              >
+                {traceOpen ? "收起过程" : `查看过程（${steps.length}）`}
+              </button>
+            )}
+          </div>
+
+          {/* 过程流：思考 / 工具调用 */}
+          {steps.length > 0 && traceOpen && (
+            <div className="mt-2 space-y-2 px-4">
+              {steps.map((step, i) =>
+                step.kind === "thinking" ? (
+                  <div key={`${step.title}-${i}`}>
+                    <button
+                      type="button"
+                      onClick={() => setThinkingOpen((v) => !v)}
+                      className="flex items-center gap-1.5 text-left text-[12px] font-medium text-zinc-500 transition hover:text-zinc-700"
+                    >
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                        className={`shrink-0 text-zinc-400 transition-transform ${
+                          thinkingOpen ? "" : "-rotate-90"
+                        }`}
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                      {step.title}
+                    </button>
+                    {thinkingOpen && step.detail && (
+                      <p className="mt-1 whitespace-pre-wrap rounded-lg bg-black/[0.03] px-3 py-2 text-[12px] leading-relaxed text-zinc-500">
+                        {step.detail}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    key={`${step.title}-${i}`}
+                    className="flex items-start gap-1.5 text-[12px] text-zinc-500"
+                  >
+                    <svg
+                      width="11"
+                      height="11"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                      className="mt-[3px] shrink-0 text-teal-600"
+                    >
+                      <path d="m14 4 6 6L9 21H3v-6Z" />
+                      <path d="m12 6 6 6" />
+                    </svg>
+                    <span className="min-w-0">
+                      <span className="font-medium text-zinc-600">
+                        {step.title}
+                      </span>
+                      {step.detail && (
+                        <span className="text-zinc-400"> · {step.detail}</span>
+                      )}
+                    </span>
+                  </div>
+                ),
+              )}
             </div>
           )}
-          {message.content ? (
-            <div className="prose prose-zinc max-w-none text-sm">
-              <Markdown content={shown} />
-            </div>
-          ) : busy ? (
-            <span className="inline-block h-4 w-2 animate-pulse rounded-sm bg-zinc-300" />
-          ) : null}
-          {isLong && (
-            <button
-              type="button"
-              onClick={onToggleExpand}
-              className="mt-1 text-xs font-medium text-teal-700 underline-offset-2 hover:underline"
-            >
-              {expanded ? "收起" : "展开全文"}
-            </button>
-          )}
+
+          {/* 回答正文 */}
+          <div className="px-4 pb-3 pt-2.5">
+            {/* 流式进行中的等待行 */}
+            {busy && statusLabel && (
+              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-teal-700">
+                <span className="flex gap-0.5">
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-teal-600 [animation-delay:0ms]" />
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-teal-600 [animation-delay:120ms]" />
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-teal-600 [animation-delay:240ms]" />
+                </span>
+                {statusLabel}
+              </div>
+            )}
+            {message.content ? (
+              <div className="prose prose-zinc max-w-none text-sm leading-relaxed">
+                <Markdown content={shown} />
+              </div>
+            ) : busy ? (
+              <span className="inline-block h-4 w-2 animate-pulse rounded-sm bg-zinc-300" />
+            ) : null}
+            {isLong && (
+              <button
+                type="button"
+                onClick={onToggleExpand}
+                className="mt-1 text-xs font-medium text-teal-700 underline-offset-2 hover:underline"
+              >
+                {expanded ? "收起" : "展开全文"}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 学习专属操作栏 */}
