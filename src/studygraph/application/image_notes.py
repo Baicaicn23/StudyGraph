@@ -12,16 +12,17 @@ import base64
 
 from langchain_core.messages import HumanMessage
 
+from ..domain.note_style import NOTE_STYLE_BRIEF
 from ..infrastructure.extract import image_mime
 
 _VISION_PROMPT = (
     "你是学习资料整理助手。把这张图片（课件、板书、笔记或习题）整理成一份"
     "结构化 Markdown 学习笔记，要求：\n"
-    "1. 用适当的 # 标题组织内容（第一行是笔记标题）；\n"
-    "2. 保留原文的知识结构：定义、要点、公式、例题分块呈现，公式用 $...$ LaTeX；\n"
-    "3. 表格转成 Markdown 表格；列表转成 Markdown 列表；\n"
-    "4. 字迹或印刷看不清的地方用「（此处无法辨认）」标注，不要编造内容；\n"
-    "5. 只输出 Markdown 正文，不要额外解释。"
+    "1. 内容忠实于图片：保留原文的知识结构与细节，"
+    "字迹或印刷看不清的地方用「（此处无法辨认）」标注，不要编造内容；\n"
+    "2. 如果图片里有习题，原题收录进「例题」小节，不要自己做删改；\n"
+    f"3. {NOTE_STYLE_BRIEF}\n"
+    "4. 只输出 Markdown 正文，不要额外解释。"
 )
 
 

@@ -161,3 +161,24 @@ def test_system_prompt_omits_progress_when_empty() -> None:
     prompt = build_system_prompt("tutor", {"messages": [], "agent": "tutor"})
 
     assert "各学科掌握度" not in prompt
+
+
+def test_note_style_guide_only_for_note_writing_agents() -> None:
+    from studygraph.application.graph import build_system_prompt
+
+    for agent in ("tutor", "chat", "retriever"):
+        prompt = build_system_prompt(agent, {"messages": [], "agent": agent})
+        assert "Markdown 笔记写作规范" in prompt, agent
+        assert "自测三问" in prompt, agent
+
+    for agent in ("calculator", "progress"):
+        prompt = build_system_prompt(agent, {"messages": [], "agent": agent})
+        assert "Markdown 笔记写作规范" not in prompt, agent
+
+
+def test_save_note_tool_description_carries_style_requirement() -> None:
+    from studygraph.application.tools import save_note
+
+    description = save_note.description
+    assert "Markdown 笔记写作规范" in description
+    assert "自测三问" in description

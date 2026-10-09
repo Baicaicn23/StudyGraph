@@ -35,6 +35,8 @@ from langgraph.errors import GraphInterrupt
 from langgraph.graph import END, START, StateGraph
 
 from ..domain.model_routing import model_tier
+from ..domain.note_style import NOTE_STYLE_GUIDE
+from ..domain.note_style import applies_to as note_style_applies
 from ..domain.planning import is_complex
 from .context import compact_messages
 from .planner import build_plan
@@ -126,6 +128,10 @@ def build_system_prompt(profile_agent: str, state: StudyState) -> str:
         )
     if state.get("knowledge_bases"):
         parts.append("学生本轮选中的知识库：" + "、".join(state["knowledge_bases"]))
+    # 笔记写作规范：只挂给会写笔记进知识库的子智能体（tutor/chat/retriever），
+    # 计算器、进度这类角色不需要，省提示词预算。
+    if note_style_applies(profile.agent):
+        parts.append(NOTE_STYLE_GUIDE)
     return "\n\n".join(part for part in parts if part)
 
 

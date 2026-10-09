@@ -172,7 +172,11 @@ def mistake_search(query: str = "") -> str:
 @tool
 def save_note(title: str, content: str, library: str = "日常沉淀") -> str:
     """把一段内容沉淀进某个学科知识库（会先请求用户确认）。当学生说
-    "记住 / 存一下 / 沉淀 / 帮我记下"某段内容时使用。"""
+    "记住 / 存一下 / 沉淀 / 帮我记下"某段内容时使用。
+    content 必须是一篇排版完整的 Markdown 笔记，遵守系统提示词里的
+    【Markdown 笔记写作规范】：H1 标题 + 「定义/要点/例子/易错点」分节、
+    每节先加粗结论、公式用 $...$ LaTeX、结尾附「自测三问」；
+    不要把对话原话直接粘进来——先整理成笔记再提交确认。"""
 
     approved: Any = interrupt(
         {
