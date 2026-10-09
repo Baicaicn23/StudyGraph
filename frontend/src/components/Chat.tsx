@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChangeEvent, KeyboardEvent } from "react";
+import type { ChangeEvent, ClipboardEvent, DragEvent, KeyboardEvent } from "react";
 
 import {
   addFeedback,
@@ -473,36 +473,66 @@ export default function Chat() {
     }
   };
 
-  /* ---------- 聊天附件上传 ---------- */
+  /* ---------- 聊天附件上传（选文件 / 粘贴 / 拖拽共用一条路） ---------- */
   const ACCEPTED_FILES = ".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp";
 
-  const handleFileChosen = async (
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
+  const uploadFile = useCallback(
+    async (file: File) => {
+      if (pendingFiles.length >= 6) {
+        window.alert("一条消息最多带 6 个附件");
+        return;
+      }
+      setUploadingFile(true);
+      try {
+        const uploaded = await uploadChatAttachment(
+          file,
+          sessionIdRef.current ?? undefined,
+        );
+        setPendingFiles((prev) => [
+          ...prev,
+          { id: uploaded.id, filename: uploaded.filename },
+        ]);
+      } catch (error) {
+        window.alert(
+          error instanceof Error ? error.message : "附件上传失败，请重试",
+        );
+      } finally {
+        setUploadingFile(false);
+      }
+    },
+    [pendingFiles.length],
+  );
+
+  const uploadManyFiles = async (files: File[]) => {
+    for (const file of files) {
+      await uploadFile(file);
+    }
+  };
+
+  const handleFileChosen = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
     event.target.value = ""; // 允许重复选同一个文件
-    if (!file) return;
-    if (pendingFiles.length >= 6) {
-      window.alert("一条消息最多带 6 个附件");
-      return;
-    }
-    setUploadingFile(true);
-    try {
-      const uploaded = await uploadChatAttachment(
-        file,
-        sessionIdRef.current ?? undefined,
-      );
-      setPendingFiles((prev) => [
-        ...prev,
-        { id: uploaded.id, filename: uploaded.filename },
-      ]);
-    } catch (error) {
-      window.alert(
-        error instanceof Error ? error.message : "附件上传失败，请重试",
-      );
-    } finally {
-      setUploadingFile(false);
-    }
+    if (files.length === 0) return;
+    void uploadManyFiles(files);
+  };
+
+  // 截图 / 复制文件后直接 Ctrl(Cmd)+V 粘贴进输入框
+  const handlePasteFiles = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData.files);
+    if (files.length === 0) return; // 纯文本粘贴走原路径
+    event.preventDefault();
+    void uploadManyFiles(files);
+  };
+
+  // 把文件拖进输入栏也能传
+  const [dragActive, setDragActive] = useState(false);
+
+  const handleDropFiles = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragActive(false);
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length === 0) return;
+    void uploadManyFiles(files);
   };
 
   /* ---------- 消息学习操作 ---------- */
@@ -944,8 +974,18 @@ export default function Chat() {
             className="hidden"
           />
 
-          {/* 输入栏 */}
-          <div className="flex items-end gap-1.5 rounded-2xl bg-white p-2 shadow-lg shadow-black/[0.06] ring-1 ring-black/10 transition focus-within:ring-2 focus-within:ring-teal-600">
+          {/* 输入栏（支持把文件直接拖进来） */}
+          <div
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleDropFiles}
+            className={`flex items-end gap-1.5 rounded-2xl bg-white p-2 shadow-lg shadow-black/[0.06] ring-1 transition focus-within:ring-2 focus-within:ring-teal-600 ${
+              dragActive ? "ring-2 ring-teal-600" : "ring-black/10"
+            }`}
+          >
             <button
               type="button"
               onClick={() => setPlusMenuOpen((v) => !v)}
@@ -981,8 +1021,9 @@ export default function Chat() {
                 el.style.height = `${Math.min(el.scrollHeight, 144)}px`;
               }}
               onKeyDown={onKeyDown}
+              onPaste={handlePasteFiles}
               rows={1}
-              placeholder="输入你的问题，或描述你要生成的复习材料…"
+              placeholder="输入你的问题，或粘贴 / 拖入 PDF、图片、文件…"
               className="max-h-36 min-w-0 flex-1 resize-none self-center bg-transparent px-1 py-1.5 text-sm outline-none placeholder:text-zinc-400"
             />
             <button
