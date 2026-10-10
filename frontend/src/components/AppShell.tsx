@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { getHealth } from "@/lib/api";
 import ChatsSection from "./ChatsSection";
+import useMediaQuery from "./useMediaQuery";
+
+const SIDEBAR_WIDTH_KEY = "studygraph-sidebar-width";
+const SIDEBAR_MIN_WIDTH = 180;
+const SIDEBAR_MAX_WIDTH = 340;
+const SIDEBAR_DEFAULT_WIDTH = 224;
 
 function NavIcon({ name }: { name: string }) {
   const common = {
@@ -80,6 +86,20 @@ export default function AppShell({ children }: { children: ReactNode }) {
 function AppShellInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [provider, setProvider] = useState<string>("");
+  const isLg = useMediaQuery("(min-width: 1024px)");
+  // 侧栏可变宽度：拖拽调节（180–340px），本地记忆；null = 用默认 w-56
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(() => {
+    try {
+      const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+      return saved >= SIDEBAR_MIN_WIDTH && saved <= SIDEBAR_MAX_WIDTH
+        ? saved
+        : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isSidebarDragging, setIsSidebarDragging] = useState(false);
+  const latestWidth = useRef<number>(SIDEBAR_DEFAULT_WIDTH);
 
   useEffect(() => {
     getHealth()
@@ -87,9 +107,68 @@ function AppShellInner({ children }: { children: ReactNode }) {
       .catch(() => setProvider(""));
   }, []);
 
+  const startSidebarDrag = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    setIsSidebarDragging(true);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+
+    const onMove = (move: MouseEvent) => {
+      const next = Math.max(
+        SIDEBAR_MIN_WIDTH,
+        Math.min(SIDEBAR_MAX_WIDTH, move.clientX),
+      );
+      latestWidth.current = next;
+      setSidebarWidth(next);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      setIsSidebarDragging(false);
+      try {
+        localStorage.setItem(SIDEBAR_WIDTH_KEY, String(latestWidth.current));
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, []);
+
   return (
     <div className="flex h-dvh bg-white text-zinc-900">
-      <aside className="flex w-14 shrink-0 flex-col border-r border-black/[0.06] bg-white lg:w-56">
+      <aside
+        className="relative flex w-14 shrink-0 flex-col border-r border-black/[0.06] bg-white lg:w-56"
+        style={isLg && sidebarWidth ? { width: sidebarWidth } : undefined}
+      >
+        {/* 右缘拖拽柄：调节侧栏宽度（双击恢复默认） */}
+        {isLg && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            onMouseDown={startSidebarDrag}
+            onDoubleClick={() => {
+              setSidebarWidth(null);
+              try {
+                localStorage.removeItem(SIDEBAR_WIDTH_KEY);
+              } catch {
+                /* ignore */
+              }
+            }}
+            title="拖拽调节侧栏宽度（双击恢复默认）"
+            className="group absolute -right-1 top-0 z-30 h-full w-2 cursor-col-resize"
+          >
+            <div
+              className={`absolute right-0 top-0 h-full transition-all duration-150 ${
+                isSidebarDragging
+                  ? "w-[3px] bg-teal-600"
+                  : "w-px bg-transparent group-hover:w-[3px] group-hover:bg-teal-600"
+              }`}
+            />
+          </div>
+        )}
         {/* 品牌区：名称 + 版本 + 模型状态 pill */}
         <div className="flex items-start justify-center gap-2 px-2 pt-5 pb-4 lg:justify-between lg:px-4">
           <div className="hidden lg:block">

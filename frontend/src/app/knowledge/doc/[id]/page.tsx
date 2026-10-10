@@ -22,20 +22,6 @@ interface Heading {
   index: number;
 }
 
-/** 媒体查询：宽屏时 AI 面板占一栏并排，窄屏改为浮层抽屉。 */
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(query).matches,
-  );
-  useEffect(() => {
-    const mql = window.matchMedia(query);
-    const onChange = () => setMatches(mql.matches);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, [query]);
-  return matches;
-}
-
 interface QaMessage {
   role: "user" | "assistant";
   content: string;
@@ -159,7 +145,6 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
   // 右侧边栏：AI 助手 / 文内目录 两个 tab，再点当前 tab 收起整个面板
   const [panelTab, setPanelTab] = useState<"ai" | "outline" | null>("ai");
   const [collapsedHeadings, setCollapsedHeadings] = useState<number[]>([]);
-  const isWide = useMediaQuery("(min-width: 1280px)");
 
   const contentRef = useRef<HTMLDivElement>(null);
   const qaScrollRef = useRef<HTMLDivElement>(null);
@@ -455,9 +440,9 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
         </div>
       </section>
 
-      {/* 右栏：AI 助手 / 文内目录 双 tab 面板（可整体收起；窄屏为浮层抽屉） */}
+      {/* 右栏：AI 助手 / 文内目录 双 tab 面板（内联折叠展开，可拖拽调宽） */}
       {panelTab === null && (
-        <div className="hidden w-11 shrink-0 flex-col items-center gap-2 border-l border-black/[0.06] py-3 md:flex">
+        <div className="flex w-11 shrink-0 flex-col items-center gap-2 border-l border-black/[0.06] py-3">
           {(
             [
               { key: "ai", label: "AI 助手", d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" },
@@ -479,40 +464,28 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
         </div>
       )}
 
-      {panelTab !== null && !isWide && (
-        <div
-          className="fixed inset-0 z-40 bg-black/25"
-          onClick={() => setPanelTab(null)}
-          aria-hidden
-        />
-      )}
-
       {panelTab !== null && (
       <aside
-        className={`relative flex shrink-0 flex-col border-l border-black/[0.06] bg-white ${
-          isWide ? "" : "fixed inset-y-0 right-0 z-50 w-[min(90vw,384px)] shadow-2xl"
-        }`}
-        style={isWide ? { width: qaWidth } : undefined}
+        className="relative flex shrink-0 flex-col border-l border-black/[0.06] bg-white"
+        style={{ width: qaWidth }}
       >
-        {/* 拖拽柄：宽屏可拖拽调宽，双击恢复默认 */}
-        {isWide && (
+        {/* 拖拽柄：可拖拽调宽，双击恢复默认 */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          onMouseDown={startQaDrag}
+          onDoubleClick={() => setQaWidth(384)}
+          title="拖拽调节宽度（双击恢复默认）"
+          className="group absolute -left-1 top-0 z-20 h-full w-2 cursor-col-resize"
+        >
           <div
-            role="separator"
-            aria-orientation="vertical"
-            onMouseDown={startQaDrag}
-            onDoubleClick={() => setQaWidth(384)}
-            title="拖拽调节宽度（双击恢复默认）"
-            className="group absolute -left-1 top-0 z-20 h-full w-2 cursor-col-resize"
-          >
-            <div
-              className={`absolute left-1/2 top-0 h-full -translate-x-1/2 transition-all duration-150 ${
-                isDragging
-                  ? "w-[3px] bg-teal-600"
-                  : "w-px bg-black/[0.06] group-hover:w-[3px] group-hover:bg-teal-600"
-              }`}
-            />
-          </div>
-        )}
+            className={`absolute left-1/2 top-0 h-full -translate-x-1/2 transition-all duration-150 ${
+              isDragging
+                ? "w-[3px] bg-teal-600"
+                : "w-px bg-black/[0.06] group-hover:w-[3px] group-hover:bg-teal-600"
+            }`}
+          />
+        </div>
 
         {/* Tab 按钮行：AI 助手 / 目录，再点当前 tab 收起面板 */}
         <div className="flex items-center gap-1 px-3 pt-3 pb-2">
