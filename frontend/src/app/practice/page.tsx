@@ -186,6 +186,9 @@ export default function PracticePage() {
         difficulty,
         (progress) => setGenProgress(progress),
       );
+      if (questions.length === 0) {
+        throw new Error("没有生成出题目，请换个知识库或难度再试");
+      }
       setGenerated(questions);
       setGenMsg(`已生成 ${questions.length} 道题，已加入今日待复习`);
       await refresh();
@@ -433,9 +436,39 @@ export default function PracticePage() {
                 </button>
               </div>
 
-              {/* 生成进度条：每出一题推进一格 */}
+              {/* 生成中：模拟动画（迷你题卡依次点亮，循环到出题完成） */}
+              {busy && (
+                <div className="animate-fade-up mt-4 rounded-xl bg-zinc-50 p-3.5 ring-1 ring-black/[0.05]">
+                  <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-teal-600/30 border-t-teal-600" />
+                    {genProgress
+                      ? `正在出第 ${genProgress.done}/${genProgress.total} 题…`
+                      : "正在选题、拟题…"}
+                  </div>
+                  <div className="mt-2.5 space-y-1.5">
+                    {Array.from({ length: Math.min(count, 4) }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="qgen-card rounded-lg border border-black/[0.06] bg-white px-3 py-2"
+                        style={{ animationDelay: `${i * 0.7}s` }}
+                        aria-hidden
+                      >
+                        <div className="h-1.5 w-3/5 rounded-full bg-black/[0.08]" />
+                        <div className="mt-1.5 h-1.5 w-4/5 rounded-full bg-black/[0.05]" />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[10px] text-zinc-400">
+                    {genProgress
+                      ? `${genProgress.done} / ${genProgress.total} · ${genProgress.library}`
+                      : "题目生成后会自动加入今日待复习"}
+                  </p>
+                </div>
+              )}
+
+              {/* 生成进度条：每出一题推进一格（真实进度） */}
               {busy && genProgress && (
-                <div className="animate-fade-up mt-3">
+                <div className="mt-3">
                   <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
                     <div
                       className="h-full rounded-full bg-teal-600 transition-all duration-500 ease-out"
@@ -444,17 +477,6 @@ export default function PracticePage() {
                       }}
                     />
                   </div>
-                  <p className="mt-1.5 text-[11px] text-zinc-400">
-                    {genProgress.done} / {genProgress.total} ·{" "}
-                    {genProgress.library}
-                    {genProgress.difficulty && (
-                      <>
-                        {" · "}
-                        {DIFFICULTY_TAGS[genProgress.difficulty]?.label ??
-                          genProgress.difficulty}
-                      </>
-                    )}
-                  </p>
                 </div>
               )}
 

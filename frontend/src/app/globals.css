@@ -69,10 +69,31 @@ body {
 .animate-card-fly-out {
   animation: card-fly-out 0.45s ease-in forwards;
 }
+/* 出题模拟动画：迷你题卡依次点亮（青绿描边 + 浅青底），循环播放 */
+@keyframes qgen-cycle {
+  0%,
+  32% {
+    border-color: rgba(13, 110, 86, 0.45);
+    background-color: rgba(13, 110, 86, 0.06);
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  60%,
+  100% {
+    border-color: rgba(0, 0, 0, 0.06);
+    background-color: #ffffff;
+    opacity: 0.5;
+    transform: translateY(0) scale(0.99);
+  }
+}
+.qgen-card {
+  animation: qgen-cycle 2.1s ease-in-out infinite;
+}
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-up,
   .animate-pop-in,
-  .animate-card-fly-out {
+  .animate-card-fly-out,
+  .qgen-card {
     animation: none;
   }
 }
