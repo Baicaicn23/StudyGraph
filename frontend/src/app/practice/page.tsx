@@ -29,22 +29,22 @@ const RATINGS: { value: PracticeRating; label: string; cls: string }[] = [
   {
     value: "again",
     label: "又忘了",
-    cls: "border-red-200 text-red-600 hover:bg-red-50 active:border-red-600 active:bg-red-600 active:text-white",
+    cls: "border-red-200 text-red-600 hover:bg-red-50 active:border-red-500 active:bg-red-500 active:text-white",
   },
   {
     value: "hard",
     label: "有点难",
-    cls: "border-zinc-300 text-zinc-600 hover:bg-zinc-50 active:border-zinc-700 active:bg-zinc-700 active:text-white",
+    cls: "border-zinc-300 text-zinc-600 hover:bg-zinc-100 active:border-zinc-600 active:bg-zinc-600 active:text-white",
   },
   {
     value: "good",
     label: "掌握了",
-    cls: "border-emerald-200 text-emerald-600 hover:bg-emerald-50 active:border-emerald-600 active:bg-emerald-600 active:text-white",
+    cls: "border-teal-300 text-teal-700 hover:bg-teal-50 active:border-teal-600 active:bg-teal-600 active:text-white",
   },
   {
     value: "easy",
     label: "太简单",
-    cls: "border-emerald-500 text-emerald-700 hover:bg-emerald-50 active:border-emerald-700 active:bg-emerald-700 active:text-white",
+    cls: "border-teal-600 bg-teal-600 text-white shadow-sm hover:bg-teal-700",
   },
 ];
 
@@ -97,11 +97,11 @@ function QuestionBody({ question }: { question: Question }) {
         )}
         <DifficultyTag difficulty={question.difficulty} />
       </div>
-      <p className="mt-2.5 whitespace-pre-wrap text-sm leading-relaxed text-zinc-800">
+      <p className="mt-4 whitespace-pre-wrap text-[15px] leading-[2.05] text-zinc-900">
         {main}
       </p>
       {note && (
-        <div className="mt-2.5 rounded-lg bg-red-50/70 p-3">
+        <div className="mt-3 rounded-xl bg-red-50/70 p-3.5">
           <p className="text-xs font-semibold text-red-600">
             你当时记下的误区
           </p>
@@ -132,6 +132,8 @@ export default function PracticePage() {
   const [genMsg, setGenMsg] = useState("");
   const [genProgress, setGenProgress] = useState<GenerateProgress | null>(null);
   const [autoStart, setAutoStart] = useState(true);
+  // 左栏：默认折叠成竖栏，点「出题」/「掌握度」展开
+  const [panelOpen, setPanelOpen] = useState(false);
   const [starred, setStarred] = useState<number[]>([]);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   // 卡片堆叠：刚作答完、正在播放「飞走」动画的牌
@@ -175,6 +177,7 @@ export default function PracticePage() {
     setError("");
     setGenMsg("");
     setGenProgress(null);
+    setPanelOpen(true);
     try {
       const questions = await generatePracticeStream(
         source,
@@ -192,6 +195,8 @@ export default function PracticePage() {
           block: "start",
         });
       }
+      // 生成完成自动收起，把空间还给复习区
+      setPanelOpen(false);
     } catch (err) {
       setError((err as Error).message);
       setGenerated([]);
@@ -257,44 +262,98 @@ export default function PracticePage() {
     >
       {error && <Notice kind="error">{error}</Notice>}
 
-      {/* 左窄右宽：35% 功能控制区 / 65% 复习主区 */}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,35fr)_minmax(0,65fr)]">
-        {/* 左栏：出题 → 看掌握度 */}
-        <div className="space-y-6">
+      {/* 左栏可折叠（竖栏默认收起）+ 右侧复习主区 */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        {/* 折叠竖栏：出题 / 掌握度 / 展开 */}
+        <div className="flex shrink-0 flex-row items-center gap-2.5 self-start rounded-2xl border border-black/[0.06] bg-zinc-50 p-2 lg:w-[52px] lg:flex-col lg:py-3">
+          <button
+            type="button"
+            onClick={() => setPanelOpen(true)}
+            title="出题"
+            aria-label="出题"
+            className={`grid h-10 w-10 place-items-center rounded-xl transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+              panelOpen
+                ? "bg-black/[0.06] text-zinc-700"
+                : "bg-teal-600 text-white shadow-sm hover:bg-teal-700"
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPanelOpen(true)}
+            title="学科掌握度"
+            aria-label="学科掌握度"
+            className={`grid h-10 w-10 place-items-center rounded-xl transition hover:bg-black/[0.06] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+              panelOpen ? "text-zinc-700" : "text-zinc-500"
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+              <path d="M3 3v18h18" />
+              <path d="m7 14 4-4 3 3 5-6" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPanelOpen((v) => !v)}
+            title={panelOpen ? "收起侧栏" : "展开侧栏"}
+            aria-label={panelOpen ? "收起侧栏" : "展开侧栏"}
+            className="hidden h-10 w-10 place-items-center rounded-xl text-zinc-400 transition hover:bg-black/[0.06] hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none lg:grid lg:mt-auto"
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+              className={`transition-transform ${panelOpen ? "rotate-180" : ""}`}
+            >
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 展开面板：出题 + 掌握度 */}
+        {panelOpen && (
+        <div className="w-full shrink-0 space-y-2.5 lg:w-[250px]">
           <div ref={generateRef}>
             <Card title="生成练习题">
-              {/* 出题来源 / 知识库：横向并排 */}
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block text-[11px] text-zinc-400">
-                  出题来源
+              {/* 出题来源 / 知识库：面板窄，纵向堆叠 */}
+              <label className="block text-[11px] text-zinc-400">
+                出题来源
+                <select
+                  value={source}
+                  onChange={(event) =>
+                    setSource(event.target.value as PracticeSource)
+                  }
+                  className={`mt-1.5 block w-full ${selectClass}`}
+                >
+                  <option value="knowledge_base">来自知识库</option>
+                  <option value="mistakes">来自我的错题</option>
+                </select>
+              </label>
+              {source === "knowledge_base" && (
+                <label className="mt-3 block text-[11px] text-zinc-400">
+                  知识库
                   <select
-                    value={source}
-                    onChange={(event) =>
-                      setSource(event.target.value as PracticeSource)
-                    }
+                    value={library}
+                    onChange={(event) => setLibrary(event.target.value)}
                     className={`mt-1.5 block w-full ${selectClass}`}
                   >
-                    <option value="knowledge_base">来自知识库</option>
-                    <option value="mistakes">来自我的错题</option>
+                    {libraries.map((item) => (
+                      <option key={item.name} value={item.name}>
+                        {item.name}
+                      </option>
+                    ))}
                   </select>
                 </label>
-                {source === "knowledge_base" && (
-                  <label className="block text-[11px] text-zinc-400">
-                    知识库
-                    <select
-                      value={library}
-                      onChange={(event) => setLibrary(event.target.value)}
-                      className={`mt-1.5 block w-full ${selectClass}`}
-                    >
-                      {libraries.map((item) => (
-                        <option key={item.name} value={item.name}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-              </div>
+              )}
 
               {/* 难度选择：auto 按学科掌握度自动分档 */}
               <label className="mt-3 block text-[11px] text-zinc-400">
@@ -522,9 +581,10 @@ export default function PracticePage() {
             )}
           </Card>
         </div>
+        )}
 
-        {/* 右栏：今日待复习（独立滚动） */}
-        <div ref={reviewRef} className="lg:sticky lg:top-0">
+        {/* 右栏：今日待复习牌堆（主区，独立滚动） */}
+        <div ref={reviewRef} className="min-w-0 flex-1 lg:sticky lg:top-0">
           <section className="flex flex-col overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_2px_8px_rgba(0,0,0,0.04)] lg:max-h-[calc(100dvh-150px)]">
             {/* 吸顶标题栏 */}
             <header className="border-b border-black/[0.06] p-5 pb-4">
@@ -546,40 +606,8 @@ export default function PracticePage() {
               </div>
             </header>
 
-            {/* 题目列表（独立滚动） */}
-            <div ref={reviewListRef} className="flex-1 space-y-6 overflow-y-auto p-5">
-              {lastResult && (
-                <div className="animate-fade-up flex items-start gap-2.5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-600/10">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                    className="mt-0.5 shrink-0"
-                  >
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                  <div className="min-w-0">
-                    <p className="font-medium tabular-nums">
-                      已记录自评：掌握度 {lastResult.mastery}% ·{" "}
-                      {lastResult.due_in_days > 0
-                        ? `${lastResult.due_in_days} 天后再次复习`
-                        : "稍后再来一题"}
-                    </p>
-                    {lastResult.prompt && (
-                      <p className="mt-0.5 truncate text-xs text-emerald-700/80">
-                        {lastResult.prompt}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
+            {/* 题目牌堆（独立滚动） */}
+            <div ref={reviewListRef} className="flex-1 overflow-y-auto p-5">
               {queue.length === 0 && !flying ? (
                 <p className="py-10 text-center text-sm text-zinc-400">
                   暂无到期题目。去左侧生成几道吧。
@@ -613,10 +641,20 @@ export default function PracticePage() {
 
                   {/* 当前牌 */}
                   {queue[0] && (
-                    <div className="animate-fade-up relative z-10 rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
-                      <div className="flex items-start gap-2">
+                    <div className="animate-fade-up relative z-10 rounded-2xl border border-black/[0.06] bg-white p-5 shadow-[0_2px_10px_rgba(0,0,0,0.05)] sm:p-6">
+                      {/* 牌头：题号徽章 + 进度/标签 + 操作 */}
+                      <div className="flex items-start gap-3">
+                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-teal-600/10 text-sm font-semibold text-teal-800 tabular-nums">
+                          {doneCount + 1}
+                        </div>
                         <div className="min-w-0 flex-1">
-                          <QuestionBody question={queue[0]} />
+                          <div className="text-xs text-zinc-500">
+                            第 {doneCount + 1} 题 · 共{" "}
+                            {doneCount + queue.length} 题
+                          </div>
+                          <div className="mt-1.5">
+                            <QuestionBody question={queue[0]} />
+                          </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-0.5">
                           <button
@@ -624,15 +662,15 @@ export default function PracticePage() {
                             onClick={() => toggleStar(queue[0].id)}
                             aria-label={starred.includes(queue[0].id) ? "取消星标" : "星标本题"}
                             title="星标本题"
-                            className={`grid h-6 w-6 place-items-center rounded-lg transition hover:bg-black/[0.05] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                            className={`grid h-7 w-7 place-items-center rounded-lg transition hover:bg-black/[0.05] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
                               starred.includes(queue[0].id)
                                 ? "text-amber-400"
                                 : "text-zinc-300"
                             }`}
                           >
                             <svg
-                              width="14"
-                              height="14"
+                              width="15"
+                              height="15"
                               viewBox="0 0 24 24"
                               fill={starred.includes(queue[0].id) ? "currentColor" : "none"}
                               stroke="currentColor"
@@ -649,9 +687,9 @@ export default function PracticePage() {
                             onClick={() => void onDeleteQuestion(queue[0].id)}
                             aria-label="删除本题"
                             title="删除本题"
-                            className="grid h-6 w-6 place-items-center rounded-lg text-zinc-300 transition hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                            className="grid h-7 w-7 place-items-center rounded-lg text-zinc-300 transition hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
                           >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                               <path d="M3 6h18" />
                               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
                               <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -660,10 +698,10 @@ export default function PracticePage() {
                         </div>
                       </div>
 
-                      {/* 作答区 */}
-                      <div className="relative mt-3">
+                      {/* 作答区：主工作区，写完再自评 */}
+                      <div className="mt-4">
                         <textarea
-                          rows={3}
+                          rows={6}
                           maxLength={500}
                           value={drafts[queue[0].id] ?? ""}
                           onChange={(event) =>
@@ -672,20 +710,25 @@ export default function PracticePage() {
                               [queue[0].id]: event.target.value,
                             }))
                           }
-                          placeholder="写下你的作答（自评用，不会提交）…"
-                          className="w-full resize-none rounded-xl bg-zinc-50 px-3.5 py-2.5 pb-6 text-sm ring-1 ring-black/10 outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 focus:ring-teal-600"
+                          placeholder="把你的思路完整写下来——写完再自评，记忆效果更好…"
+                          className="w-full resize-none rounded-[14px] bg-zinc-50 px-4 py-3.5 text-sm leading-[1.8] ring-1 ring-black/10 outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 focus:ring-teal-600"
                         />
-                        <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] tabular-nums text-zinc-300/90">
-                          {(drafts[queue[0].id] ?? "").length}/500
-                        </span>
+                        <div className="mt-1 flex items-center justify-between">
+                          <span className="text-[10px] text-zinc-300">
+                            自评参考，不会提交
+                          </span>
+                          <span className="text-[10px] tabular-nums text-zinc-300">
+                            {(drafts[queue[0].id] ?? "").length}/500
+                          </span>
+                        </div>
                       </div>
-                      <div className="mt-2.5 grid grid-cols-4 gap-2">
+                      <div className="mt-3 grid grid-cols-4 gap-2">
                         {RATINGS.map((rating) => (
                           <button
                             key={rating.value}
                             type="button"
                             onClick={() => void onAnswer(queue[0].id, rating.value)}
-                            className={`rounded-full border bg-zinc-50 py-2 text-xs font-medium text-center transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 focus-visible:outline-none active:scale-95 ${rating.cls}`}
+                            className={`rounded-full border py-2.5 text-xs font-medium text-center transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 focus-visible:outline-none active:scale-95 ${rating.cls}`}
                           >
                             {rating.label}
                           </button>
@@ -698,6 +741,37 @@ export default function PracticePage() {
                     <p className="mt-3 text-center text-xs text-zinc-400">
                       还有 {queue.length - 1} 题在队列里
                     </p>
+                  )}
+
+                  {/* 上题反馈：一行轻量带，不占主空间 */}
+                  {lastResult && (
+                    <div className="mt-3 flex items-center gap-2 px-1">
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#0f766e"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                        className="shrink-0"
+                      >
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                      <span className="shrink-0 text-xs text-zinc-600">
+                        上一题已记录：掌握度 {lastResult.mastery}% ·{" "}
+                        {lastResult.due_in_days > 0
+                          ? `${lastResult.due_in_days} 天后再次复习`
+                          : "稍后再来"}
+                      </span>
+                      {lastResult.prompt && (
+                        <span className="min-w-0 flex-1 truncate text-xs text-zinc-300">
+                          {lastResult.prompt}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
