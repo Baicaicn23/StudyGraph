@@ -34,6 +34,7 @@ from ..application.graph import build_graph
 from ..application.guardrails import screen_input, screen_output
 from ..application.image_notes import ImageNoteError, image_to_markdown
 from ..application.learning_service import LearningService
+from ..application.schedule_service import ScheduleService
 from ..application.title_writer import generate_title
 from ..config import Settings, get_settings, parse_mcp_servers
 from ..domain.errors import LearningError
@@ -44,6 +45,7 @@ from ..infrastructure.knowledge import KnowledgeStore
 from ..infrastructure.learning_repository import SqliteLearningRepository
 from ..infrastructure.llm import build_chat_model
 from ..infrastructure.mcp_bridge import connect_and_register
+from ..infrastructure.schedule_repository import SqliteScheduleRepository
 from ..infrastructure.usage_repository import SqliteUsageRepository
 
 
@@ -110,6 +112,27 @@ class AnswerRequest(BaseModel):
     user_id: str = Field(default="local", max_length=64)
     question_id: int
     rating: str = Field(min_length=1, max_length=16)
+
+
+class ScheduleTaskRequest(BaseModel):
+    """新建/更新日程任务。date 缺省 = 进收件箱。"""
+
+    user_id: str = Field(default="local", max_length=64)
+    title: str = Field(min_length=1, max_length=120)
+    note: str = Field(default="", max_length=2000)
+    date: str | None = Field(default=None, max_length=10)
+    start_minutes: int | None = Field(default=None, ge=0, le=1439)
+    duration_minutes: int = Field(default=30, ge=5, le=600)
+
+
+class ScheduleUpdateRequest(BaseModel):
+    user_id: str = Field(default="local", max_length=64)
+    title: str | None = Field(default=None, max_length=120)
+    note: str | None = Field(default=None, max_length=2000)
+    date: str | None = Field(default=None, max_length=10)
+    start_minutes: int | None = Field(default=None, ge=0, le=1439)
+    duration_minutes: int | None = Field(default=None, ge=5, le=600)
+    done: bool | None = None
 
 
 def _sse(event: str, data: dict) -> str:
@@ -374,6 +397,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         repository = SqliteLearningRepository(resolved.database_path)
         usage_repository = SqliteUsageRepository(resolved.database_path)
         chat_repository = SqliteChatRepository(resolved.database_path)
+        schedule = ScheduleService(SqliteScheduleRepository(resolved.database_path))
         learning = LearningService(knowledge, repository)
         tools.configure(knowledge, repository)
         mcp_clients, _ = await connect_and_register(
@@ -397,6 +421,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.settings = resolved
             app.state.store = knowledge
             app.state.learning = learning
+            app.state.schedule = schedule
             app.state.chat = chat_repository
             app.state.model = model
             app.state.usage = usage_repository
@@ -853,6 +878,109 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         days: int = Query(default=30, ge=1, le=60),
     ) -> dict:
         return {"days": request.app.state.learning.activity_series(user_id, days=days)}
+
+    # -- 日程（时间轴 + 收件箱） ------------------------------------------------
+
+    @app.get("/api/schedule")
+    async def schedule_day(
+        request: Request,
+        user_id: str = "local",
+        date: str = Query(min_length=10, max_length=10),
+    ) -> dict:
+        """某天时间轴：任务列表 + 收件箱计数（页面一次拿全）。"""
+
+        try:
+            return request.app.state.schedule.day_view(user_id, date)
+        except LearningError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/schedule/inbox")
+    async def schedule_inbox(request: Request, user_id: str = "local") -> dict:
+        return {"tasks": request.app.state.schedule.inbox(user_id)}
+
+    @app.get("/api/schedule/week")
+    async def schedule_week(
+        request: Request,
+        user_id: str = "local",
+        date: str = Query(min_length=10, max_length=10),
+    ) -> dict:
+        """周条密度：date 所在周（周日开头）每天 排期数/完成数。"""
+
+        try:
+            return request.app.state.schedule.week(user_id, date)
+        except LearningError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/schedule/tasks")
+    async def create_schedule_task(body: ScheduleTaskRequest, request: Request) -> dict:
+        try:
+            task = request.app.state.schedule.create(
+                user_id=body.user_id,
+                title=body.title,
+                note=body.note,
+                date=body.date,
+                start_minutes=body.start_minutes,
+                duration_minutes=body.duration_minutes,
+            )
+        except LearningError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"task": task}
+
+    @app.put("/api/schedule/tasks/{task_id}")
+    async def update_schedule_task(
+        task_id: int, body: ScheduleUpdateRequest, request: Request
+    ) -> dict:
+        try:
+            task = request.app.state.schedule.update(
+                user_id=body.user_id,
+                task_id=task_id,
+                title=body.title,
+                note=body.note,
+                date=body.date,
+                start_minutes=body.start_minutes,
+                duration_minutes=body.duration_minutes,
+                done=body.done,
+            )
+        except LearningError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"task": task}
+
+    @app.post("/api/schedule/tasks/{task_id}/arrange")
+    async def arrange_schedule_task(
+        task_id: int,
+        request: Request,
+        user_id: str = "local",
+        date: str | None = Query(default=None, min_length=10, max_length=10),
+    ) -> dict:
+        """一键安排：落到目标日（缺省今天）的第一个空档。"""
+
+        try:
+            task = request.app.state.schedule.arrange(
+                user_id=user_id, task_id=task_id, date=date
+            )
+        except LearningError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"task": task}
+
+    @app.post("/api/schedule/tasks/{task_id}/unarrange")
+    async def unarrange_schedule_task(
+        task_id: int, request: Request, user_id: str = "local"
+    ) -> dict:
+        """退回收件箱（清日期与开始时间）。"""
+
+        try:
+            task = request.app.state.schedule.unarrange(user_id=user_id, task_id=task_id)
+        except LearningError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"task": task}
+
+    @app.delete("/api/schedule/tasks/{task_id}")
+    async def delete_schedule_task(
+        task_id: int, request: Request, user_id: str = "local"
+    ) -> dict:
+        if not request.app.state.schedule.delete(user_id=user_id, task_id=task_id):
+            raise HTTPException(status_code=404, detail="任务不存在")
+        return {"deleted": task_id}
 
     # -- 项目与会话（WorkBuddy 式分组） ----------------------------------------
 

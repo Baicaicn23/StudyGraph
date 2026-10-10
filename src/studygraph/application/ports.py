@@ -86,6 +86,47 @@ class LearningRepositoryPort(Protocol):
     def count_recent_mistakes(self, user_id: str, *, since: float) -> int: ...
 
 
+class ScheduleRepositoryPort(Protocol):
+    """日程持久化：时间轴任务 + 收件箱（date 为空即收件箱）。"""
+
+    def get_task(self, user_id: str, task_id: int) -> dict[str, Any] | None: ...
+
+    def list_day(self, user_id: str, date: str) -> list[dict[str, Any]]: ...
+
+    def list_inbox(self, user_id: str) -> list[dict[str, Any]]: ...
+
+    def count_by_date(
+        self, user_id: str, *, start: str, end: str
+    ) -> list[dict[str, Any]]: ...
+
+    def create_task(
+        self,
+        *,
+        user_id: str,
+        title: str,
+        note: str = "",
+        date: str | None = None,
+        start_minutes: int | None = None,
+        duration_minutes: int = 30,
+    ) -> int: ...
+
+    def update_task(
+        self,
+        user_id: str,
+        task_id: int,
+        *,
+        title: str | None = None,
+        note: str | None = None,
+        date: str | None = None,
+        clear_date: bool = False,
+        start_minutes: int | None = None,
+        duration_minutes: int | None = None,
+        done: bool | None = None,
+    ) -> bool: ...
+
+    def delete_task(self, user_id: str, task_id: int) -> bool: ...
+
+
 class UsageRepositoryPort(Protocol):
     """token 用量记账：写入每次模型调用、按日汇总。"""
 

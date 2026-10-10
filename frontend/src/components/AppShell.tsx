@@ -53,6 +53,13 @@ function NavIcon({ name }: { name: string }) {
           <path d="M8 2v4M16 2v4M3 10h18" />
         </svg>
       );
+    case "schedule":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3.5 2" />
+        </svg>
+      );
     case "library":
       return (
         <svg {...common}>
@@ -70,6 +77,7 @@ const NAV_ITEMS = [
   { href: "/practice", icon: "practice", label: "练习复习" },
   { href: "/mistakes", icon: "mistakes", label: "错题本" },
   { href: "/plan", icon: "plan", label: "今日复习" },
+  { href: "/schedule", icon: "schedule", label: "日程" },
   { href: "/knowledge", icon: "library", label: "知识库" },
 ];
 

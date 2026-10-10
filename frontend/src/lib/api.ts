@@ -354,6 +354,106 @@ export function usage(days = 1): Promise<UsageSummary> {
   return requestJson<UsageSummary>(`/api/usage?days=${days}`);
 }
 
+// --- 日程（时间轴 + 收件箱）--------------------------------------------------
+
+export interface ScheduleTask {
+  id: number;
+  user_id: string;
+  title: string;
+  note: string;
+  /** YYYY-MM-DD；null = 还在收件箱 */
+  date: string | null;
+  /** 当天分钟数 0–1439；收件箱任务为 null */
+  start_minutes: number | null;
+  duration_minutes: number;
+  done: boolean;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ScheduleDay {
+  date: string;
+  tasks: ScheduleTask[];
+  inbox_count: number;
+}
+
+export interface ScheduleWeekDay {
+  date: string;
+  total: number;
+  done: number;
+}
+
+export function scheduleDay(date: string): Promise<ScheduleDay> {
+  return requestJson<ScheduleDay>(`/api/schedule?date=${date}`);
+}
+
+export async function scheduleInbox(): Promise<ScheduleTask[]> {
+  const data = await requestJson<{ tasks: ScheduleTask[] }>("/api/schedule/inbox");
+  return data.tasks;
+}
+
+export async function scheduleWeek(
+  date: string,
+): Promise<{ days: ScheduleWeekDay[] }> {
+  return requestJson<{ days: ScheduleWeekDay[] }>(
+    `/api/schedule/week?date=${date}`,
+  );
+}
+
+export interface ScheduleTaskInput {
+  title: string;
+  note?: string;
+  date?: string | null;
+  start_minutes?: number | null;
+  duration_minutes?: number;
+}
+
+export async function createScheduleTask(
+  input: ScheduleTaskInput,
+): Promise<ScheduleTask> {
+  const data = await postJson<{ task: ScheduleTask }>("/api/schedule/tasks", input);
+  return data.task;
+}
+
+export async function updateScheduleTask(
+  id: number,
+  patch: Partial<ScheduleTaskInput> & { done?: boolean },
+): Promise<ScheduleTask> {
+  const data = await requestJson<{ task: ScheduleTask }>(
+    `/api/schedule/tasks/${id}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    },
+  );
+  return data.task;
+}
+
+export async function arrangeScheduleTask(
+  id: number,
+  date?: string,
+): Promise<ScheduleTask> {
+  const query = date ? `?date=${date}` : "";
+  const data = await postJson<{ task: ScheduleTask }>(
+    `/api/schedule/tasks/${id}/arrange${query}`,
+    {},
+  );
+  return data.task;
+}
+
+export async function unarrangeScheduleTask(id: number): Promise<ScheduleTask> {
+  const data = await postJson<{ task: ScheduleTask }>(
+    `/api/schedule/tasks/${id}/unarrange`,
+    {},
+  );
+  return data.task;
+}
+
+export async function deleteScheduleTask(id: number): Promise<void> {
+  await requestJson(`/api/schedule/tasks/${id}`, { method: "DELETE" });
+}
+
 // --- 会话（项目分组 + 自动保存）---------------------------------------------
 
 export interface ChatProject {
