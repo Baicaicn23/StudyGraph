@@ -258,12 +258,16 @@ export async function generatePracticeStream(
         .split("\n")
         .find((line) => line.startsWith("data: "));
       if (!eventLine || !dataLine) continue;
-      const payload = JSON.parse(dataLine.slice(6)) as Record<string, unknown>;
-      if (eventLine.slice(6) === "progress") {
+      const name = eventLine.slice("event: ".length).trim();
+      const payload = JSON.parse(dataLine.slice("data: ".length)) as Record<
+        string,
+        unknown
+      >;
+      if (name === "progress") {
         onProgress(payload as unknown as GenerateProgress);
-      } else if (eventLine.slice(6) === "done") {
+      } else if (name === "done") {
         questions = (payload.questions as Question[]) ?? [];
-      } else if (eventLine.slice(6) === "error") {
+      } else if (name === "error") {
         errorMessage = String(payload.message ?? "出题失败");
       }
     }
