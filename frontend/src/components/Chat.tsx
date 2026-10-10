@@ -8,6 +8,7 @@ import {
   addFeedback,
   addNote,
   attachmentRawUrl,
+  chatActivity,
   createProject,
   generatePractice,
   getHealth,
@@ -22,6 +23,7 @@ import {
   uploadChatAttachment,
   type AttachmentMeta,
   type AgentStep,
+  type ChatActivityDay,
   type ChatProject,
   type Library,
   type StudyPlan,
@@ -47,26 +49,7 @@ interface PendingInterrupt {
   preview: string;
 }
 
-/* 首屏快捷功能 + 快捷问题 + 底部快捷指令 */
-const LEARN_FUNCTIONS = [
-  "根据我的知识库出 3 道今日复习题",
-  "总结我最近记录的错题",
-  "帮我记一笔笔记：",
-  "帮我制定今天的学习计划",
-];
-
-const SUGGESTIONS = [
-  "我的薄弱学科有哪些？",
-  "怎么用间隔重复复习？",
-  "我的笔记里怎么讲导数的？",
-  "记住：我在准备月底的微积分测验",
-];
-
-const QUICK_COMMANDS = [
-  "帮我生成 3 道复习题",
-  "帮我总结知识点",
-  "帮我分析我的错题",
-];
+/* 首屏品牌图标下不再有副标题/快捷区——欢迎区只保留数据卡片与提问热力图 */
 
 /** 耗时展示：42s / 1m42s（对齐 WorkBuddy 的「已处理 1m42s」） */
 function formatDuration(seconds: number): string {
@@ -74,6 +57,77 @@ function formatDuration(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
   return rest > 0 ? `${minutes}m${rest}s` : `${minutes}m`;
+}
+
+/* 提问热力图：GitHub 式方格，颜色深浅 = 当天提问次数 */
+const ASK_LEVELS = [
+  "bg-black/[0.05]",
+  "bg-teal-200",
+  "bg-teal-500",
+  "bg-teal-700",
+];
+
+function askLevel(questions: number): number {
+  if (questions <= 0) return 0;
+  if (questions <= 2) return 1;
+  if (questions <= 5) return 2;
+  return 3;
+}
+
+function askDayLabel(date: string): string {
+  const [, month, day] = date.split("-");
+  return `${Number(month)}月${Number(day)}日`;
+}
+
+/** GitHub 式提问热力图：列 = 周，行 = 周一~周日，末列收在今天。 */
+function AskHeatmap({ series }: { series: ChatActivityDay[] }) {
+  if (series.length === 0) return null;
+
+  // 按周一开头补齐前导空位，切成周列
+  const leading = (new Date(`${series[0].date}T00:00:00`).getDay() + 6) % 7;
+  const cells: (ChatActivityDay | null)[] = [
+    ...Array.from({ length: leading }, () => null as ChatActivityDay | null),
+    ...series,
+  ];
+
+  const totalQuestions = series.reduce((sum, day) => sum + day.questions, 0);
+  const activeDays = series.filter((day) => day.questions > 0).length;
+
+  return (
+    <div className="inline-block rounded-2xl bg-black/[0.03] px-5 py-4 text-left">
+      <div className="mb-2.5 flex items-baseline justify-between gap-6">
+        <span className="text-[11px] text-zinc-400">近 12 周提问频率</span>
+        <span className="text-[11px] tabular-nums text-zinc-400">
+          共 {totalQuestions} 次 · {activeDays} 天活跃
+        </span>
+      </div>
+      <div
+        className="grid w-fit grid-flow-col grid-rows-7 gap-[3px]"
+        aria-label="提问频率热力图"
+      >
+        {cells.map((day, index) =>
+          day ? (
+            <div
+              key={day.date}
+              title={`${askDayLabel(day.date)} · 提问 ${day.questions} 次`}
+              className={`h-[9px] w-[9px] rounded-[2px] ${
+                ASK_LEVELS[askLevel(day.questions)]
+              }`}
+            />
+          ) : (
+            <div key={`blank-${index}`} className="h-[9px] w-[9px]" />
+          ),
+        )}
+      </div>
+      <div className="mt-2.5 flex items-center justify-end gap-1 text-[10px] text-zinc-300">
+        少
+        {ASK_LEVELS.map((color) => (
+          <span key={color} className={`h-[8px] w-[8px] rounded-[2px] ${color}`} />
+        ))}
+        多
+      </div>
+    </div>
+  );
 }
 
 export default function Chat() {
@@ -87,6 +141,7 @@ export default function Chat() {
   const [provider, setProvider] = useState("");
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
   const [plan, setPlan] = useState<StudyPlan | null>(null);
+  const [askSeries, setAskSeries] = useState<ChatActivityDay[]>([]);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   // 聊天附件：待发送的文件（已上传拿到 id），随下一条消息一起发出
   const [pendingFiles, setPendingFiles] = useState<AttachmentMeta[]>([]);
@@ -248,15 +303,22 @@ export default function Chat() {
     }
   }, []);
 
+  const refreshAskActivity = useCallback(async () => {
+    try {
+      setAskSeries(await chatActivity(84));
+    } catch {
+      // 后端未启动时忽略。
+    }
+  }, []);
+
   useEffect(() => {
-     
     void refreshLibraries();
-     
     void refreshPlan();
+    void refreshAskActivity();
     getHealth()
       .then((h) => setProvider(h.provider))
       .catch(() => setProvider(""));
-  }, [refreshLibraries, refreshPlan]);
+  }, [refreshLibraries, refreshPlan, refreshAskActivity]);
 
   useEffect(() => {
     const node = scrollRef.current;
@@ -672,20 +734,32 @@ export default function Chat() {
       >
         <div className="mx-auto max-w-3xl">
           {messages.length === 0 ? (
-            /* ---------- 学习型欢迎首屏 ---------- */
-            <div className="mt-10 text-center">
-              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 text-lg font-bold text-white shadow-lg">
-                SG
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight">
+            /* ---------- 极简欢迎首屏：品牌 + 数据卡片 + 提问热力图 ---------- */
+            <div className="mt-14 flex flex-col items-center">
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#0f766e"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <circle cx="5" cy="19" r="2.2" />
+                <circle cx="12" cy="5" r="2.2" />
+                <circle cx="19" cy="19" r="2.2" />
+                <path d="M6.5 17.2 10.6 7.4" />
+                <path d="m13.4 7.4 4.1 9.8" />
+                <path d="M7.2 19h9.6" />
+              </svg>
+              <h2 className="mt-4 text-xl font-bold tracking-tight">
                 你好，我是 StudyGraph
               </h2>
-              <p className="mt-2 text-sm text-zinc-500">
-                把资料沉淀进学科库，期末从库里长出复习材料。
-              </p>
 
-              {/* 轻量学习数据概览 */}
-              <div className="mx-auto mt-7 grid max-w-lg grid-cols-3 gap-3">
+              {/* 轻量学习数据概览：数字为核心，标签弱化 */}
+              <div className="mx-auto mt-8 grid max-w-md grid-cols-3 gap-3">
                 {[
                   {
                     label: "今日待复习",
@@ -706,61 +780,21 @@ export default function Chat() {
                   <Link
                     key={stat.label}
                     href={stat.href}
-                    className="rounded-xl bg-black/[0.03] px-3 py-3.5 transition hover:bg-teal-600/[0.07] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                    className="rounded-xl bg-black/[0.03] px-3 py-3.5 transition hover:bg-black/[0.06] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
                   >
-                    <div className="text-2xl font-bold tracking-tight text-teal-700 tabular-nums">
+                    <div className="text-2xl font-bold tracking-tight text-zinc-800 tabular-nums">
                       {stat.value}
                     </div>
-                    <div className="mt-0.5 text-[11px] text-zinc-500">
+                    <div className="mt-0.5 text-[11px] text-zinc-400">
                       {stat.label}
                     </div>
                   </Link>
                 ))}
               </div>
 
-              {/* 快捷功能区 */}
-              <div className="mx-auto mt-6 flex max-w-xl flex-wrap justify-center gap-2">
-                {LEARN_FUNCTIONS.map((text) => (
-                  <button
-                    key={text}
-                    type="button"
-                    onClick={() => fillInput(text)}
-                    disabled={busy}
-                    className="rounded-full bg-black/[0.04] px-3.5 py-2 text-xs font-medium text-zinc-700 transition hover:bg-teal-600/10 hover:text-teal-800 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none disabled:opacity-50"
-                  >
-                    {text}
-                  </button>
-                ))}
-              </div>
-
-              {/* 快捷问题 */}
-              <div className="mx-auto mt-6 grid max-w-xl gap-2 text-left">
-                {SUGGESTIONS.map((text) => (
-                  <button
-                    key={text}
-                    type="button"
-                    onClick={() => void send(text)}
-                    disabled={busy}
-                    className="group flex items-center gap-3 rounded-xl bg-black/[0.03] px-4 py-3 text-left text-sm transition hover:bg-black/[0.06] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <span className="flex-1 text-zinc-700">{text}</span>
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                      className="shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-teal-600"
-                    >
-                      <path d="M5 12h14" />
-                      <path d="m12 5 7 7-7 7" />
-                    </svg>
-                  </button>
-                ))}
+              {/* 提问热力图（GitHub 式，按提问频率统计） */}
+              <div className="mt-8">
+                <AskHeatmap series={askSeries} />
               </div>
             </div>
           ) : (
@@ -854,22 +888,6 @@ export default function Chat() {
       {/* 底部输入区 */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/90 to-transparent px-6 pb-4 pt-10">
         <div className="pointer-events-auto relative mx-auto max-w-3xl">
-          {/* 快捷指令条 */}
-          {messages.length > 0 && !input && (
-            <div className="animate-fade-up mb-2 flex flex-wrap gap-1.5">
-              {QUICK_COMMANDS.map((cmd) => (
-                <button
-                  key={cmd}
-                  type="button"
-                  onClick={() => fillInput(cmd)}
-                  className="rounded-full bg-black/[0.04] px-3 py-1 text-[11px] text-zinc-500 transition hover:bg-teal-600/10 hover:text-teal-800 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
-                >
-                  {cmd}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* + 功能菜单 */}
           {plusMenuOpen && (
             <>
@@ -932,6 +950,43 @@ export default function Chat() {
                   </svg>
                   选择检索学科
                 </button>
+                {/* 权限开关：允许完全访问（开 = 敏感操作自动同意），收纳进菜单 */}
+                <div className="mt-1 border-t border-black/[0.06] pt-1">
+                  <button
+                    type="button"
+                    onClick={toggleFullAccess}
+                    title={
+                      fullAccess
+                        ? "已开启：保存笔记等操作自动同意，不再逐次询问。点击关闭。"
+                        : "已关闭：保存笔记等敏感操作需要你逐次确认。点击开启「允许完全访问」。"
+                    }
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition hover:bg-black/[0.04]"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
+                      <rect x="4" y="10" width="16" height="10" rx="2" />
+                      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                    </svg>
+                    <span
+                      className={`min-w-0 flex-1 ${
+                        fullAccess ? "text-red-600" : "text-zinc-700"
+                      }`}
+                    >
+                      允许完全访问
+                    </span>
+                    <span
+                      className={`relative h-4 w-7 shrink-0 rounded-full transition ${
+                        fullAccess ? "bg-red-500" : "bg-black/[0.15]"
+                      }`}
+                      aria-hidden
+                    >
+                      <span
+                        className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
+                          fullAccess ? "left-3.5" : "left-0.5"
+                        }`}
+                      />
+                    </span>
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -1079,12 +1134,19 @@ export default function Chat() {
               onClick={() => setPlusMenuOpen((v) => !v)}
               aria-expanded={plusMenuOpen}
               aria-label="更多功能"
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 focus-visible:outline-none ${
+              title={fullAccess ? "允许完全访问已开启" : undefined}
+              className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 focus-visible:outline-none ${
                 plusMenuOpen
                   ? "bg-black/[0.06] text-zinc-900"
                   : "text-zinc-500 hover:bg-black/[0.06]"
               }`}
             >
+              {fullAccess && (
+                <span
+                  className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500"
+                  aria-hidden
+                />
+              )}
               <svg
                 width="17"
                 height="17"
@@ -1267,40 +1329,9 @@ export default function Chat() {
               )}
             </div>
 
-            {/* 权限开关：允许完全访问（开 = 敏感操作自动同意） */}
-            <button
-              type="button"
-              onClick={toggleFullAccess}
-              title={
-                fullAccess
-                  ? "已开启：保存笔记等操作自动同意，不再逐次询问。点击关闭。"
-                  : "已关闭：保存笔记等敏感操作需要你逐次确认。点击开启「允许完全访问」。"
-              }
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
-                fullAccess
-                  ? "bg-red-50 text-red-600 hover:bg-red-100"
-                  : "text-zinc-400 hover:bg-black/[0.04] hover:text-zinc-600"
-              }`}
-            >
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 8v4l2.5 2.5" />
-              </svg>
-              {fullAccess ? "允许完全访问" : "逐步确认"}
-            </button>
           </div>
-          <p className="mt-2 text-center text-[11px] text-zinc-400">
-            内容由AI生成，请核实重要信息 · Enter 发送 · Shift+Enter 换行
+          <p className="mt-2 text-center text-[10px] text-zinc-300">
+            内容由 AI 生成，请核实重要信息
           </p>
         </div>
       </div>

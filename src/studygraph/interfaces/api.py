@@ -892,6 +892,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> dict:
         return {"chats": request.app.state.chat.list_sessions(user_id, project_id=project_id)}
 
+    @app.get("/api/chat/activity")
+    async def chat_activity(
+        request: Request,
+        user_id: str = "local",
+        days: int = Query(default=84, ge=7, le=366),
+    ) -> dict:
+        """近 N 天提问频率（GitHub 式热力图）：按天统计用户消息数。"""
+
+        return {
+            "days": request.app.state.chat.ask_activity(user_id, days=days)
+        }
+
     @app.get("/api/chats/{session_id}/messages")
     async def chat_messages(
         request: Request, session_id: int, user_id: str = "local"

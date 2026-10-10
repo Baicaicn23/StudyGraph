@@ -117,9 +117,16 @@ function AppShellInner({ children }: { children: ReactNode }) {
               {provider === "mock" ? "Mock" : "真实模型"}
             </span>
           )}
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 text-[12px] font-bold text-white lg:hidden">
-            SG
-          </div>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center lg:hidden">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f766e" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="5" cy="19" r="2.2" />
+              <circle cx="12" cy="5" r="2.2" />
+              <circle cx="19" cy="19" r="2.2" />
+              <path d="M6.5 17.2 10.6 7.4" />
+              <path d="m13.4 7.4 4.1 9.8" />
+              <path d="M7.2 19h9.6" />
+            </svg>
+          </span>
         </div>
 
         {/* 功能导航（上）：聊天 / 练习 / 错题 / 复习 / 知识库 */}
@@ -135,13 +142,21 @@ function AppShellInner({ children }: { children: ReactNode }) {
                   key={item.href}
                   href={item.href}
                   title={item.label}
-                  className={`flex items-center justify-center gap-2.5 rounded-lg px-2.5 py-[6px] text-[13px] transition focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:outline-none lg:justify-start ${
+                  className={`relative flex items-center justify-center gap-2.5 rounded-lg px-2.5 py-[6px] text-[13px] transition focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:outline-none lg:justify-start ${
                     active
-                      ? "bg-black/[0.06] font-medium text-zinc-900"
+                      ? "bg-teal-600/[0.08] font-medium text-teal-900"
                       : "text-zinc-700 hover:bg-black/[0.04]"
                   }`}
                 >
-                  <span className="text-zinc-500">
+                  {active && (
+                    <span
+                      aria-hidden
+                      className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-teal-600"
+                    />
+                  )}
+                  <span
+                    className={active ? "text-teal-700" : "text-zinc-500"}
+                  >
                     <NavIcon name={item.icon} />
                   </span>
                   <span className="hidden lg:inline">{item.label}</span>
@@ -158,7 +173,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
 
         <div className="hidden border-t border-black/[0.06] px-4 py-3 lg:block">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 text-[11px] font-semibold text-white">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[11px] font-medium text-zinc-600 ring-1 ring-black/10">
               学
             </div>
             <div className="text-[13px] font-medium text-zinc-700">
@@ -168,7 +183,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
         </div>
         {/* 窄屏底部占位：保持原图标布局 */}
         <div className="border-t border-black/[0.06] px-4 py-3 lg:hidden">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 text-[11px] font-semibold text-white">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-100 text-[11px] font-medium text-zinc-600 ring-1 ring-black/10">
             学
           </div>
         </div>

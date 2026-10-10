@@ -10,6 +10,7 @@ WorkBuddy 式会话模型：
 
 from __future__ import annotations
 
+import datetime
 import sqlite3
 import time
 from pathlib import Path
@@ -407,6 +408,40 @@ class SqliteChatRepository:
                 (session_id, limit),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def ask_activity(self, user_id: str, *, days: int) -> list[dict[str, Any]]:
+        """按本地日期聚合近 N 天的提问次数（聊天页 GitHub 式热力图数据）。
+
+        统计口径：chat_messages 里 role='user' 的消息数（一次提问算一次），
+        经 chat_sessions 校验归属。返回恒为 ``days`` 个条目、从旧到新、缺日补零。
+        """
+
+        now = datetime.datetime.now()
+        start = (now - datetime.timedelta(days=days - 1)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        since = start.timestamp()
+        dates = [
+            (start + datetime.timedelta(days=offset)).strftime("%Y-%m-%d")
+            for offset in range(days)
+        ]
+        counts: dict[str, int] = {day: 0 for day in dates}
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT m.created_at AS created_at FROM chat_messages m "
+                "JOIN chat_sessions s ON s.id = m.session_id "
+                "WHERE s.user_id = ? AND m.role = 'user' AND m.created_at >= ?",
+                (user_id, since),
+            ).fetchall()
+
+        for row in rows:
+            key = datetime.datetime.fromtimestamp(row["created_at"]).strftime(
+                "%Y-%m-%d"
+            )
+            if key in counts:
+                counts[key] += 1
+        return [{"date": day, "questions": counts[day]} for day in dates]
 
     # -- 聊天附件 ---------------------------------------------------------------
 

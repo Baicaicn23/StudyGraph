@@ -270,6 +270,18 @@ export function studySprint(days = 7): Promise<SprintPlan> {
   return requestJson<SprintPlan>(`/api/study/sprint?days=${days}`);
 }
 
+export interface ChatActivityDay {
+  date: string;
+  questions: number;
+}
+
+export async function chatActivity(days = 84): Promise<ChatActivityDay[]> {
+  const data = await requestJson<{ days: ChatActivityDay[] }>(
+    `/api/chat/activity?days=${days}`,
+  );
+  return data.days;
+}
+
 export async function studyActivity(days = 30): Promise<ActivityDay[]> {
   const data = await requestJson<{ days: ActivityDay[] }>(
     `/api/study/activity?days=${days}`,

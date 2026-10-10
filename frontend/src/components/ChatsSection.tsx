@@ -95,8 +95,14 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
     (chat) => chat.project_id === null || !knownProjectIds.has(chat.project_id),
   );
 
+  // 极简化：分组默认折叠（记录里 undefined = 折叠），常驻只展示最近 3 条会话
+  const isGroupCollapsed = (key: string) => collapsed[key] ?? true;
+
+  // 最近会话：跨空间取前 3 条（列表已按更新时间倒序）
+  const recentChats = chats.slice(0, 3);
+
   const toggleGroup = (key: string) =>
-    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+    setCollapsed((prev) => ({ ...prev, [key]: !isGroupCollapsed(key) }));
 
   const openSession = (chat: ChatSession) => {
     stashChatAction({ type: "open", sessionId: chat.id });
@@ -288,7 +294,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
   const renderProject = (project: ChatProject) => {
     const items = chats.filter((chat) => chat.project_id === project.id);
     const key = `p${project.id}`;
-    const isCollapsed = Boolean(collapsed[key]);
+    const isCollapsed = isGroupCollapsed(key);
     return (
       <section key={project.id} className="mt-1">
         <div className="group relative flex items-center rounded-lg px-2 py-1.5 transition hover:bg-black/[0.03]">
@@ -425,6 +431,18 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
       </div>
 
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-2 pb-4">
+        {/* 最近会话：常驻 3 条，减少展开的分组数量 */}
+        {recentChats.length > 0 && (
+          <section className="mt-1">
+            <div className="flex items-center rounded-lg px-2 py-1">
+              <span className="min-w-0 flex-1 text-[11px] font-medium text-zinc-400">
+                最近
+              </span>
+            </div>
+            <div className="space-y-0.5">{recentChats.map(renderSession)}</div>
+          </section>
+        )}
+
         {/* 未分组兜底：正常情况下所有会话都在空间里 */}
         {ungrouped.length > 0 && (
           <section className="mt-1">
