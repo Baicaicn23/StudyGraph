@@ -799,6 +799,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def study_plan(request: Request, user_id: str = "local") -> dict:
         return request.app.state.learning.plan(user_id)
 
+    @app.get("/api/study/sprint")
+    async def study_sprint(
+        request: Request,
+        user_id: str = "local",
+        days: int = Query(default=7, ge=1, le=30),
+    ) -> dict:
+        """考前冲刺计划：按最薄弱优先把任务排进未来 N 天（确定性计算）。"""
+
+        try:
+            return request.app.state.learning.sprint(user_id, days=days)
+        except LearningError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @app.get("/api/study/activity")
     async def study_activity(
         request: Request,
