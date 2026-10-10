@@ -7,11 +7,9 @@ import {
   listMemories,
   studyActivity,
   studyPlan,
-  studySprint,
   usage,
   type ActivityDay,
   type MemoryItem,
-  type SprintPlan,
   type StudyPlan,
   type UsageSummary,
 } from "@/lib/api";
@@ -285,8 +283,6 @@ export default function PlanPage() {
   const [tokens, setTokens] = useState<UsageSummary | null>(null);
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [activity, setActivity] = useState<ActivityDay[]>([]);
-  const [sprint, setSprint] = useState<SprintPlan | null>(null);
-  const [sprintDays, setSprintDays] = useState<"3" | "7" | "14">("7");
   const [error, setError] = useState("");
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -316,13 +312,6 @@ export default function PlanPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
   }, [refresh]);
-
-  // 冲刺计划：切换周期时重拉（.then 链避免 set-state-in-effect 报错）
-  useEffect(() => {
-    studySprint(Number(sprintDays))
-      .then(setSprint)
-      .catch((err: Error) => setError(err.message));
-  }, [sprintDays]);
 
   // 任务列表以服务端建议为种子，只初始化一次
   useEffect(() => {
@@ -355,17 +344,6 @@ export default function PlanPage() {
         ? prev
         : [...prev, { text: task, done: false }],
     );
-  }, []);
-
-  // 冲刺计划某天的全部任务一键加入今日任务（按文本去重）
-  const addTasksFromSprint = useCallback((items: string[]) => {
-    setTasks((prev) => {
-      const existing = new Set(prev.map((task) => task.text));
-      const additions = items
-        .filter((text) => !existing.has(text))
-        .map((text) => ({ text, done: false }));
-      return additions.length > 0 ? [...prev, ...additions] : prev;
-    });
   }, []);
 
   // 近 7 天误区峰值（用于指标卡辅助文字）
@@ -439,94 +417,6 @@ export default function PlanPage() {
       {/* 第二块：学习活跃度热力图 */}
       <div className="animate-fade-up" style={{ animationDelay: "140ms" }}>
         <Heatmap series={activity} onPickMistakeDay={addTaskFromHeatmap} />
-      </div>
-
-      {/* 考前冲刺：按最薄弱优先把任务排进未来 N 天 */}
-      <div className="animate-fade-up" style={{ animationDelay: "175ms" }}>
-        <Card
-          title="考前冲刺"
-          action={
-            <div className="flex items-center gap-1">
-              {(["3", "7", "14"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setSprintDays(option)}
-                  className={`rounded-full px-2.5 py-1 text-xs transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
-                    sprintDays === option
-                      ? "bg-teal-600 font-medium text-white"
-                      : "text-zinc-500 hover:text-zinc-800"
-                  }`}
-                >
-                  {option}天
-                </button>
-              ))}
-            </div>
-          }
-        >
-          {!sprint ? (
-            <Loading text="正在生成冲刺计划…" />
-          ) : sprint.schedule.length === 0 ? (
-            <p className="text-sm text-zinc-500">{sprint.hint}</p>
-          ) : (
-            <>
-              <p className="mb-3 text-xs text-zinc-500">
-                最薄弱的学科优先
-                {sprint.total_due > 0 && (
-                  <>
-                    ，
-                    <span className="font-medium tabular-nums text-zinc-800">
-                      {sprint.total_due}
-                    </span>{" "}
-                    道到期题已排入计划
-                  </>
-                )}
-                。
-              </p>
-              <ol className="space-y-2.5">
-                {sprint.schedule.map((day) => (
-                  <li
-                    key={day.day}
-                    className="rounded-xl bg-black/[0.03] px-3.5 py-3"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="shrink-0 rounded-full bg-teal-600 px-2 py-0.5 text-[10px] font-medium text-white">
-                        第 {day.day} 天
-                      </span>
-                      <span className="shrink-0 text-[11px] tabular-nums text-zinc-400">
-                        {dayLabel(day.date)}
-                      </span>
-                      <span className="min-w-0 truncate text-sm font-medium text-zinc-800">
-                        {day.focus}
-                      </span>
-                      <span className="ml-auto shrink-0 text-[11px] tabular-nums text-zinc-400">
-                        掌握度 {day.mastery}%
-                      </span>
-                    </div>
-                    <ul className="mt-1.5 space-y-0.5">
-                      {day.tasks.map((task) => (
-                        <li
-                          key={task}
-                          className="flex items-start gap-1.5 text-xs text-zinc-600"
-                        >
-                          <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-teal-500" />
-                          <span className="min-w-0">{task}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      type="button"
-                      onClick={() => addTasksFromSprint(day.tasks)}
-                      className="mt-2 text-[11px] font-medium text-teal-700 transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
-                    >
-                      把这天的任务加入今日任务 →
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            </>
-          )}
-        </Card>
       </div>
 
       {/* 第三行：今日任务 + 长期记忆 */}

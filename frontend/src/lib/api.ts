@@ -316,27 +316,6 @@ export function studyPlan(): Promise<StudyPlan> {
   return requestJson<StudyPlan>("/api/study/plan");
 }
 
-export interface SprintDay {
-  day: number;
-  date: string;
-  focus: string;
-  mastery: number;
-  tasks: string[];
-}
-
-export interface SprintPlan {
-  days: number;
-  schedule: SprintDay[];
-  total_due: number;
-  weak_libraries: WeakLibrary[];
-  recent_mistakes: number;
-  hint: string;
-}
-
-export function studySprint(days = 7): Promise<SprintPlan> {
-  return requestJson<SprintPlan>(`/api/study/sprint?days=${days}`);
-}
-
 export interface ChatActivityDay {
   date: string;
   questions: number;

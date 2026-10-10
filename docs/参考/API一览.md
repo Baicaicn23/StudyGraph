@@ -227,16 +227,6 @@ GET /api/study/plan?user_id=local
 → {"due_questions":[...], "weak_libraries":[{"library":"线性代数","mastery":5,"updated_at":...}],
    "recent_mistakes":1, "suggestions":["复习「线性代数」（掌握度 5%）", ...]}
 
-GET /api/study/sprint?user_id=local&days=7        # 考前冲刺计划（1≤days≤30，确定性计算，零模型调用）
-→ {"days": 7,
-   "schedule": [{"day": 1, "date": "2026-10-10", "focus": "线性代数", "mastery": 20,
-                 "tasks": ["清完「线性代数」的 3 道到期练习",
-                           "重读「线性代数」笔记里的易错点，目标把掌握度拉离 20%"]}, ...],
-   "total_due": 4, "weak_libraries": [...], "recent_mistakes": 1,
-   "hint": ""}     # 无学习数据时 schedule=[] 且 hint 带引导文案
-# 400/422：days 越界。排期规则：最薄弱库优先（掌握度升序，相同则到期题多的先）；
-# 每库首轮清它的到期题，之后转为巩固出题；第 1 天附误区回看，最后一天收官自测。
-
 GET /api/study/activity?user_id=local&days=30     # 学习热力图（1≤days≤60）
 → {"days": [{"date":"2026-10-09","count":12}, ...]}
 
@@ -264,7 +254,7 @@ GET /api/usage?user_id=local&days=1
 | 知识库管理 | `GET|POST /api/knowledge/libraries`、`DELETE /api/knowledge/library`、`GET|PUT|DELETE /api/knowledge/document`、`POST /api/knowledge/upload` |
 | 练习 / 复习 | `POST /api/practice/generate`、`GET /api/practice/due`、`POST|DELETE /api/practice/...` |
 | 错题本 | `POST|GET /api/feedback`、`DELETE /api/feedback/{id}` |
-| 今日复习 | `GET /api/study/plan`、`GET /api/study/sprint`（考前冲刺）、`GET /api/study/activity` |
+| 今日复习 | `GET /api/study/plan`、`GET /api/study/activity` |
 | 记忆 / 用量 | `GET /api/memories`、`DELETE /api/memories/{id}`、`GET /api/usage` |
 
 > CORS 已放行 `http://localhost:3000` 与 `http://127.0.0.1:3000`。
