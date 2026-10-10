@@ -120,7 +120,6 @@ export default function PracticePage() {
   const [library, setLibrary] = useState("");
   const [count, setCount] = useState(3);
   const [difficulty, setDifficulty] = useState<PracticeDifficulty>("auto");
-  const [generated, setGenerated] = useState<Question[]>([]);
   const [queue, setQueue] = useState<Question[]>([]);
   const [weak, setWeak] = useState<WeakLibrary[]>([]);
   const [results, setResults] = useState<Record<number, AnswerResult>>({});
@@ -189,7 +188,6 @@ export default function PracticePage() {
       if (questions.length === 0) {
         throw new Error("没有生成出题目，请换个知识库或难度再试");
       }
-      setGenerated(questions);
       setGenMsg(`已生成 ${questions.length} 道题，已加入今日待复习`);
       await refresh();
       if (autoStart) {
@@ -202,7 +200,6 @@ export default function PracticePage() {
       setPanelOpen(false);
     } catch (err) {
       setError((err as Error).message);
-      setGenerated([]);
     } finally {
       setBusy(false);
       setGenProgress(null);
@@ -516,33 +513,6 @@ export default function PracticePage() {
                 <p className="animate-fade-up mt-3 rounded-xl bg-teal-50 px-3 py-2 text-xs text-teal-800 ring-1 ring-teal-600/10">
                   {genMsg}
                 </p>
-              )}
-
-              {/* 生成结果预览 */}
-              {generated.length > 0 && (
-                <ul className="mt-4 space-y-2.5">
-                  {generated.map((question) => (
-                    <li
-                      key={question.id}
-                      className="animate-fade-up rounded-xl bg-black/[0.03] p-3.5 text-sm"
-                    >
-                      <div className="mb-1.5 flex items-center gap-2 text-[11px] text-zinc-500">
-                        <span className="rounded-full bg-white px-2 py-0.5 font-medium">
-                          {question.library}
-                        </span>
-                        {question.source === "mistake" && (
-                          <span className="rounded-full bg-accent/10 px-2 py-0.5 font-medium text-accent">
-                            来自你的误区
-                          </span>
-                        )}
-                        <DifficultyTag difficulty={question.difficulty} />
-                      </div>
-                      <p className="line-clamp-3 whitespace-pre-wrap leading-relaxed text-zinc-700">
-                        {question.prompt}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
               )}
             </Card>
           </div>
