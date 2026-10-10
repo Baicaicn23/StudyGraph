@@ -53,6 +53,8 @@ StudyGraph 面向大学生：平时把资料分学科存进去、聊天随手沉
 | 🗺️ 规划 Plan-and-Execute | 复杂请求先出计划再执行；简单请求跳过（省延迟与成本） |
 | 🎚️ 模型路由 | 按意图 / 复杂度选 small / standard / large 档位（可配不同模型） |
 | 💰 成本控制 | token 记账（按次 / 按模型）+ 当日预算，超限阻止真实调用 |
+| 🌐 联网能力 | `web_search`（DuckDuckGo 零配置；配置 `STUDYGRAPH_TAVILY_API_KEY` 走 Tavily 更稳）+ `fetch_url`（读网页正文，SSRF 防护只允许公网地址）；引用注明来源 URL |
+| 📁 文件工作区 | `write_file` / `read_file` / `list_files`：学生专属沙箱目录 `data/workspace/<user>/`，路径穿越/绝对路径全拒绝；写不出去沙箱，不做 HITL |
 | 🔗 MCP 客户端 | 自写 stdio JSON-RPC：启动 server、发现并注册外部工具（前缀 `mcp_`） |
 | 💾 断点持久化 | `AsyncSqliteSaver` 检查点：会话可续、HITL 可恢复；**检查点也是数据恢复的救命稻草** |
 | 🌊 流式输出 | SSE：`token` / `step` / `status` / `session` / `interrupt` / `guard` / `done` / `error` |
