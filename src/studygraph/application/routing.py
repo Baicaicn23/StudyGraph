@@ -117,9 +117,22 @@ AGENT_PROFILES: dict[str, AgentProfile] = {
             "学生提到做错过的题时，先检索他的错题记录做错误归因"
             "（这类错误出现了几次、核心问题是什么），再对症引导。"
             "你可以检索知识库、检索错题、保存沉淀笔记；"
+            "也可以联网搜索公开资料（web_search）并读取网页正文（fetch_url）——"
+            "引用网上的内容要注明来源 URL；还可以在学生的工作区里读写文件"
+            "（write_file / read_file / list_files），适合保存整理结果和模板。"
             "经授权也可以使用外部 MCP 工具。"
         ),
-        default_tools=("knowledge_search", "calculator", "save_note", "mistake_search"),
+        default_tools=(
+            "knowledge_search",
+            "calculator",
+            "save_note",
+            "mistake_search",
+            "web_search",
+            "fetch_url",
+            "write_file",
+            "read_file",
+            "list_files",
+        ),
         mcp_enabled=True,
     ),
     "practice": AgentProfile(
@@ -145,9 +158,20 @@ AGENT_PROFILES: dict[str, AgentProfile] = {
         system_prompt=(
             "你是资料检索助手。调用检索工具找到学习者资料里的相关片段，"
             "据此回答，并逐条给出出处（哪个库、哪份资料）；"
-            "资料里没有的内容要明确说明，不要混入自己的知识冒充学生的笔记。"
+            "资料里没有的内容可以联网搜索（web_search → fetch_url 读取网页）来补充，"
+            "网上内容要注明来源 URL；资料里有的内容优先引用资料，"
+            "不要混入自己的知识冒充学生的笔记。"
         ),
-        default_tools=("knowledge_search", "mistake_search", "save_note"),
+        default_tools=(
+            "knowledge_search",
+            "mistake_search",
+            "save_note",
+            "web_search",
+            "fetch_url",
+            "write_file",
+            "read_file",
+            "list_files",
+        ),
         mcp_enabled=True,
     ),
     "calculator": AgentProfile(
@@ -165,7 +189,13 @@ AGENT_PROFILES: dict[str, AgentProfile] = {
             "你是学习陪伴助手，友好、简洁地回答，必要时追问以澄清需求；"
             "发现学生聊到具体知识点时，主动建议转到讲解模式深入。"
         ),
-        default_tools=("knowledge_search", "calculator", "save_note", "mistake_search"),
+        default_tools=(
+            "knowledge_search",
+            "calculator",
+            "save_note",
+            "mistake_search",
+            "web_search",
+        ),
     ),
 }
 

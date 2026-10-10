@@ -14,6 +14,8 @@ dependencies = [
     "python-multipart",
     "pypdf",
     "python-dotenv",
+    "ddgs>=9.16.0",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]

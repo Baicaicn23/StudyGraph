@@ -163,6 +163,11 @@ _TOOL_STATUS = {
     "knowledge_search": "检索知识库",
     "mistake_search": "查阅错题记录",
     "save_note": "整理笔记",
+    "web_search": "联网搜索",
+    "fetch_url": "读取网页",
+    "write_file": "写文件",
+    "read_file": "读文件",
+    "list_files": "查看文件",
 }
 _NODE_STATUS = {"route": "理解问题", "plan": "制定学习计划"}
 
@@ -199,6 +204,16 @@ def _summarize_tool_args(name: str, args: dict) -> str:
         return " · ".join(p for p in (text("library", 16), text("question")) if p)
     if name == "save_note":
         return " · ".join(p for p in (text("library", 16), text("title")) if p)
+    if name == "web_search":
+        return text("query", 48)
+    if name == "fetch_url":
+        return text("url", 56)
+    if name == "write_file":
+        return text("filename", 40)
+    if name == "read_file":
+        return text("filename", 40)
+    if name == "list_files":
+        return ""
     return " · ".join(
         f"{k}={v}" for k, v in list(args.items())[:2] if isinstance(v, (str, int))
     )[:80]
@@ -222,6 +237,8 @@ def _summarize_tool_result(name: str, content: str, *, failed: bool) -> str:
         return f"命中 {hits} 条误区"
     if name == "save_note":
         return content[:80].replace("\n", " ")
+    if name in ("web_search", "fetch_url", "write_file", "read_file", "list_files"):
+        return content.split("\n", 1)[0][:96]
     return content[:100].replace("\n", " ")
 
 
@@ -453,6 +470,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         schedule = ScheduleService(SqliteScheduleRepository(resolved.database_path))
         learning = LearningService(knowledge, repository)
         tools.configure(knowledge, repository)
+        tools.configure_workspace(Path(resolved.database_path).parent / "workspace")
         mcp_clients, _ = await connect_and_register(
             parse_mcp_servers(resolved.mcp_servers), tools.register_mcp_tool
         )

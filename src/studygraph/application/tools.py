@@ -18,6 +18,10 @@ from __future__ import annotations
 import ast
 import contextvars
 import operator
+import re
+import time
+import urllib.parse
+from pathlib import Path
 from typing import Any
 
 from langchain_core.tools import tool
@@ -192,11 +196,274 @@ def save_note(title: str, content: str, library: str = "日常沉淀") -> str:
     return f"已存入「{library}」：《{title}》"
 
 
+# ---------------------------------------------------------------------------
+# 联网与文件：通用 Agent 能力
+# - web_search / fetch_url：联网搜索公开网页并读取正文（引用注明来源 URL）
+# - write_file / read_file / list_files：学生专属的**沙箱工作区**文件读写
+#   （所有路径都被限制在 data/workspace/<user_id>/ 之内，杜绝目录穿越）；
+#   因为写不出去沙箱，风险可控，不做 HITL 确认。
+# ---------------------------------------------------------------------------
+
+_workspace_root: Path | None = None
+READ_CHAR_LIMIT = 8000
+WRITE_CHAR_LIMIT = 200_000
+
+
+def get_user() -> str:
+    return _current_user.get() or "local"
+
+
+def configure_workspace(root: Path | str) -> None:
+    """由组合根注入文件工作区根目录（每个用户在其下有独立子目录）。"""
+
+    global _workspace_root
+    _workspace_root = Path(root)
+
+
+def _workspace_dir() -> Path:
+    root = _workspace_root or Path("data/workspace")
+    directory = root / get_user()
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def _safe_resolve(filename: str) -> Path:
+    """把用户给的文件名解析到工作区内；拒绝绝对路径与 .. 穿越。"""
+
+    name = (filename or "").strip().replace("\\", "/")
+    if not name:
+        raise ValueError("文件名不能为空")
+    if name.startswith("/") or ".." in name.split("/") or re.match(
+        r"^[A-Za-z]:", name
+    ):
+        raise ValueError("文件名不能包含绝对路径或 .. ——文件只能放在工作区内")
+    base = _workspace_dir()
+    candidate = (base / name).resolve()
+    if not candidate.is_relative_to(base.resolve()):
+        raise ValueError("文件只能放在工作区内")
+    return candidate
+
+
+def _ddg_text(query: str, max_results: int) -> list[dict[str, Any]]:
+    """DuckDuckGo 搜索（零配置兜底；独立成函数便于测试时替换）。"""
+
+    from ddgs import DDGS
+
+    with DDGS() as ddgs:
+        return list(ddgs.text(query, max_results=max_results))
+
+
+def _tavily_text(query: str, max_results: int) -> list[dict[str, Any]]:
+    """Tavily 搜索（配置了 STUDYGRAPH_TAVILY_API_KEY 时优先使用，更稳定）。"""
+
+    import httpx
+
+    from ..config import get_settings
+
+    api_key = get_settings().tavily_api_key
+    if not api_key:
+        raise RuntimeError("未配置 Tavily API Key")
+    response = httpx.post(
+        "https://api.tavily.com/search",
+        json={
+            "api_key": api_key,
+            "query": query,
+            "max_results": max_results,
+            "search_depth": "basic",
+        },
+        timeout=15,
+    )
+    response.raise_for_status()
+    return [
+        {
+            "title": item.get("title", ""),
+            "body": item.get("content", ""),
+            "href": item.get("url", ""),
+        }
+        for item in response.json().get("results", [])
+    ]
+
+
+def _search_web(query: str, max_results: int) -> list[dict[str, Any]]:
+    """搜索调度：配了 Tavily Key 用 Tavily，否则 DuckDuckGo。"""
+
+    try:
+        from ..config import get_settings
+
+        if get_settings().tavily_api_key:
+            return _tavily_text(query, max_results)
+    except Exception:  # noqa: BLE001 — Tavily 失败回落 DDG
+        pass
+    return _ddg_text(query, max_results)
+
+
+@tool
+def web_search(query: str, max_results: int = 5) -> str:
+    """联网搜索：在公开网页上查找资料，返回标题、摘要和链接。当需要
+    最新信息、通用知识、范文模板，或知识库里没有相关内容时使用；
+    引用搜索结果时要注明来源 URL。"""
+    query = (query or "").strip()
+    if not query:
+        return "联网搜索失败：查询词为空。"
+    try:
+        max_results = max(1, min(int(max_results or 5), 10))
+        # 搜索后端偶发瞬时网络错误：原地重试一次（错误转可读提示，不炸回合）
+        results: list[dict[str, Any]] = []
+        for attempt in range(2):
+            try:
+                results = _search_web(query, max_results)
+                break
+            except Exception:
+                if attempt == 1:
+                    raise
+                time.sleep(0.8)
+    except Exception as exc:  # noqa: BLE001 — 网络故障转成可读提示，不炸回合
+        return (
+            f"联网搜索失败：{type(exc).__name__} {exc}。"
+            "可以先基于已有资料回答，并说明未能联网核实。"
+        )
+    if not results:
+        return f"没有搜索到与「{query}」相关的结果。"
+    lines = [f"共 {len(results)} 条结果："]
+    for item in results:
+        title = str(item.get("title") or "").strip()[:80]
+        snippet = str(item.get("body") or item.get("snippet") or "").strip()[:160]
+        url = str(item.get("href") or item.get("url") or "").strip()
+        lines.append(f"【{title}】{snippet}（{url}）")
+    return "\n".join(lines)
+
+
+def _assert_public_url(url: str) -> None:
+    """SSRF 防护：只允许 http/https 公网地址，拒绝内网 / 本机目标。"""
+
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("只支持 http/https 链接")
+    host = (parsed.hostname or "").lower()
+    if not host:
+        raise ValueError("链接缺少主机名")
+    blocked_prefixes = ("127.", "10.", "192.168.", "169.254.", "0.")
+    if (
+        host in ("localhost", "[::1]", "::1")
+        or host.endswith(".local")
+        or host.startswith(blocked_prefixes)
+        or re.match(r"^172\.(1[6-9]|2\d|3[01])\.", host)
+    ):
+        raise ValueError("不允许访问内网或本机地址")
+
+
+def _fetch_page_text(url: str) -> str:
+    """抓取网页并做极简正文抽取（去脚本/样式/标签，按块级元素换行）。"""
+
+    import html as html_lib
+
+    import httpx
+
+    response = httpx.get(
+        url,
+        timeout=15,
+        follow_redirects=True,
+        headers={"User-Agent": "Mozilla/5.0 (compatible; StudyGraph/0.2)"},
+    )
+    response.raise_for_status()
+    content_type = response.headers.get("content-type", "")
+    if content_type and not content_type.startswith(("text/", "application/json")):
+        raise ValueError(f"不支持的内容类型：{content_type.split(';')[0]}")
+    html = response.text
+    html = re.sub(r"<(script|style)[\s\S]*?</\1>", " ", html, flags=re.I)
+    html = re.sub(r"<(br|/p|/div|/h[1-6]|/li|/tr)[^>]*>", "\n", html, flags=re.I)
+    text = html_lib.unescape(re.sub(r"<[^>]+>", " ", html))
+    lines = [re.sub(r"\s+", " ", line).strip() for line in text.splitlines()]
+    return "\n".join(line for line in lines if line)
+
+
+@tool
+def fetch_url(url: str) -> str:
+    """读取一个网页的正文文本（自动去掉标签与脚本）。配合联网搜索使用：
+    先 web_search 拿到链接，再用它读取具体页面。只支持 http/https 公网地址。"""
+    url = (url or "").strip()
+    try:
+        _assert_public_url(url)
+        text = _fetch_page_text(url)
+    except Exception as exc:  # noqa: BLE001 — 失败转可读提示
+        return f"读取网页失败：{exc}"
+    if not text:
+        return "网页内容为空（可能是纯脚本渲染的页面，换个来源试试）。"
+    host = urllib.parse.urlparse(url).netloc
+    note = (
+        f"\n\n（内容过长，已截断到前 {READ_CHAR_LIMIT} 字）"
+        if len(text) > READ_CHAR_LIMIT
+        else ""
+    )
+    return f"读取成功：{host}（共约 {len(text)} 字）\n\n{text[:READ_CHAR_LIMIT]}{note}"
+
+
+@tool
+def write_file(filename: str, content: str) -> str:
+    """把内容写进学生的文件工作区（Markdown / 文本 / 代码等，同名会覆盖）。
+    用于保存整理结果、生成模板、写学习计划草稿等；之后可以用 read_file
+    读回、list_files 查看。文件只能放在工作区内，不能写系统其他位置。"""
+    try:
+        path = _safe_resolve(filename)
+    except ValueError as exc:
+        return f"写入失败：{exc}"
+    content = content or ""
+    if len(content) > WRITE_CHAR_LIMIT:
+        return f"写入失败：内容超过 {WRITE_CHAR_LIMIT} 字上限"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    rel = path.relative_to(_workspace_dir())
+    return f"已写入工作区：{rel}（{len(content)} 字）"
+
+
+@tool
+def read_file(filename: str) -> str:
+    """读取工作区里一个文本文件的内容（Markdown / 文本 / 代码等）。
+    当学生问"我之前让你存的东西"、或需要先读文件再修改时使用。"""
+    try:
+        path = _safe_resolve(filename)
+    except ValueError as exc:
+        return f"读取失败：{exc}"
+    if not path.exists() or not path.is_file():
+        return f"读取失败：工作区里没有「{filename}」。可以用 list_files 先看看有哪些文件。"
+    raw = path.read_text(encoding="utf-8", errors="replace")
+    rel = path.relative_to(_workspace_dir())
+    note = (
+        f"\n\n（文件共 {len(raw)} 字，已截断到前 {READ_CHAR_LIMIT} 字）"
+        if len(raw) > READ_CHAR_LIMIT
+        else ""
+    )
+    return f"读取成功：{rel}（{len(raw)} 字）\n\n{raw[:READ_CHAR_LIMIT]}{note}"
+
+
+@tool
+def list_files() -> str:
+    """列出学生文件工作区里的所有文件（按最近修改排序）。当需要确认
+    工作区里有什么、或用户提到的文件名不确定时先调这个。"""
+    directory = _workspace_dir()
+    files = [item for item in directory.rglob("*") if item.is_file()]
+    if not files:
+        return "工作区还是空的。"
+    files.sort(key=lambda item: item.stat().st_mtime, reverse=True)
+    lines = [f"共 {len(files)} 个文件："]
+    for item in files[:50]:
+        rel = item.relative_to(directory)
+        lines.append(f"- {rel}（{item.stat().st_size} 字节）")
+    if len(files) > 50:
+        lines.append(f"…（还有 {len(files) - 50} 个未列出）")
+    return "\n".join(lines)
+
+
 TOOLS = {
     "calculator": calculator,
     "knowledge_search": knowledge_search,
     "mistake_search": mistake_search,
     "save_note": save_note,
+    "web_search": web_search,
+    "fetch_url": fetch_url,
+    "write_file": write_file,
+    "read_file": read_file,
+    "list_files": list_files,
 }
 
 # 通过 MCP 动态注册进来的工具名（前缀 mcp_）。

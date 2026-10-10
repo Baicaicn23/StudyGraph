@@ -52,6 +52,8 @@ class Settings:
     max_history_messages: int = 24
     max_upload_bytes: int = 5_000_000
     mcp_servers: str = ""
+    # 可选：Tavily 联网搜索的 API Key（配了就用 Tavily，稳定；不配则回落 DuckDuckGo）
+    tavily_api_key: str = ""
 
 
 def get_settings() -> Settings:
@@ -89,6 +91,9 @@ def get_settings() -> Settings:
             os.environ.get("STUDYGRAPH_MAX_UPLOAD_BYTES", "5000000")
         ),
         mcp_servers=os.environ.get("STUDYGRAPH_MCP_SERVERS", ""),
+        tavily_api_key=os.environ.get(
+            "STUDYGRAPH_TAVILY_API_KEY", ""
+        ).strip(),
     )
 
 

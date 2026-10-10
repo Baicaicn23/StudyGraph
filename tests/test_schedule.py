@@ -119,28 +119,34 @@ def test_toggle_done_and_unarrange(tmp_path) -> None:
 
 
 def test_week_returns_seven_days_sunday_first(tmp_path) -> None:
+    """周条返回周日开头的 7 天，并给出每天的 排期数/完成数。
+
+    目标日取"查询周内的周中一天"而不是自己推算——直接用 today 推算会在
+    周日 / 跨午夜时落到上一周，测试变成时间炸弹（真实发生过）。
+    """
+
     with _client(tmp_path) as client:
-        today = datetime.date.today()
-        # 本周内的某天放两个任务（其中一天完成）
-        monday = today - datetime.timedelta(days=(today.weekday()) % 7)
-        target = monday.strftime("%Y-%m-%d")
+        today = datetime.date.today().strftime("%Y-%m-%d")
+        days = client.get("/api/schedule/week", params={"date": today}).json()["days"]
+        assert len(days) == 7
+        # 周日开头：第一天是周日，且今天在这一周里
+        assert (
+            datetime.datetime.strptime(days[0]["date"], "%Y-%m-%d").weekday() == 6
+        )
+        assert today in {item["date"] for item in days}
+
+        target = days[3]["date"]  # 周中一天
         first = client.post(
             "/api/schedule/tasks",
             json={"title": "A", "date": target, "start_minutes": 500},
         ).json()["task"]
         client.post(
-            "/api/schedule/tasks", json={"title": "B", "date": target, "start_minutes": 600}
+            "/api/schedule/tasks",
+            json={"title": "B", "date": target, "start_minutes": 600},
         )
         client.put(f"/api/schedule/tasks/{first['id']}", json={"done": True})
 
-        week = client.get(
-            "/api/schedule/week", params={"date": today.strftime("%Y-%m-%d")}
-        ).json()
-        assert len(week["days"]) == 7
-        # 周日开头：第一天是周日
-        assert datetime.datetime.strptime(
-            week["days"][0]["date"], "%Y-%m-%d"
-        ).weekday() == 6
+        week = client.get("/api/schedule/week", params={"date": today}).json()
         entry = next(item for item in week["days"] if item["date"] == target)
         assert entry["total"] == 2 and entry["done"] == 1
 
