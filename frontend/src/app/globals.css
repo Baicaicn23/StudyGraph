@@ -117,3 +117,41 @@ body {
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ---------- 全站页面切换过渡 ----------
+ * 规范：200ms ease-out；仅透明度 + 4px 位移，无缩放无旋转。
+ * 入场：淡入 + 从下移 4px 归位（main 以 pathname 为 key remount 时触发）。
+ * 退场：淡出 + 轻微上移（点击站内链接时先播这个，200ms 后再路由跳转）。
+ * 侧栏在 main 之外，全程静止。prefers-reduced-motion 下直接关闭。 */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes page-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.page-enter {
+  animation: page-enter 200ms ease-out both;
+}
+.page-exit {
+  animation: page-exit 200ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .page-exit {
+    animation: none;
+  }
+}

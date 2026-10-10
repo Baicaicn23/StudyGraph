@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -13,6 +13,22 @@ const SIDEBAR_WIDTH_KEY = "studygraph-sidebar-width";
 const SIDEBAR_MIN_WIDTH = 180;
 const SIDEBAR_MAX_WIDTH = 340;
 const SIDEBAR_DEFAULT_WIDTH = 224;
+
+/* ---------- 全站页面切换过渡（规范：200ms ease-out，4px 位移，无缩放） ----------
+ * 入场：main 以 pathname 为 key 强制 remount，挂载时播 page-enter（淡入 + 上移归位）；
+ * 退场：全局拦截站内链接点击 → main 播 page-exit（淡出 + 轻微上移）→ 200ms 后再 push；
+ * 首屏 / 刷新不播（是否动画由「上一路径 ref」派生：只有真的换了路由才播）；
+ * 连点以最后一次为准（重置计时）；侧栏在 main 之外，全程静止；
+ * prefers-reduced-motion 用户直接走默认跳转。 */
+const PAGE_TRANSITION_MS = 200;
+
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+}
 
 function NavIcon({ name }: { name: string }) {
   const common = {
@@ -92,9 +108,72 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
 function AppShellInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [provider, setProvider] = useState<string>("");
   const mounted = useMounted();
   const isLg = useMediaQuery("(min-width: 1024px)");
+
+  // 页面切换过渡：路由真的变了才播入场动画（首屏 / 刷新不播）。
+  // 实现：main 挂载时不带动画类，路径变化后在 effect 里补上——动画从补上那一刻起播，
+  // 视觉上与"挂载即播"一致，且渲染期不读 ref（符合 react-hooks/refs 规则）。
+  const [playEnter, setPlayEnter] = useState(false);
+  // 用首屏路径初始化：首次 effect 比对结果为"没变"，首屏 / 刷新不播
+  const prevPathRef = useRef<string | null>(pathname);
+  useEffect(() => {
+    if (prevPathRef.current !== pathname) {
+      prevPathRef.current = pathname;
+      setPlayEnter(true);
+    }
+  }, [pathname]);
+
+  // 退场：拦截站内链接点击，先播淡出再跳转（浏览器前进/后退不走这里，直接切换）
+  useEffect(() => {
+    let exitTimer = 0;
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented) return;
+      if (
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      const anchor = (event.target as HTMLElement | null)?.closest?.("a");
+      if (!anchor) return;
+      if (anchor.hasAttribute("download") || anchor.target === "_blank") return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (
+        url.pathname + url.search ===
+        window.location.pathname + window.location.search
+      )
+        return;
+      if (prefersReducedMotion()) return; // 减少动态偏好：交给默认跳转
+      event.preventDefault();
+      const main = document.querySelector<HTMLElement>("[data-page-transition]");
+      if (!main) {
+        router.push(url.pathname + url.search + url.hash);
+        return;
+      }
+      main.classList.remove("page-enter");
+      main.classList.add("page-exit");
+      // 连点：重置计时器，以最后一次点击为准（退场只播一次，随即跳最新目标）
+      if (exitTimer) window.clearTimeout(exitTimer);
+      exitTimer = window.setTimeout(() => {
+        exitTimer = 0;
+        router.push(url.pathname + url.search + url.hash);
+      }, PAGE_TRANSITION_MS);
+    };
+    document.addEventListener("click", onClick, true);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      if (exitTimer) window.clearTimeout(exitTimer);
+    };
+  }, [router]);
+
   // 侧栏可变宽度：拖拽调节（180–340px），本地记忆；null = 用默认 w-56。
   // 初始值读 localStorage，但渲染输出由 mounted 门控（水合前与服务端一致）。
   const [sidebarWidth, setSidebarWidth] = useState<number | null>(() => {
@@ -281,7 +360,13 @@ function AppShellInner({ children }: { children: ReactNode }) {
           </div>
         </div>
       </aside>
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <main
+        key={pathname}
+        data-page-transition
+        className={`flex min-w-0 flex-1 flex-col overflow-hidden ${
+          playEnter ? "page-enter" : ""
+        }`}
+      >
         {children}
       </main>
     </div>
