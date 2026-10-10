@@ -594,6 +594,14 @@ function parseEvent(raw: string): StreamEvent | null {
       return { type: "token", content: String(payload.content ?? "") };
     case "status":
       return { type: "status", label: String(payload.label ?? "") };
+    case "step":
+      // 智能体过程：理解问题 / 计划 / 工具调用（曾经漏了这个分支，导致过程流整段丢失）
+      return {
+        type: "step",
+        kind: payload.kind === "tool" ? "tool" : "thinking",
+        title: String(payload.title ?? ""),
+        detail: String(payload.detail ?? ""),
+      };
     case "session":
       return {
         type: "session",

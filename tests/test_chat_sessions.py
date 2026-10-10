@@ -438,3 +438,90 @@ def test_chat_messages_endpoint_404s_never_leak(tmp_path) -> None:
             "/api/chats/424242/messages", params={"user_id": "alice"}
         ).json()
         assert body == {"messages": []}
+
+
+def test_interrupt_resume_merges_into_single_assistant_message(tmp_path) -> None:
+    """HITL 中断前后：过程步骤与文字合并到同一条助手消息（历史回放能看到全过程）。
+
+    这是用户反馈「说完不知道智能体去干嘛了」的直接原因：以前中断时直接跳过落库，
+    历史里只剩"确认之后"那半截。
+    """
+
+    settings = Settings(database_path=str(tmp_path / "merge.db"))
+    with TestClient(create_app(settings)) as client:
+        stream = client.post(
+            "/api/chat/stream",
+            json={"message": "记住：我在准备月底的微积分测验", "thread_id": "merge-1"},
+        )
+        events = _parse_sse(stream.text)
+        session_id = [data["id"] for name, data in events if name == "session"][0]
+        assert any(name == "interrupt" for name, _ in events), "应产生 HITL 中断"
+        steps_before = [data for name, data in events if name == "step"]
+
+        # 中断时已经落了一条助手消息（含过程步骤），不是"什么都没留下"
+        messages = client.get(f"/api/chats/{session_id}/messages").json()["messages"]
+        assistants = [item for item in messages if item["role"] == "assistant"]
+        assert len(assistants) == 1
+        assert len(assistants[0]["steps"]) >= len(steps_before)
+
+        resumed = client.post(
+            "/api/chat/resume",
+            json={"thread_id": "merge-1", "session_id": session_id, "approved": True},
+        )
+        resumed_events = _parse_sse(resumed.text)
+        assert any(name == "done" for name, _ in resumed_events)
+
+        # 续写后仍然只有一条助手消息：文字与步骤都合并在它身上
+        messages = client.get(f"/api/chats/{session_id}/messages").json()["messages"]
+        assistants = [item for item in messages if item["role"] == "assistant"]
+        assert len(assistants) == 1
+        titles = [step["title"] for step in assistants[0]["steps"]]
+        assert len(titles) >= len(steps_before)
+        # 关键：中断后的步骤（如"整理笔记 · 完成"）也在同一条消息里
+        assert any("完成" in title for title in titles)
+
+
+def _parse_sse(text: str) -> list[tuple[str, dict]]:
+    events: list[tuple[str, dict]] = []
+    for block in text.strip().split("\n\n"):
+        name = None
+        data = None
+        for line in block.split("\n"):
+            if line.startswith("event: "):
+                name = line[len("event: "):]
+            elif line.startswith("data: "):
+                data = line[len("data: "):]
+        if name and data:
+            events.append((name, json.loads(data)))
+    return events
+
+
+def test_tool_result_summary_is_one_line() -> None:
+    """过程流里的工具结果压成一句话（可读，不倒原始长文）。"""
+
+    from studygraph.interfaces.api import _summarize_tool_result
+
+    hits = (
+        "【算法 / 迪杰斯特拉算法】# 迪杰斯特拉算法\n## 定义\n……很长很长……\n\n"
+        "【算法 / 最短路复习】另一篇\n"
+    )
+    assert _summarize_tool_result("knowledge_search", hits, failed=False) == (
+        "命中 2 篇 · 首篇：算法 / 迪杰斯特拉算法"
+    )
+    assert (
+        _summarize_tool_result("knowledge_search", "没有找到相关片段", failed=False)
+        == "没有命中相关片段"
+    )
+    assert (
+        _summarize_tool_result(
+            "mistake_search", "错题本里还没有记录，可以先让学生记录一条误区。", failed=False
+        )
+        == "没有相关误区记录"
+    )
+    assert _summarize_tool_result("save_note", "已存入「算法」：《xxx》", failed=False) == (
+        "已存入「算法」：《xxx》"
+    )
+    # 失败照原样透出（错误要说清楚）
+    assert _summarize_tool_result("knowledge_search", "[tool_error] boom", failed=True) == (
+        "[tool_error] boom"
+    )

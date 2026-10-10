@@ -204,6 +204,27 @@ def _summarize_tool_args(name: str, args: dict) -> str:
     )[:80]
 
 
+def _summarize_tool_result(name: str, content: str, *, failed: bool) -> str:
+    """工具结果摘要：一句话说清"拿到了什么"（不把原始长文倒进过程流）。"""
+
+    if failed:
+        return content[:120].replace("\n", " ")
+    if name == "knowledge_search":
+        hits = content.count("【")
+        if hits == 0:
+            return "没有命中相关片段"
+        first = content.split("【", 1)[1].split("】", 1)[0].strip()
+        return f"命中 {hits} 篇 · 首篇：{first}"
+    if name == "mistake_search":
+        if "还没有记录" in content or "没有" in content[:20]:
+            return "没有相关误区记录"
+        hits = max(content.count("\n- "), content.count("- "), 1)
+        return f"命中 {hits} 条误区"
+    if name == "save_note":
+        return content[:80].replace("\n", " ")
+    return content[:100].replace("\n", " ")
+
+
 def _steps_from_update(chunk: dict) -> list[dict]:
     """把一次节点更新翻译成「过程步骤」，供前端渲染 WorkBuddy 式思考流。
 
@@ -263,7 +284,7 @@ def _steps_from_update(chunk: dict) -> list[dict]:
                 {
                     "kind": "tool",
                     "title": f"{_tool_status(name)} · {'失败' if failed else '完成'}",
-                    "detail": content[:120].replace("\n", " "),
+                    "detail": _summarize_tool_result(name, content, failed=failed),
                 }
             )
         return steps
@@ -316,6 +337,24 @@ async def _run_stream(
     interrupted = False
     answer_parts: list[str] = []
     steps: list[dict] = []
+    # HITL 中断后续写：把中断前那条助手消息取回来，文字与步骤都接在同一条上，
+    # 否则历史回放只看到"确认之后"的半截过程（用户反馈"不知道智能体去干嘛了"）。
+    resume_message_id: int | None = None
+    if not persist_user and session is not None and chat is not None:
+        try:
+            previous = chat.last_assistant_message(user_id, session["id"])
+        except Exception:  # noqa: BLE001 — 读不到就当新消息
+            previous = None
+        if previous is not None:
+            resume_message_id = int(previous["id"])
+            if previous["content"]:
+                answer_parts.append(str(previous["content"]))
+            try:
+                existing_steps = json.loads(previous["steps"] or "[]")
+            except (TypeError, ValueError):
+                existing_steps = []
+            if isinstance(existing_steps, list):
+                steps.extend(existing_steps)
     if session is not None and chat is not None:
         try:
             if persist_user:
@@ -353,22 +392,32 @@ async def _run_stream(
                 if status:
                     yield _sse("status", {"label": status})
         if not interrupted:
+            # 被中断的半截回答不做过护栏复核（还没说完）；完整回合才复核
             warning = await _screen_last_answer(graph, config)
             if warning:
                 yield _sse("guard", {"reason": warning})
-            if session is not None and chat is not None:
-                answer = "".join(answer_parts).strip()
-                if answer:
-                    chat.append_message(
-                        session["id"],
-                        role="assistant",
-                        content=answer,
-                        steps=json.dumps(steps, ensure_ascii=False),
-                    )
-                if session["title"] in ("", "新对话"):
-                    title = await generate_title(model, user_message)
-                    chat.update_session(user_id, session["id"], title=title)
-                    yield _sse("session", {"id": session["id"], "title": title})
+        if session is not None and chat is not None:
+            answer = "".join(answer_parts).strip()
+            payload_steps = json.dumps(steps, ensure_ascii=False)
+            if resume_message_id is not None:
+                # 续写：把新的文字与步骤并回中断前那条消息
+                chat.update_message(
+                    user_id,
+                    resume_message_id,
+                    content=answer,
+                    steps=payload_steps,
+                )
+            elif answer or steps:
+                chat.append_message(
+                    session["id"],
+                    role="assistant",
+                    content=answer,
+                    steps=payload_steps,
+                )
+            if session["title"] in ("", "新对话") and user_message:
+                title = await generate_title(model, user_message)
+                chat.update_session(user_id, session["id"], title=title)
+                yield _sse("session", {"id": session["id"], "title": title})
         yield _sse("done", {})
     except Exception as exc:  # noqa: BLE001 - 把失败作为事件返回，而不是断连
         yield _sse("error", {"message": f"{type(exc).__name__}: {exc}"})

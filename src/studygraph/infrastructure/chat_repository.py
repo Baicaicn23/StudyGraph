@@ -415,6 +415,54 @@ class SqliteChatRepository:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def last_assistant_message(
+        self, user_id: str, session_id: int
+    ) -> dict[str, Any] | None:
+        """会话里最后一条助手消息（HITL 中断后续写时用来合并，校验归属）。"""
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT m.id, m.content, m.steps FROM chat_messages m "
+                "JOIN chat_sessions s ON s.id = m.session_id "
+                "WHERE m.session_id = ? AND s.user_id = ? AND m.role = 'assistant' "
+                "ORDER BY m.id DESC LIMIT 1",
+                (session_id, user_id),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def update_message(
+        self,
+        user_id: str,
+        message_id: int,
+        *,
+        content: str | None = None,
+        steps: str | None = None,
+        attachments: str | None = None,
+    ) -> bool:
+        """改写一条消息（校验所属会话归属）。中断后续写用它把两次执行的结果接在一条上。"""
+
+        sets: list[str] = []
+        params: list[Any] = []
+        if content is not None:
+            sets.append("content = ?")
+            params.append(content)
+        if steps is not None:
+            sets.append("steps = ?")
+            params.append(steps)
+        if attachments is not None:
+            sets.append("attachments = ?")
+            params.append(attachments)
+        if not sets:
+            return False
+        params.extend([message_id, user_id])
+        with self._connect() as connection:
+            cursor = connection.execute(
+                f"UPDATE chat_messages SET {', '.join(sets)} WHERE id = ? AND "
+                "session_id IN (SELECT id FROM chat_sessions WHERE user_id = ?)",
+                params,
+            )
+            return cursor.rowcount > 0
+
     def ask_activity(self, user_id: str, *, days: int) -> list[dict[str, Any]]:
         """按本地日期聚合近 N 天的提问次数（聊天页 GitHub 式热力图数据）。
 

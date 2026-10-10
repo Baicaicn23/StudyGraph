@@ -54,6 +54,18 @@ interface PendingInterrupt {
 /* 首屏课程空间引导的常用课程（大学生视角的直觉分类） */
 const COURSE_PRESETS = ["高等数学", "线性代数", "大学物理", "四六级", "数据结构"];
 
+/** 工具结果压成一句话：取首行、去掉 Markdown 记号与【来源】前缀，超长截断。 */
+function stepDetailText(detail: string): string {
+  const raw = (detail ?? "").trim();
+  if (!raw) return "";
+  const firstLine = raw
+    .split("\n")[0]
+    .replace(/^【[^】]*】/, "")
+    .replace(/[#*>`]/g, "")
+    .trim();
+  return firstLine.length > 64 ? `${firstLine.slice(0, 64)}…` : firstLine;
+}
+
 /** 耗时展示：42s / 1m42s（对齐 WorkBuddy 的「已处理 1m42s」） */
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -146,6 +158,11 @@ export default function Chat() {
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [provider, setProvider] = useState("");
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
+  // HITL 中断痕迹（显示在消息里）：中断时"暂停等确认"，确认后改为"已继续/已取消"
+  const [interruptNote, setInterruptNote] = useState<{
+    message: string;
+    pending: boolean;
+  } | null>(null);
   const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [askSeries, setAskSeries] = useState<ChatActivityDay[]>([]);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -239,6 +256,7 @@ export default function Chat() {
     threadIdRef.current = "";
     setMessages([]);
     setPending(null);
+    setInterruptNote(null);
     setSelected([]);
     setPendingFiles([]);
     setStatusLabel("");
@@ -434,6 +452,11 @@ export default function Chat() {
         }
         notifyChatsChanged();
       } else if (event.type === "interrupt") {
+        // 在消息里留一条"暂停等你确认"的痕迹，避免看起来莫名其妙就结束了
+        setInterruptNote({
+          message: `已暂停等你确认：把「${event.title}」存进${event.library || "知识库"}`,
+          pending: true,
+        });
         if (fullAccessRef.current) {
           // 允许完全访问：自动同意保存，不再弹确认框
           setStatusLabel("已自动允许保存笔记");
@@ -469,6 +492,7 @@ export default function Chat() {
       if (inputRef.current) inputRef.current.style.height = "auto";
       setBusy(true);
       busyRef.current = true;
+      setInterruptNote(null);
       setStatusLabel("正在理解问题…");
       startPump();
       const attached = pendingFiles;
@@ -514,6 +538,16 @@ export default function Chat() {
   const resolvePending = useCallback(
     async (approved: boolean) => {
       setPending(null);
+      setInterruptNote((prev) =>
+        prev
+          ? {
+              message: approved
+                ? "已按你的确认继续执行"
+                : "已按你的选择取消这一步",
+              pending: false,
+            }
+          : prev,
+      );
       setBusy(true);
       busyRef.current = true;
       startPump();
@@ -976,6 +1010,17 @@ export default function Chat() {
                     }
                     onAction={(action) => void runMessageAction(index, action)}
                     onPreviewAttachment={(file) => setPreview(file)}
+                    onAskAgain={() => inputRef.current?.focus()}
+                    interruptNote={
+                      busy && index === messages.length - 1 && interruptNote
+                        ? interruptNote.message
+                        : undefined
+                    }
+                    interruptPending={
+                      busy && index === messages.length - 1 && interruptNote
+                        ? interruptNote.pending
+                        : false
+                    }
                   />
                 </div>
               ))}
@@ -1621,6 +1666,9 @@ function MessageRow({
   onToggleExpand,
   onAction,
   onPreviewAttachment,
+  onAskAgain,
+  interruptNote,
+  interruptPending,
 }: {
   message: Message;
   busy: boolean;
@@ -1637,12 +1685,16 @@ function MessageRow({
   onToggleExpand: () => void;
   onAction: (action: "kb" | "practice" | "mistake") => void;
   onPreviewAttachment: (file: AttachmentMeta) => void;
+  onAskAgain: () => void;
+  interruptNote?: string;
+  interruptPending?: boolean;
 }) {
   const steps = message.steps ?? [];
-  // 流式进行中默认展开过程，结束后折叠；用户手动切换后以用户选择为准
+  const toolSteps = steps.filter((step) => step.kind === "tool");
+  const hasTools = toolSteps.length > 0;
+  // 有工具调用的回合默认展开过程（让用户看见"它干了什么"）；纯聊天回合保持简洁
   const [traceOverride, setTraceOverride] = useState<boolean | null>(null);
-  const traceOpen = traceOverride ?? busy;
-  const [thinkingOpen, setThinkingOpen] = useState(false);
+  const traceOpen = traceOverride ?? (busy || hasTools);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -1657,6 +1709,11 @@ function MessageRow({
   }, [busy, message.startedAt]);
 
   const elapsedLabel = elapsed > 0 ? `已处理 ${formatDuration(elapsed)}` : "";
+  // 链路摘要：工具链一眼可见（「· 完成」这类收尾步骤不进摘要）
+  const chain = toolSteps
+    .map((step) => step.title.replace(/ · 完成$/, ""))
+    .filter((title, i, arr) => arr.indexOf(title) === i)
+    .join(" → ");
 
   if (message.role === "user") {
     return (
@@ -1719,90 +1776,109 @@ function MessageRow({
             {elapsedLabel && (
               <span className="text-[11px] text-zinc-400">{elapsedLabel}</span>
             )}
-            {steps.length > 0 && (
+          </div>
+
+          {/* 过程流：一条「执行过程」+ 链路摘要 + 逐条步骤（可收起） */}
+          {steps.length > 0 && (
+            <div className="border-b border-black/[0.05] bg-[#FAFAF8] px-4 py-2.5">
               <button
                 type="button"
                 onClick={() => setTraceOverride(!traceOpen)}
-                className="ml-auto text-[11px] text-zinc-400 transition hover:text-zinc-600"
+                className="flex w-full items-center gap-2 text-left focus-visible:outline-none"
               >
-                {traceOpen ? "收起过程" : `查看过程（${steps.length}）`}
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                  className={`shrink-0 text-zinc-400 transition-transform ${
+                    traceOpen ? "" : "-rotate-90"
+                  }`}
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+                <span className="shrink-0 text-[11.5px] font-medium text-zinc-600">
+                  执行过程 · {steps.length} 步
+                </span>
+                {chain && (
+                  <span className="min-w-0 flex-1 truncate text-[11px] text-zinc-400">
+                    {chain}
+                  </span>
+                )}
+                <span className="ml-auto shrink-0 text-[11px] text-zinc-400">
+                  {traceOpen ? "收起" : "展开"}
+                </span>
               </button>
-            )}
-          </div>
 
-          {/* 过程流：思考 / 工具调用 */}
-          {steps.length > 0 && traceOpen && (
-            <div className="mt-2 space-y-2 px-4">
-              {steps.map((step, i) =>
-                step.kind === "thinking" ? (
-                  <div key={`${step.title}-${i}`}>
-                    <button
-                      type="button"
-                      onClick={() => setThinkingOpen((v) => !v)}
-                      className="flex items-center gap-1.5 text-left text-[12px] font-medium text-zinc-500 transition hover:text-zinc-700"
-                    >
-                      <svg
-                        width="10"
-                        height="10"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                        className={`shrink-0 text-zinc-400 transition-transform ${
-                          thinkingOpen ? "" : "-rotate-90"
-                        }`}
+              {traceOpen && (
+                <div className="mt-2 space-y-1.5">
+                  {steps.map((step, i) => {
+                    const done = step.title.endsWith("· 完成");
+                    const title = step.title.replace(/ · 完成$/, "");
+                    return (
+                      <div
+                        key={`${step.title}-${i}`}
+                        className="flex items-start gap-2 text-[11.5px]"
                       >
-                        <path d="m6 9 6 6 6-6" />
-                      </svg>
-                      {step.title}
-                    </button>
-                    {thinkingOpen && step.detail && (
-                      <p className="mt-1 whitespace-pre-wrap rounded-lg bg-black/[0.03] px-3 py-2 text-[12px] leading-relaxed text-zinc-500">
-                        {step.detail}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div
-                    key={`${step.title}-${i}`}
-                    className="flex items-start gap-1.5 text-[12px] text-zinc-500"
-                  >
-                    <svg
-                      width="11"
-                      height="11"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                      className="mt-[3px] shrink-0 text-teal-600"
-                    >
-                      <path d="m14 4 6 6L9 21H3v-6Z" />
-                      <path d="m12 6 6 6" />
-                    </svg>
-                    <span className="min-w-0">
-                      <span className="font-medium text-zinc-600">
-                        {step.title}
+                        <span
+                          className={`mt-[1px] grid h-[15px] w-[15px] shrink-0 place-items-center rounded-full text-[9px] tabular-nums ${
+                            step.kind === "thinking"
+                              ? "bg-black/[0.06] text-zinc-500"
+                              : done
+                                ? "bg-teal-600/15 text-teal-700"
+                                : "bg-teal-600/10 text-teal-700"
+                          }`}
+                          aria-hidden
+                        >
+                          {done ? "✓" : i + 1}
+                        </span>
+                        <span className="min-w-0 flex-1 leading-relaxed">
+                          <span
+                            className={
+                              step.kind === "thinking"
+                                ? "text-zinc-500"
+                                : "font-medium text-zinc-600"
+                            }
+                          >
+                            {title}
+                          </span>
+                          {step.detail && (
+                            <span className="text-zinc-400">
+                              {" · "}
+                              {stepDetailText(step.detail)}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {/* 实时态：正在做的那一步（带转圈） */}
+                  {busy && (
+                    <div className="flex items-start gap-2 text-[11.5px]">
+                      <span
+                        className="mt-[2px] h-[13px] w-[13px] shrink-0 animate-spin rounded-full border-[1.5px] border-teal-600/30 border-t-teal-600"
+                        aria-hidden
+                      />
+                      <span className="font-medium text-teal-700">
+                        {statusLabel || "正在思考…"}
                       </span>
-                      {step.detail && (
-                        <span className="text-zinc-400"> · {step.detail}</span>
-                      )}
-                    </span>
-                  </div>
-                ),
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
 
           {/* 回答正文 */}
           <div className="px-4 pb-3 pt-2.5">
-            {/* 流式进行中的等待行 */}
-            {busy && statusLabel && (
+            {/* 没有步骤时的进行中提示 */}
+            {busy && statusLabel && steps.length === 0 && (
               <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-teal-700">
                 <span className="flex gap-0.5">
                   <span className="h-1 w-1 animate-bounce rounded-full bg-teal-600 [animation-delay:0ms]" />
@@ -1828,35 +1904,95 @@ function MessageRow({
                 {expanded ? "收起" : "展开全文"}
               </button>
             )}
+            {/* 中断后没有继续的回合：说明白它为什么停在这里 */}
+            {!busy && !message.content && steps.length > 0 && (
+              <p className="text-xs text-zinc-400">
+                本轮没有继续执行——等你确认的那一步被取消了，可以重新发一次或换个说法。
+              </p>
+            )}
           </div>
+
+          {/* 中断提示：HITL 暂停时让用户知道"卡在等你确认"，而不是莫名结束 */}
+          {interruptNote && (
+            <div
+              className={`flex items-center gap-2 px-4 py-2 text-[11.5px] ${
+                interruptPending
+                  ? "bg-[#FEF7EC] text-amber-800"
+                  : "bg-black/[0.02] text-zinc-500"
+              }`}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+                className="shrink-0"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3.5 2" />
+              </svg>
+              <span className="min-w-0 flex-1 truncate">{interruptNote}</span>
+              {interruptPending && (
+                <span className="shrink-0 font-medium">待确认</span>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* 学习专属操作栏 */}
+        {/* 收束条：完成信号 + 后续动作（替代原来三个裸链接） */}
         {message.content && !busy && (
-          <div className="mt-1.5 flex items-center gap-3 px-1">
+          <div className="mt-2 flex flex-wrap items-center gap-2 px-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-600/10 px-2.5 py-1 text-[11px] font-medium text-teal-800">
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              已完成{elapsed > 0 ? ` · 用时 ${formatDuration(elapsed)}` : ""}
+            </span>
             <button
               type="button"
-              onClick={onToggleKbPicker}
-              disabled={actionBusy}
-              className="text-[11px] font-medium text-zinc-400 transition hover:text-teal-700 disabled:opacity-40"
+              onClick={onAskAgain}
+              className="rounded-full border border-black/[0.08] px-2.5 py-1 text-[11px] text-zinc-600 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
             >
-              加入知识库
+              继续追问
             </button>
             <button
               type="button"
               onClick={() => onAction("practice")}
               disabled={actionBusy}
-              className="text-[11px] font-medium text-zinc-400 transition hover:text-teal-700 disabled:opacity-40"
+              className="rounded-full border border-black/[0.08] px-2.5 py-1 text-[11px] text-zinc-600 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none disabled:opacity-40"
             >
-              {actionBusy ? "处理中…" : "生成练习题"}
+              {actionBusy ? "处理中…" : "出 3 道变式题"}
             </button>
             <button
               type="button"
               onClick={() => onAction("mistake")}
               disabled={actionBusy}
-              className="text-[11px] font-medium text-zinc-400 transition hover:text-teal-700 disabled:opacity-40"
+              className="rounded-full border border-black/[0.08] px-2.5 py-1 text-[11px] text-zinc-600 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none disabled:opacity-40"
             >
-              标记为误区
+              记进错题本
+            </button>
+            <button
+              type="button"
+              onClick={onToggleKbPicker}
+              disabled={actionBusy}
+              className="rounded-full border border-black/[0.08] px-2.5 py-1 text-[11px] text-zinc-600 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none disabled:opacity-40"
+            >
+              存进知识库
             </button>
             {feedback && (
               <span className="animate-fade-up text-[11px] text-teal-700">
