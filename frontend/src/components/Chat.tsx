@@ -94,15 +94,15 @@ function AskHeatmap({ series }: { series: ChatActivityDay[] }) {
   const activeDays = series.filter((day) => day.questions > 0).length;
 
   return (
-    <div className="inline-block rounded-2xl bg-black/[0.03] px-5 py-4 text-left">
-      <div className="mb-2.5 flex items-baseline justify-between gap-6">
-        <span className="text-[11px] text-zinc-400">近 12 周提问频率</span>
-        <span className="text-[11px] tabular-nums text-zinc-400">
+    <div className="inline-block rounded-3xl bg-black/[0.03] px-8 py-6 text-left">
+      <div className="mb-3 flex items-baseline justify-between gap-8">
+        <span className="text-xs text-zinc-400">近 12 周提问频率</span>
+        <span className="text-xs tabular-nums text-zinc-400">
           共 {totalQuestions} 次 · {activeDays} 天活跃
         </span>
       </div>
       <div
-        className="grid w-fit grid-flow-col grid-rows-7 gap-[3px]"
+        className="grid w-fit grid-flow-col grid-rows-7 gap-1"
         aria-label="提问频率热力图"
       >
         {cells.map((day, index) =>
@@ -110,19 +110,22 @@ function AskHeatmap({ series }: { series: ChatActivityDay[] }) {
             <div
               key={day.date}
               title={`${askDayLabel(day.date)} · 提问 ${day.questions} 次`}
-              className={`h-[9px] w-[9px] rounded-[2px] ${
+              className={`h-[13px] w-[13px] rounded-[3px] transition-transform hover:scale-125 ${
                 ASK_LEVELS[askLevel(day.questions)]
               }`}
             />
           ) : (
-            <div key={`blank-${index}`} className="h-[9px] w-[9px]" />
+            <div key={`blank-${index}`} className="h-[13px] w-[13px]" />
           ),
         )}
       </div>
-      <div className="mt-2.5 flex items-center justify-end gap-1 text-[10px] text-zinc-300">
+      <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-zinc-300">
         少
         {ASK_LEVELS.map((color) => (
-          <span key={color} className={`h-[8px] w-[8px] rounded-[2px] ${color}`} />
+          <span
+            key={color}
+            className={`h-[10px] w-[10px] rounded-[3px] ${color}`}
+          />
         ))}
         多
       </div>
@@ -735,10 +738,10 @@ export default function Chat() {
         <div className="mx-auto max-w-3xl">
           {messages.length === 0 ? (
             /* ---------- 极简欢迎首屏：品牌 + 数据卡片 + 提问热力图 ---------- */
-            <div className="mt-14 flex flex-col items-center">
+            <div className="mt-16 flex flex-col items-center">
               <svg
-                width="40"
-                height="40"
+                width="52"
+                height="52"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="#0f766e"
@@ -754,12 +757,12 @@ export default function Chat() {
                 <path d="m13.4 7.4 4.1 9.8" />
                 <path d="M7.2 19h9.6" />
               </svg>
-              <h2 className="mt-4 text-xl font-bold tracking-tight">
+              <h2 className="mt-5 text-2xl font-bold tracking-tight">
                 你好，我是 StudyGraph
               </h2>
 
               {/* 轻量学习数据概览：数字为核心，标签弱化 */}
-              <div className="mx-auto mt-8 grid max-w-md grid-cols-3 gap-3">
+              <div className="mx-auto mt-10 grid max-w-xl grid-cols-3 gap-4">
                 {[
                   {
                     label: "今日待复习",
@@ -780,12 +783,12 @@ export default function Chat() {
                   <Link
                     key={stat.label}
                     href={stat.href}
-                    className="rounded-xl bg-black/[0.03] px-3 py-3.5 transition hover:bg-black/[0.06] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                    className="rounded-2xl bg-black/[0.03] px-4 py-6 transition hover:bg-black/[0.06] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
                   >
-                    <div className="text-2xl font-bold tracking-tight text-zinc-800 tabular-nums">
+                    <div className="text-[32px] font-bold leading-none tracking-tight text-zinc-800 tabular-nums">
                       {stat.value}
                     </div>
-                    <div className="mt-0.5 text-[11px] text-zinc-400">
+                    <div className="mt-2 text-xs text-zinc-400">
                       {stat.label}
                     </div>
                   </Link>
@@ -793,7 +796,7 @@ export default function Chat() {
               </div>
 
               {/* 提问热力图（GitHub 式，按提问频率统计） */}
-              <div className="mt-8">
+              <div className="mt-10">
                 <AskHeatmap series={askSeries} />
               </div>
             </div>
