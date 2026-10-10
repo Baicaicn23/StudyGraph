@@ -525,3 +525,26 @@ def test_tool_result_summary_is_one_line() -> None:
     assert _summarize_tool_result("knowledge_search", "[tool_error] boom", failed=True) == (
         "[tool_error] boom"
     )
+
+
+def test_memories_deduped_across_projects(tmp_path) -> None:
+    """「全部记忆」视图按内容去重：同一条事实存进两个课程，只显示一条。"""
+
+    repo = SqliteLearningRepository(tmp_path / "mem.db")
+    repo.remember_fact("u", "我在准备月底的微积分测验", created_at=1.0, project_id="1")
+    repo.remember_fact("u", "我在准备月底的微积分测验", created_at=2.0, project_id="2")
+    repo.remember_fact("u", "我周三下午没课", created_at=3.0, project_id="2")
+
+    all_view = repo.list_memories("u")
+    contents = [item["content"] for item in all_view]
+    assert contents == ["我周三下午没课", "我在准备月底的微积分测验"]
+    # 每条都有 id（前端 key 用它，不再用 content）
+    assert all(isinstance(item["id"], int) for item in all_view)
+
+    # 单项目视图不受影响
+    scoped = repo.list_memories("u", project_id="2")
+    assert [item["content"] for item in scoped] == [
+        "我周三下午没课",
+        "我在准备月底的微积分测验",
+    ]
+

@@ -367,7 +367,13 @@ class SqliteLearningRepository:
     def list_memories(
         self, user_id: str, *, project_id: str = "", limit: int = 10
     ) -> list[dict[str, Any]]:
-        """取某用户（可再按项目过滤）的记忆，最新在前。"""
+        """取某用户（可再按项目过滤）的记忆，最新在前。
+
+        不带 project_id 的"全部"视图会**按内容去重**：记忆唯一约束是
+        `(user_id, project_id, content)`，同一条事实在不同课程空间下会各存一份，
+        合并展示时必须去重，否则前端 key 撞车（React 报 Non-unique keys）。
+        """
+
         with self._connect() as connection:
             if project_id:
                 rows = connection.execute(
@@ -376,19 +382,30 @@ class SqliteLearningRepository:
                     (user_id, project_id, limit),
                 ).fetchall()
             else:
+                # 多取一些，去重后仍能凑满 limit
                 rows = connection.execute(
                     "SELECT id, content, created_at FROM memories WHERE user_id = ? "
                     "ORDER BY created_at DESC, id DESC LIMIT ?",
-                    (user_id, limit),
+                    (user_id, limit * 3),
                 ).fetchall()
-        return [
-            {
-                "id": int(row["id"]),
-                "content": str(row["content"]),
-                "created_at": float(row["created_at"]),
-            }
-            for row in rows
-        ]
+
+        items: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for row in rows:
+            content = str(row["content"])
+            if content in seen:
+                continue
+            seen.add(content)
+            items.append(
+                {
+                    "id": int(row["id"]),
+                    "content": content,
+                    "created_at": float(row["created_at"]),
+                }
+            )
+            if len(items) >= limit:
+                break
+        return items
 
     def count_recent_mistakes(self, user_id: str, *, since: float) -> int:
         with self._connect() as connection:

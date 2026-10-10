@@ -530,7 +530,7 @@ export default function PlanPage() {
                   {(memoriesExpanded ? memories : memories.slice(0, 3)).map(
                     (item) => (
                       <span
-                        key={item.content}
+                        key={item.id ?? `${item.content}-${item.created_at}`}
                         className="inline-flex max-w-full items-center gap-2 rounded-full bg-black/[0.04] py-1.5 pl-3 pr-3.5 text-xs text-zinc-700"
                       >
                         <span className="h-1 w-1 shrink-0 rounded-full bg-teal-500" />
