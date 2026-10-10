@@ -116,6 +116,11 @@ GET /api/chats/{session_id}/messages   # 历史回放（含附件元数据与过
 ```
 
 ```
+GET /api/chat/activity?user_id=local&days=84    # 近 N 天提问频率（7≤days≤366，聊天页热力图）
+→ {"days": [{"date": "2026-10-10", "questions": 3}, ...]}   # 恒 days 条、从旧到新、缺日补零
+```
+
+```
 PUT /api/chats/{session_id}         # 重命名会话，multipart/form-data
 form: title=新标题                  # （亦接受 project_id，但仅后端内部使用）
 → {"id": 3}                         # 404 会话不存在
@@ -204,6 +209,17 @@ body: {"user_id":"local","source":"mistakes","library":"","count":3,
 → {"questions":[{"id":1,"library":"线性代数","prompt":"...","source":"mistake",
                  "generator":"template","difficulty":"apply","due_at":...}]}
 # 400：没有可用错题 / 未选知识库 / 片段用尽
+```
+
+```
+POST /api/practice/generate/stream   # 流式出题：每出一题推一帧（练习页进度）
+body: {"user_id":"local","source":"knowledge_base","library":"数据结构",
+       "count":3,"difficulty":"auto"}
+→ text/event-stream
+# event: progress  data: {"done": 2, "total": 3, "library": "数据结构", "difficulty": "apply"}
+# event: done      data: {"questions": [...]}      # 全量题目（同 /generate 的字段）
+# event: error     data: {"message": "..."}        # 业务错误也走事件流，不回 4xx
+# 注意：实际生成数受"未用过的片段数"限制，total 是真实候选数而非请求的 count
 ```
 
 ```
@@ -301,10 +317,10 @@ DELETE /api/schedule/tasks/{id}?user_id=local
 
 | 页面 | 主要接口 |
 | --- | --- |
-| 聊天 | `POST /api/chat/stream`（+ `/resume` 处理 HITL）、`/api/chat/attachments`（上传/预览） |
+| 聊天 `/` | `POST /api/chat/stream`（+ `/resume` 处理 HITL）、`/api/chat/attachments`（上传/预览）、`GET /api/chat/activity`（提问热力图）、`GET /api/study/plan`（欢迎区数据卡片） |
 | 全局侧栏（对话区） | `GET|POST /api/projects`、`PUT|DELETE /api/projects/{id}`、`GET /api/chats`、`PUT|DELETE /api/chats/{id}`、`GET /api/chats/{id}/messages` |
 | 知识库管理 | `GET|POST /api/knowledge/libraries`、`DELETE /api/knowledge/library`、`GET|PUT|DELETE /api/knowledge/document`、`POST /api/knowledge/upload` |
-| 练习 / 复习 | `POST /api/practice/generate`、`GET /api/practice/due`、`POST|DELETE /api/practice/...` |
+| 练习 / 复习 | `POST /api/practice/generate/stream`（流式出题进度）、`GET /api/practice/due`、`POST|DELETE /api/practice/...` |
 | 错题本 | `POST|GET /api/feedback`、`DELETE /api/feedback/{id}` |
 | 今日复习 | `GET /api/study/plan`、`GET /api/study/activity` |
 | 日程 `/schedule` | `GET /api/schedule`、`/api/schedule/inbox`、`/api/schedule/week`、`POST|PUT|DELETE /api/schedule/tasks...`、`POST .../arrange`、`POST .../unarrange` |
