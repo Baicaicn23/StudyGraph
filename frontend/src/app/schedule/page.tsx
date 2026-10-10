@@ -53,6 +53,8 @@ function dateLabel(date: string): string {
 
 interface Form {
   id: number | null;
+  /** 编辑对象原本在哪：决定底部两个按钮叫什么、点了做什么 */
+  origin: "new" | "inbox" | "timeline";
   title: string;
   note: string;
   date: string;
@@ -62,6 +64,7 @@ interface Form {
 
 const EMPTY_FORM: Form = {
   id: null,
+  origin: "new",
   title: "",
   note: "",
   date: "",
@@ -135,6 +138,7 @@ export default function SchedulePage() {
     setError("");
     setForm({
       id: task.id,
+      origin: task.date ? "timeline" : "inbox",
       title: task.title,
       note: task.note,
       date: task.date ?? date,
@@ -154,6 +158,7 @@ export default function SchedulePage() {
     setError("");
     try {
       if (form.id === null) {
+        // 新建：直接给日期+时间的落时间轴；没给时间就让后端挑最早空档
         await createScheduleTask({
           title,
           note: form.note,
@@ -162,7 +167,9 @@ export default function SchedulePage() {
           start_minutes: target === "timeline" ? form.startMinutes : null,
         });
       } else if (target === "inbox") {
-        await unarrangeScheduleTask(form.id);
+        if (form.origin === "timeline") {
+          await unarrangeScheduleTask(form.id);
+        }
         await updateScheduleTask(form.id, {
           title,
           note: form.note,
@@ -176,6 +183,10 @@ export default function SchedulePage() {
           date: form.date,
           start_minutes: form.startMinutes ?? undefined,
         });
+        // 从收件箱排进时间轴但没指定时刻 → 交给确定性排期找最早空档
+        if (form.origin === "inbox" && form.startMinutes === null) {
+          await arrangeScheduleTask(form.id, form.date);
+        }
       }
       setForm(null);
       await refresh();
@@ -345,26 +356,47 @@ export default function SchedulePage() {
             {inbox.map((task) => (
               <div
                 key={task.id}
-                className="rounded-xl border border-black/[0.06] bg-white px-3 py-2.5"
+                className="group relative rounded-xl border border-black/[0.06] bg-white transition hover:border-black/[0.12] hover:shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_12px_rgba(0,0,0,0.06)]"
               >
+                {/* 整卡可点：点任意位置打开编辑（右下「安排到…」按钮单独可点） */}
                 <button
                   type="button"
                   onClick={() => openEdit(task)}
-                  className="block w-full text-left text-[13px] text-zinc-800 focus-visible:outline-none"
-                >
-                  <span className="line-clamp-2">{task.title}</span>
-                </button>
-                <div className="mt-1.5 flex items-center justify-between">
-                  <span className="text-[10px] text-zinc-400">
-                    {task.duration_minutes} 分钟
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void onArrange(task)}
-                    className="text-[10px] font-medium text-teal-700 transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
-                  >
-                    安排到{isToday ? "今天" : "这一天"} ›
-                  </button>
+                  aria-label={`编辑「${task.title}」`}
+                  className="absolute inset-0 rounded-xl focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 focus-visible:outline-none"
+                />
+                <div className="pointer-events-none relative flex flex-col px-3 py-2.5">
+                  <div className="flex items-start gap-2">
+                    <span className="line-clamp-2 min-w-0 flex-1 text-[13px] text-zinc-800">
+                      {task.title}
+                    </span>
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                      className="mt-0.5 shrink-0 text-zinc-400 opacity-0 transition group-hover:opacity-100"
+                    >
+                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                    </svg>
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="text-[10px] text-zinc-500">
+                      {task.duration_minutes} 分钟
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void onArrange(task)}
+                      className="pointer-events-auto text-[10px] font-medium text-teal-700 transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                    >
+                      安排到{isToday ? "今天" : "这一天"} ›
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -708,7 +740,11 @@ export default function SchedulePage() {
                 disabled={busy}
                 className="rounded-full border border-black/[0.1] px-4 py-2 text-xs font-medium text-zinc-600 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none disabled:opacity-40"
               >
-                先放收件箱
+                {form.origin === "timeline"
+                  ? "移回收件箱"
+                  : form.origin === "inbox"
+                    ? "保存"
+                    : "先放收件箱"}
               </button>
               <button
                 type="button"
@@ -716,7 +752,11 @@ export default function SchedulePage() {
                 disabled={busy}
                 className="rounded-full bg-teal-600 px-4 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] disabled:opacity-40"
               >
-                放进时间轴
+                {form.origin === "timeline"
+                  ? "保存"
+                  : form.origin === "inbox"
+                    ? "排进时间轴"
+                    : "放进时间轴"}
               </button>
             </div>
           </div>
