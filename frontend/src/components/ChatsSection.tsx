@@ -106,13 +106,6 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
     router.push("/");
   };
 
-  // 顶部「新对话」固定落在默认对话空间（不继承当前选中的空间）
-  const startNewChat = () => {
-    const defaultProject = projects.find((p) => p.is_default);
-    stashChatAction({ type: "new-chat", projectId: defaultProject?.id });
-    router.push("/");
-  };
-
   const refreshLists = async () => {
     await reload();
     notifyChatsChanged();
@@ -161,7 +154,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
       (chat) => chat.project_id === project.id,
     ).length;
     const warning = chatCount
-      ? `确定删除项目「${project.name}」吗？\n\n其中的 ${chatCount} 条对话及其消息、附件会一起删除，无法恢复。`
+      ? `确定删除课程「${project.name}」吗？\n\n其中的 ${chatCount} 条对话及其消息、附件会一起删除，无法恢复。`
       : `确定删除项目「${project.name}」吗？删除后无法恢复。`;
     if (!window.confirm(warning)) {
       return;
@@ -176,7 +169,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
   };
 
   const handleRenameProject = async (project: ChatProject) => {
-    const name = window.prompt("重命名项目", project.name)?.trim();
+    const name = window.prompt("重命名课程", project.name)?.trim();
     if (!name || name === project.name) return;
     try {
       await renameProject(project.id, name);
@@ -231,7 +224,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
         </button>
         <button
           type="button"
-          title="新建对话"
+          title="在该课程下新建对话"
           onClick={() => handleNewChatInProject(chat.project_id)}
           className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 transition hover:bg-black/[0.06] hover:text-teal-700"
         >
@@ -336,7 +329,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
           <div className="flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
             <button
               type="button"
-              title="项目菜单"
+              title="课程菜单"
               onClick={() => setMenuFor((v) => (v === project.id ? null : project.id))}
               className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 transition hover:bg-black/[0.06] hover:text-zinc-700"
             >
@@ -379,7 +372,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
                 </button>
                 {Boolean(project.is_default) ? (
                   <div className="px-2.5 py-1.5 text-[11px] text-zinc-400">
-                    默认对话空间，不可删除
+                    系统兜底空间，不可删除
                   </div>
                 ) : (
                   <button
@@ -410,24 +403,10 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* 新对话（WorkBuddy「新建任务」式的普通行） */}
-      <div className="px-2.5 pb-1">
-        <button
-          type="button"
-          onClick={startNewChat}
-          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium text-zinc-800 transition hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
-        >
-          <span className="text-zinc-500">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 8v8M8 12h8" />
-            </svg>
-          </span>
-          新对话
-        </button>
-      </div>
-
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-2 pb-4">
+        <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
+          <span className="text-[11px] text-zinc-400">课程空间</span>
+        </div>
         {/* 未分组兜底：正常情况下所有会话都在空间里 */}
         {ungrouped.length > 0 && (
           <section className="mt-1">
@@ -448,11 +427,11 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
 
         {projects.length === 0 && ungrouped.length === 0 && (
           <p className="px-3 py-2 text-[11px] leading-relaxed text-zinc-400">
-            发第一条消息后，对话会自动保存在「默认对话空间」。
+            还没有课程空间。在聊天页右上角「＋ 新对话」里建一个课程，或点下方「新建课程空间」。
           </p>
         )}
 
-        {/* 新建项目 */}
+        {/* 新建课程空间 */}
         {creatingProject ? (
           <div className="mt-2 px-1">
             <input
@@ -464,7 +443,7 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
                 if (event.key === "Escape") setCreatingProject(false);
               }}
               onBlur={() => void handleCreateProject()}
-              placeholder="项目名称，回车确认"
+              placeholder="课程名称，回车确认"
               className="w-full rounded-lg bg-white px-2.5 py-1.5 text-[13px] ring-1 ring-teal-600 outline-none"
             />
           </div>

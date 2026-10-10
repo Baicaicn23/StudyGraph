@@ -23,6 +23,8 @@ from .ports import ChatModelPort, KnowledgePort, LearningRepositoryPort
 from .question_writer import write_question
 
 SOURCES = ("knowledge_base", "mistakes")
+# 误区错误类型（"为什么错"，与"哪个学科"正交）：概念混淆 / 步骤遗漏 / 条件误读 / 计算失误 / 表述不清
+MISTAKE_KINDS = ("concept", "step", "condition", "calc", "wording")
 _WEEK_SECONDS = 7 * 24 * 60 * 60
 _WEAK_MASTERY = 60
 # auto 难度分档：按学科掌握度自动选档，贴合"最近发展区"。
@@ -55,10 +57,26 @@ class LearningService:
     # -- 错题 -----------------------------------------------------------------
 
     def add_feedback(
-        self, *, user_id: str, library: str, question: str, note: str
+        self,
+        *,
+        user_id: str,
+        library: str,
+        question: str,
+        note: str,
+        kind: str = "",
     ) -> int:
+        clean_kind = kind.strip()
+        if clean_kind and clean_kind not in MISTAKE_KINDS:
+            raise LearningError(
+                "错误类型只能是 concept（概念混淆）/ step（步骤遗漏）/ "
+                "condition（条件误读）/ calc（计算失误）/ wording（表述不清）"
+            )
         return self.repository.add_feedback(
-            user_id=user_id, library=library, question=question, note=note
+            user_id=user_id,
+            library=library,
+            question=question,
+            note=note,
+            kind=clean_kind,
         )
 
     def list_feedback(self, user_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
@@ -76,6 +94,7 @@ class LearningService:
         model: ChatModelPort | None = None,
         difficulty: str = "auto",
         on_progress: Callable[[dict[str, Any]], None] | None = None,
+        mistake_ids: list[int] | None = None,
     ) -> list[dict[str, Any]]:
         if count < 1 or count > 10:
             raise LearningError("每次可生成 1 到 10 道练习题")
@@ -84,6 +103,15 @@ class LearningService:
         if difficulty != "auto" and normalize_difficulty(difficulty) is None:
             raise LearningError(
                 "难度只能是 basic（基础）/ apply（进阶）/ transfer（迁移）/ auto"
+            )
+        if mistake_ids:
+            return await self._from_selected_mistakes(
+                user_id=user_id,
+                count=count,
+                model=model,
+                difficulty=difficulty,
+                mistake_ids=mistake_ids,
+                on_progress=on_progress,
             )
         if source == "mistakes":
             return await self._from_mistakes(
@@ -154,6 +182,33 @@ class LearningService:
                 )
         return created
 
+    async def _from_selected_mistakes(
+        self,
+        *,
+        user_id: str,
+        count: int,
+        model: ChatModelPort | None,
+        difficulty: str,
+        mistake_ids: list[int],
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
+    ) -> list[dict[str, Any]]:
+        """按选定的错题出**变式题**：一条误区一道，针对写下的错因。"""
+
+        rows = self.repository.mistakes_by_ids(user_id, mistake_ids)[:count]
+        if not rows:
+            raise LearningError("选中的错题不存在（可能已被删除）")
+        used = self.repository.used_feedback_ids(user_id)
+        pending = [row for row in rows if int(row["id"]) not in used]
+        if not pending:
+            raise LearningError("选中的错题都出过题了：删掉旧题或另选几条")
+        return await self._write_mistake_questions(
+            user_id=user_id,
+            rows=pending,
+            model=model,
+            difficulty=difficulty,
+            on_progress=on_progress,
+        )
+
     async def _from_mistakes(
         self,
         *,
@@ -167,6 +222,25 @@ class LearningService:
         rows = self.repository.unused_mistakes(user_id, library, limit=count)
         if not rows:
             raise LearningError("还没有可用于出题的新错题：先记录一条误区")
+        return await self._write_mistake_questions(
+            user_id=user_id,
+            rows=rows,
+            model=model,
+            difficulty=difficulty,
+            on_progress=on_progress,
+        )
+
+    async def _write_mistake_questions(
+        self,
+        *,
+        user_id: str,
+        rows: list[dict[str, Any]],
+        model: ChatModelPort | None,
+        difficulty: str,
+        on_progress: Callable[[dict[str, Any]], None] | None,
+    ) -> list[dict[str, Any]]:
+        """共用的写题循环：每条误区一道题（含难度分档与进度回调）。"""
+
         created: list[dict[str, Any]] = []
         for row in rows:
             question = str(row["question"])

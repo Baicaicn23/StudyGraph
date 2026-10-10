@@ -33,6 +33,8 @@ export interface Feedback {
   library: string;
   question: string;
   note: string;
+  /** 错误类型：concept / step / condition / calc / wording；空 = 未分类 */
+  kind?: string;
   created_at: number;
 }
 
@@ -216,20 +218,30 @@ export interface GenerateProgress {
   difficulty: string;
 }
 
-/** 流式出题：每出一题回调一次 onProgress，结束时 resolve 全量题目。 */
+/** 流式出题：每出一题回调一次 onProgress，结束时 resolve 全量题目。
+ *
+ * `mistakeIds` 非空时按选定的错题出**变式题**（一条误区一道）。
+ */
 export async function generatePracticeStream(
   source: PracticeSource,
   library: string,
   count: number,
   difficulty: PracticeDifficulty,
   onProgress: (progress: GenerateProgress) => void,
+  mistakeIds: number[] = [],
 ): Promise<Question[]> {
   let response: Response;
   try {
     response = await fetch(`${API_BASE}/api/practice/generate/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source, library, count, difficulty }),
+      body: JSON.stringify({
+        source,
+        library,
+        count,
+        difficulty,
+        mistake_ids: mistakeIds,
+      }),
     });
   } catch {
     throw new Error("无法连接后端，请确认服务已启动。");
@@ -300,8 +312,9 @@ export function addFeedback(
   library: string,
   question: string,
   note: string,
+  kind = "",
 ): Promise<{ id: number }> {
-  return postJson("/api/feedback", { library, question, note });
+  return postJson("/api/feedback", { library, question, note, kind });
 }
 
 export async function deleteFeedback(id: number): Promise<void> {

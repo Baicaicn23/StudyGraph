@@ -97,6 +97,8 @@ class FeedbackRequest(BaseModel):
     library: str = Field(default="", max_length=64)
     question: str = Field(default="", max_length=4000)
     note: str = Field(min_length=1, max_length=2000)
+    # 错误类型（可选）：concept / step / condition / calc / wording
+    kind: str = Field(default="", max_length=16)
 
 
 class GenerateRequest(BaseModel):
@@ -106,6 +108,8 @@ class GenerateRequest(BaseModel):
     count: int = Field(default=3, ge=1, le=10)
     # 难度：basic / apply / transfer / auto（auto 按该学科掌握度自动分档）
     difficulty: str = Field(default="auto", max_length=16)
+    # 指定用哪几条错题出变式题（给了就忽略 source/library 的筛选）
+    mistake_ids: list[int] = Field(default_factory=list)
 
 
 class AnswerRequest(BaseModel):
@@ -764,12 +768,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/feedback")
     async def add_feedback(body: FeedbackRequest, request: Request) -> dict:
-        feedback_id = request.app.state.learning.add_feedback(
-            user_id=body.user_id,
-            library=body.library,
-            question=body.question,
-            note=body.note,
-        )
+        try:
+            feedback_id = request.app.state.learning.add_feedback(
+                user_id=body.user_id,
+                library=body.library,
+                question=body.question,
+                note=body.note,
+                kind=body.kind,
+            )
+        except LearningError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"id": feedback_id}
 
     @app.get("/api/feedback")
@@ -794,6 +802,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 count=body.count,
                 model=request.app.state.model,
                 difficulty=body.difficulty,
+                mistake_ids=body.mistake_ids,
             )
         except LearningError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -817,6 +826,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         count=body.count,
                         model=request.app.state.model,
                         difficulty=body.difficulty,
+                        mistake_ids=body.mistake_ids,
                         on_progress=lambda info: events.put_nowait(
                             {"type": "progress", **info}
                         ),

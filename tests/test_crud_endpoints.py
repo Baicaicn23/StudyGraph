@@ -141,6 +141,41 @@ def test_memory_delete(tmp_path) -> None:
         assert all(item["id"] != memory_id for item in remaining)
 
 
+def test_feedback_kind_roundtrip_and_validation(tmp_path) -> None:
+    """误区错误类型：可选、可回读、非法值拒绝。"""
+
+    with _client(tmp_path) as client:
+        created = client.post(
+            "/api/feedback",
+            json={
+                "library": "高等数学-微积分",
+                "question": "可去间断点的判定",
+                "note": "忽略了「极限值是否等于函数值」",
+                "kind": "concept",
+            },
+        )
+        assert created.status_code == 200
+
+        listing = client.get("/api/feedback").json()["feedback"]
+        assert listing[0]["kind"] == "concept"
+
+        # 不传类型：合法（留空，前端显示"未分类"）
+        client.post(
+            "/api/feedback",
+            json={"library": "线性代数", "question": "特征值", "note": "搞混了"},
+        ).raise_for_status()
+        assert client.get("/api/feedback").json()["feedback"][0]["kind"] == ""
+
+        # 非法类型：400
+        assert (
+            client.post(
+                "/api/feedback",
+                json={"library": "x", "note": "y", "kind": "not-a-kind"},
+            ).status_code
+            == 400
+        )
+
+
 def _read_stream(client: TestClient, message: str) -> None:
     with client.stream(
         "POST",

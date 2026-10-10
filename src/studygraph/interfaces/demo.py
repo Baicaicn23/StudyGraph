@@ -1,4 +1,4 @@
-"""演示数据播种：预置学科知识库、复习笔记与几条典型误区。
+"""演示数据播种：预置课程空间、学科知识库、复习笔记、典型误区与一条日程。
 
     uv run studygraph-demo                # 写入默认数据库
     uv run studygraph-demo --db demo.db   # 写到指定数据库
@@ -12,14 +12,20 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from dataclasses import replace
 from pathlib import Path
 
 from ..application.learning_service import LearningService
 from ..config import Settings, get_settings
+from ..infrastructure.chat_repository import SqliteChatRepository
 from ..infrastructure.embeddings import get_embedder
 from ..infrastructure.knowledge import KnowledgeStore
 from ..infrastructure.learning_repository import SqliteLearningRepository
+from ..infrastructure.schedule_repository import SqliteScheduleRepository
+
+# 演示用的课程空间（会话与记忆按课程隔离，先给几个常见科目）
+DEMO_COURSES = ("高等数学", "线性代数", "数据结构")
 
 # 学科 -> [(标题, 正文)]。正文含：定义、要点、例子、易错点、口语说法对照。
 DEMO_NOTES: dict[str, list[tuple[str, str]]] = {
@@ -134,22 +140,25 @@ DEMO_NOTES: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
-# 典型误区（带学科），用于演示「从错题出题」。
+# 典型误区（带学科与错误类型），用于演示「错题本智能分类」与「从错题出变式题」。
 DEMO_MISTAKES: list[dict[str, str]] = [
     {
         "library": "线性代数",
         "question": "什么是特征值？",
         "note": "我把特征向量和基向量搞混了，以为特征向量一定是坐标轴方向。",
+        "kind": "concept",
     },
     {
         "library": "高等数学-微积分",
         "question": "定积分和不定积分有什么区别？",
         "note": "我把结果类型搞混了：一个是数值，一个是函数族。",
+        "kind": "concept",
     },
     {
         "library": "数据结构",
         "question": "二叉搜索树的查找复杂度是多少？",
-        "note": "我以为最坏情况也是 O(log n)。",
+        "note": "我以为最坏情况也是 O(log n)，忘了退化成链的情况。",
+        "kind": "condition",
     },
 ]
 
@@ -158,6 +167,16 @@ def seed(settings: Settings, *, user_id: str = "local") -> dict[str, object]:
     knowledge = KnowledgeStore(settings.database_path, embedder=get_embedder(settings))
     repository = SqliteLearningRepository(settings.database_path)
     learning = LearningService(knowledge, repository)
+    chat = SqliteChatRepository(settings.database_path)
+    schedule = SqliteScheduleRepository(settings.database_path)
+
+    # 课程空间（幂等：已存在就跳过）
+    existing_courses = {item["name"] for item in chat.list_projects(user_id)}
+    courses: list[str] = []
+    for name in DEMO_COURSES:
+        if name not in existing_courses:
+            chat.create_project(user_id=user_id, name=name)
+        courses.append(name)
 
     note_count = 0
     for library, notes in DEMO_NOTES.items():
@@ -170,10 +189,32 @@ def seed(settings: Settings, *, user_id: str = "local") -> dict[str, object]:
         learning.add_feedback(user_id=user_id, **mistake)
         mistake_count += 1
 
+    # 一条日程：今天两件事（06:30 背单词 / 20:30 复习到期题）+ 收件箱一件
+    today = time.strftime("%Y-%m-%d")
+    schedule.create_task(
+        user_id=user_id,
+        title="背单词 · 一个 list",
+        date=today,
+        start_minutes=6 * 60 + 30,
+        duration_minutes=30,
+    )
+    schedule.create_task(
+        user_id=user_id,
+        title="复习今天的到期题",
+        date=today,
+        start_minutes=20 * 60 + 30,
+        duration_minutes=45,
+    )
+    schedule.create_task(
+        user_id=user_id, title="整理本周错题（还没想好哪天）", duration_minutes=45
+    )
+
     return {
         "libraries": list(DEMO_NOTES),
         "notes": note_count,
         "mistakes": mistake_count,
+        "courses": courses,
+        "schedule": 3,
         "database": settings.database_path,
     }
 
@@ -201,9 +242,11 @@ def main(argv: list[str] | None = None) -> int:
     result = seed(settings, user_id=args.user)
     print("演示数据已写入：")
     print(f"  数据库：{result['database']}")
+    print(f"  课程空间：{'、'.join(result['courses'])}")  # type: ignore[arg-type]
     print(f"  学科知识库：{'、'.join(result['libraries'])}")  # type: ignore[arg-type]
     print(f"  复习笔记：{result['notes']} 份")
     print(f"  典型误区：{result['mistakes']} 条")
+    print(f"  日程任务：{result['schedule']} 条（2 条排今天 + 1 条在收件箱）")
     return 0
 
 

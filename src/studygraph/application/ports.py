@@ -30,7 +30,7 @@ class LearningRepositoryPort(Protocol):
     """学习闭环的持久化：错题 / 练习题 / 掌握度 / 记忆。"""
 
     def add_feedback(
-        self, *, user_id: str, library: str, question: str, note: str
+        self, *, user_id: str, library: str, question: str, note: str, kind: str = ""
     ) -> int: ...
 
     def list_feedback(self, user_id: str, *, limit: int = 20) -> list[dict[str, Any]]: ...
@@ -52,6 +52,12 @@ class LearningRepositoryPort(Protocol):
     def unused_mistakes(
         self, user_id: str, library: str, *, limit: int
     ) -> list[dict[str, Any]]: ...
+
+    def mistakes_by_ids(
+        self, user_id: str, ids: list[int]
+    ) -> list[dict[str, Any]]: ...
+
+    def used_feedback_ids(self, user_id: str) -> set[int]: ...
 
     def get_question_library(self, user_id: str, question_id: int) -> str | None: ...
 

@@ -140,13 +140,19 @@ class SqliteChatRepository:
             )
             return int(cursor.lastrowid)
 
-    DEFAULT_SPACE_NAME = "默认对话空间"
+    FALLBACK_SPACE_NAME = "未归类"
+
+    # 兼容旧名（历史代码与测试引用过）
+    DEFAULT_SPACE_NAME = FALLBACK_SPACE_NAME
 
     def ensure_default_project(self, user_id: str) -> int:
-        """保证用户有且只有一个「默认对话空间」，并把无主会话归入其中。
+        """保证用户有且只有一个系统兜底空间「未归类」，并把无主会话归入其中。
+
+        语义：**不是**给新对话用的默认空间（新对话必须显式选课程），而是兜住
+        旧数据与直连 API 的请求——否则记忆会落进 project_id='' 的黑洞桶。
 
         - 已有 is_default=1 的项目 → 直接返回；
-        - 没有但建过同名项目 → 收编为默认空间；
+        - 没有但建过同名项目 → 收编为兜底空间；
         - 都没有 → 新建。最后把 project_id 为空的会话全部归入。
         """
 
@@ -158,7 +164,7 @@ class SqliteChatRepository:
             if row is None:
                 existing = connection.execute(
                     "SELECT id FROM projects WHERE user_id = ? AND name = ?",
-                    (user_id, self.DEFAULT_SPACE_NAME),
+                    (user_id, self.FALLBACK_SPACE_NAME),
                 ).fetchone()
                 if existing is not None:
                     connection.execute(
@@ -170,7 +176,7 @@ class SqliteChatRepository:
                     cursor = connection.execute(
                         "INSERT INTO projects (user_id, name, is_default, created_at) "
                         "VALUES (?, ?, 1, ?)",
-                        (user_id, self.DEFAULT_SPACE_NAME, time.time()),
+                        (user_id, self.FALLBACK_SPACE_NAME, time.time()),
                     )
                     default_id = int(cursor.lastrowid)
             else:

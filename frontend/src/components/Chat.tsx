@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ClipboardEvent, DragEvent, KeyboardEvent } from "react";
 
 import {
@@ -50,6 +50,9 @@ interface PendingInterrupt {
 }
 
 /* 首屏品牌图标下不再有副标题/快捷区——欢迎区只保留数据卡片与提问热力图 */
+
+/* 首屏课程空间引导的常用课程（大学生视角的直觉分类） */
+const COURSE_PRESETS = ["高等数学", "线性代数", "大学物理", "四六级", "数据结构"];
 
 /** 耗时展示：42s / 1m42s（对齐 WorkBuddy 的「已处理 1m42s」） */
 function formatDuration(seconds: number): string {
@@ -175,11 +178,17 @@ export default function Chat() {
   const sessionIdRef = useRef<number | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
 
-  /* ---------- 项目（空间）列表：输入栏下方的空间选择器用 ---------- */
+  /* ---------- 课程空间（会话与记忆按课程隔离） ---------- */
   const [projects, setProjects] = useState<ChatProject[]>([]);
   const [spaceOpen, setSpaceOpen] = useState(false);
   const [spaceCreating, setSpaceCreating] = useState(false);
   const [newSpaceName, setNewSpaceName] = useState("");
+  // 「＋ 新对话」：先选课程再开新对话（不再自动分配默认空间）
+  const [coursePickerOpen, setCoursePickerOpen] = useState(false);
+  // 首次使用引导：一个课程都没有时展示常用课程一键创建
+  const [courseName, setCourseName] = useState("");
+  const [courseError, setCourseError] = useState("");
+  const [creatingCourse, setCreatingCourse] = useState(false);
   const refreshProjects = useCallback(async () => {
     try {
       setProjects(await listProjects());
@@ -191,32 +200,89 @@ export default function Chat() {
     void refreshProjects();
   }, [refreshProjects]);
 
-  // 没选过空间时自动选中「默认对话空间」（后端保证一定存在）
+  // 「未归类」是系统兜底空间（不在课程选择器里出现）
+  const courses = useMemo(
+    () => projects.filter((project) => !project.is_default),
+    [projects],
+  );
+
+  // 只有一个课程时直接选中，省一次点击；有多个则等用户选（必须显式选课程）
   useEffect(() => {
-    if (activeProjectId !== null || projects.length === 0) return;
-    const fallback = projects.find((p) => p.is_default) ?? projects[0];
-    setActiveProjectId(fallback.id);
-  }, [projects, activeProjectId]);
+    if (activeProjectId !== null || courses.length !== 1) return;
+    setActiveProjectId(courses[0].id);
+  }, [courses, activeProjectId]);
+
   const activeSpace = projects.find((p) => p.id === activeProjectId);
 
-  /** 下拉里直接新建空间：成功后自动选中它 */
-  const handleCreateSpace = useCallback(async () => {
-    const name = newSpaceName.trim();
-    if (!name) {
-      setSpaceCreating(false);
+  const createCourse = useCallback(
+    async (rawName: string) => {
+      const name = rawName.trim();
+      if (!name) return null;
+      setCourseError("");
+      try {
+        const created = await createProject(name);
+        await refreshProjects();
+        notifyChatsChanged();
+        return created;
+      } catch (err) {
+        setCourseError((err as Error).message);
+        return null;
+      }
+    },
+    [refreshProjects],
+  );
+
+  /** 在一个课程里开一段全新对话（清空当前上下文） */
+  const beginNewChatInCourse = useCallback((projectId: number) => {
+    setActiveProjectId(projectId);
+    sessionIdRef.current = null;
+    threadIdRef.current = "";
+    setMessages([]);
+    setPending(null);
+    setSelected([]);
+    setPendingFiles([]);
+    setStatusLabel("");
+    setActionFeedback({});
+    setExpandedMsg(null);
+    setCoursePickerOpen(false);
+  }, []);
+
+  /** 「＋ 新对话」：没有课程先去建，有课程则选一个 */
+  const startNewConversation = useCallback(() => {
+    if (courses.length === 0) {
+      setCoursePickerOpen(true);
       return;
     }
-    try {
-      const created = await createProject(name);
-      setNewSpaceName("");
-      setSpaceCreating(false);
-      await refreshProjects();
-      setActiveProjectId(created.id);
-      notifyChatsChanged(); // 让全局侧栏同步出现这个新空间
-    } catch {
-      /* 重名等错误静默 */
+    if (courses.length === 1) {
+      beginNewChatInCourse(courses[0].id);
+      return;
     }
-  }, [newSpaceName, refreshProjects]);
+    setCoursePickerOpen(true);
+  }, [courses, beginNewChatInCourse]);
+
+  /** 引导页一键创建常用课程 */
+  const handleCreateCourseFromOnboarding = useCallback(
+    async (name: string) => {
+      setCreatingCourse(true);
+      const created = await createCourse(name);
+      setCreatingCourse(false);
+      if (created) {
+        setCourseName("");
+        beginNewChatInCourse(created.id);
+      }
+    },
+    [createCourse, beginNewChatInCourse],
+  );
+
+  /** 下拉里直接新建课程：成功后自动选中它 */
+  const handleCreateSpace = useCallback(async () => {
+    const created = await createCourse(newSpaceName);
+    setNewSpaceName("");
+    setSpaceCreating(false);
+    if (created) {
+      setActiveProjectId(created.id);
+    }
+  }, [newSpaceName, createCourse]);
 
   /* ---------- 平滑打字机：token 先入队列，rAF 按需吐字 ---------- */
   const queueRef = useRef("");
@@ -392,6 +458,11 @@ export default function Chat() {
     async (raw?: string) => {
       const text = (raw ?? input).trim();
       if (!text || busy || uploadingCount > 0) return;
+      // 课程空间必选：没选课程先让用户选/建
+      if (activeProjectId === null) {
+        setCoursePickerOpen(true);
+        return;
+      }
       setInput("");
       setPickerOpen(false);
       setPlusMenuOpen(false);
@@ -467,15 +538,16 @@ export default function Chat() {
   /* ---------- 会话切换 ---------- */
   const startNewChat = useCallback(
     (projectId?: number) => {
-      if (busy) return;
-      sessionIdRef.current = null;
-      threadIdRef.current = "";
-      setStatusLabel("");
-      queueRef.current = "";
-      setMessages([]);
-      if (projectId !== undefined) setActiveProjectId(projectId);
+      if (busyRef.current) return;
+      if (projectId !== undefined) {
+        // 侧栏在某个课程下点「＋」→ 直接在该课程开新对话
+        beginNewChatInCourse(projectId);
+        return;
+      }
+      // 没有指定课程 → 交给「新对话」流程（选课程 / 首次引导建课程）
+      startNewConversation();
     },
-    [busy],
+    [beginNewChatInCourse, startNewConversation],
   );
 
   const openSession = useCallback(async (sessionId: number) => {
@@ -672,7 +744,7 @@ export default function Chat() {
         await generatePractice("knowledge_base", lib, 3);
         setActionFeedback((prev) => ({
           ...prev,
-          [index]: "已生成 3 道练习题，到「练习复习」页作答",
+          [index]: "已生成 3 道练习题，到「错题练习」页作答",
         }));
         await refreshPlan();
       } else {
@@ -719,14 +791,27 @@ export default function Chat() {
 
   return (
     <div className="relative flex h-full min-w-0 flex-1 flex-col bg-white">
-      {/* 顶部：标题 */}
-      <header className="px-6 pt-6 pb-2">
-        <h1 className="text-[17px] font-bold tracking-tight">聊天</h1>
-        {selected.length > 0 && (
-          <p className="mt-0.5 text-xs text-teal-700">
-            检索限定：{selected.join("、")}
+      {/* 顶部：标题 + 新对话（当前会话所属课程） */}
+      <header className="flex items-start justify-between gap-3 px-6 pt-6 pb-2">
+        <div className="min-w-0">
+          <h1 className="text-[17px] font-bold tracking-tight">AI 对话</h1>
+          <p className="mt-0.5 truncate text-xs text-zinc-400">
+            {activeSpace && !activeSpace.is_default
+              ? `课程：${activeSpace.name}`
+              : "还没有选择课程空间"}
+            {selected.length > 0 && ` · 检索限定：${selected.join("、")}`}
           </p>
-        )}
+        </div>
+        <button
+          type="button"
+          onClick={startNewConversation}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-teal-600 px-3.5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          新对话
+        </button>
       </header>
 
       {/* 消息区 */}
@@ -737,6 +822,70 @@ export default function Chat() {
       >
         <div className="mx-auto max-w-3xl">
           {messages.length === 0 ? (
+            courses.length === 0 ? (
+              /* ---------- 首次使用：先建一个课程空间 ---------- */
+              <div className="mx-auto mt-16 max-w-md rounded-2xl border border-black/[0.06] bg-white p-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                <svg
+                  width="34"
+                  height="34"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#0f766e"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                  className="mx-auto"
+                >
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+                </svg>
+                <h2 className="mt-3 text-[15px] font-semibold text-zinc-900">
+                  先建一个课程空间
+                </h2>
+                <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">
+                  对话、笔记与记忆都按课程隔离——「高等数学」的问题不会串到「大学物理」里
+                </p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  {COURSE_PRESETS.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      disabled={creatingCourse}
+                      onClick={() => void handleCreateCourseFromOnboarding(name)}
+                      className="rounded-full bg-black/[0.04] px-3.5 py-1.5 text-xs text-zinc-700 transition hover:bg-teal-600/10 hover:text-teal-800 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none disabled:opacity-40"
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <input
+                    value={courseName}
+                    onChange={(event) => setCourseName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && courseName.trim()) {
+                        void handleCreateCourseFromOnboarding(courseName);
+                      }
+                    }}
+                    maxLength={64}
+                    placeholder="或自己填一个课程名"
+                    className="min-w-0 flex-1 rounded-full bg-white px-4 py-2 text-sm ring-1 ring-black/10 outline-none transition placeholder:text-zinc-400 focus:ring-2 focus:ring-teal-600"
+                  />
+                  <button
+                    type="button"
+                    disabled={!courseName.trim() || creatingCourse}
+                    onClick={() => void handleCreateCourseFromOnboarding(courseName)}
+                    className="shrink-0 rounded-full bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] disabled:opacity-40"
+                  >
+                    创建并开始
+                  </button>
+                </div>
+                {courseError && (
+                  <p className="mt-2 text-xs text-red-600">{courseError}</p>
+                )}
+              </div>
+            ) : (
             /* ---------- 极简欢迎首屏：品牌 + 数据卡片 + 提问热力图 ---------- */
             <div className="mt-16 flex flex-col items-center">
               <svg
@@ -800,6 +949,7 @@ export default function Chat() {
                 <AskHeatmap series={askSeries} />
               </div>
             </div>
+            )
           ) : (
             <div className="space-y-5 pt-2">
               {messages.map((message, index) => (
@@ -1244,7 +1394,7 @@ export default function Chat() {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
                 </svg>
-                {activeSpace ? activeSpace.name : "选择空间"}
+                {activeSpace && !activeSpace.is_default ? activeSpace.name : "选择课程"}
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={`transition-transform ${spaceOpen ? "rotate-180" : ""}`}>
                   <path d="m6 9 6 6 6-6" />
                 </svg>
@@ -1259,9 +1409,9 @@ export default function Chat() {
                   />
                   <div className="animate-pop-in absolute bottom-full left-0 z-50 mb-2 w-52 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
                     <div className="px-2.5 py-1.5 text-[11px] font-medium text-zinc-400">
-                      对话空间
+                      选择课程空间
                     </div>
-                    {projects.map((project) => {
+                    {courses.map((project) => {
                       const checked = project.id === activeProjectId;
                       return (
                         <button
@@ -1290,13 +1440,13 @@ export default function Chat() {
                         </button>
                       );
                     })}
-                    {projects.length === 0 && (
+                    {courses.length === 0 && (
                       <p className="px-2.5 py-2 text-[11px] text-zinc-400">
-                        还没有其他空间，可在下方新建
+                        还没有课程空间，可在下方新建
                       </p>
                     )}
 
-                    {/* 新建空间入口 */}
+                    {/* 新建课程入口 */}
                     <div className="mt-1 border-t border-black/[0.06] pt-1">
                       {spaceCreating ? (
                         <input
@@ -1311,7 +1461,7 @@ export default function Chat() {
                             }
                           }}
                           onBlur={() => void handleCreateSpace()}
-                          placeholder="空间名称，回车确认"
+                          placeholder="课程名称，回车确认"
                           className="mx-1 w-[calc(100%-0.5rem)] rounded-lg bg-zinc-50 px-2.5 py-1.5 text-[13px] ring-1 ring-teal-600 outline-none"
                         />
                       ) : (
@@ -1323,7 +1473,7 @@ export default function Chat() {
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                             <path d="M12 5v14M5 12h14" />
                           </svg>
-                          新建空间
+                          新建课程
                         </button>
                       )}
                     </div>
@@ -1338,6 +1488,83 @@ export default function Chat() {
           </p>
         </div>
       </div>
+
+      {/* 新对话：先选课程空间（会话与记忆按课程隔离） */}
+      {coursePickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 px-4">
+          <div className="animate-pop-in w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold tracking-tight">选择课程空间</h2>
+              <button
+                type="button"
+                onClick={() => setCoursePickerOpen(false)}
+                aria-label="关闭"
+                className="grid h-7 w-7 place-items-center rounded-lg text-zinc-400 transition hover:bg-black/[0.05] hover:text-zinc-700"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-zinc-500">
+              新对话归属哪个课程？记忆与笔记会跟着这个课程走。
+            </p>
+
+            <div className="mt-3 max-h-56 space-y-1 overflow-y-auto">
+              {courses.map((course) => (
+                <button
+                  key={course.id}
+                  type="button"
+                  onClick={() => beginNewChatInCourse(course.id)}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] text-zinc-700 transition hover:bg-teal-600/[0.08] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-zinc-400">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+                  </svg>
+                  <span className="min-w-0 flex-1 truncate">{course.name}</span>
+                  {course.id === activeProjectId && (
+                    <span className="shrink-0 text-[10px] text-teal-700">当前</span>
+                  )}
+                </button>
+              ))}
+              {courses.length === 0 && (
+                <p className="px-3 py-3 text-xs text-zinc-400">
+                  还没有课程空间，先在下面建一个
+                </p>
+              )}
+            </div>
+
+            <div className="mt-3 border-t border-black/[0.06] pt-3">
+              <div className="flex gap-2">
+                <input
+                  value={courseName}
+                  onChange={(event) => setCourseName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && courseName.trim()) {
+                      void handleCreateCourseFromOnboarding(courseName);
+                    }
+                  }}
+                  maxLength={64}
+                  placeholder="新建课程，例如：离散数学"
+                  className="min-w-0 flex-1 rounded-xl bg-zinc-50 px-3.5 py-2 text-sm ring-1 ring-black/10 outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 focus:ring-teal-600"
+                />
+                <button
+                  type="button"
+                  disabled={!courseName.trim() || creatingCourse}
+                  onClick={() => void handleCreateCourseFromOnboarding(courseName)}
+                  className="shrink-0 rounded-xl bg-teal-600 px-3.5 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-40"
+                >
+                  创建
+                </button>
+              </div>
+              {courseError && (
+                <p className="mt-2 text-xs text-red-600">{courseError}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* HITL 确认框 */}
       {pending && (

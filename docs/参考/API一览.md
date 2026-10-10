@@ -75,8 +75,8 @@ form: library=高等数学   file=@导数笔记.md
 ## 项目空间（对话分组）
 
 ```
-GET /api/projects                   # 首次访问自动建「默认对话空间」并收编无主会话
-→ {"projects": [{"id": 1, "name": "默认对话空间", "is_default": true,
+GET /api/projects                   # 首次访问自动建系统兜底空间「未归类」并收编无主会话
+→ {"projects": [{"id": 1, "name": "未归类", "is_default": true,
                  "session_count": 16, ...}, ...]}
 ```
 
@@ -96,7 +96,7 @@ form: name=新名字
 ```
 DELETE /api/projects/{project_id}   # 级联删除：会话/消息/附件（含磁盘图片）一起清
 → {"deleted": 2, "sessions": 5}
-# 400 默认对话空间不能删除 / 404 项目不存在
+# 400 系统兜底空间「未归类」不能删除 / 404 项目不存在
 ```
 
 ## 会话与消息
@@ -155,7 +155,7 @@ POST /api/chat/stream
 body: {"message": "我的笔记里怎么讲导数的？", "thread_id": "web-1",
        "user_id": "local", "knowledge_bases": ["高等数学"],
        "session_id": 3,              # 可选：续接已保存会话；缺省自动新建（自动保存+自动起标题）
-       "project_id": 2,              # 可选：本轮记忆按项目隔离；缺省兜底到默认对话空间
+       "project_id": 2,              # 可选：本轮记忆按课程空间隔离；缺省兜底到「未归类」
        "attachment_ids": [4]}        # 可选：≤6 个；单附件取前 8000 字拼进消息
 → text/event-stream
 ```
@@ -189,8 +189,9 @@ body: {"thread_id": "web-1", "approved": true, "session_id": 3, "user_id": "loca
 
 ```
 POST /api/feedback                   # 记录错题（误区）
-body: {"user_id":"local","library":"线性代数","question":"什么是特征值？","note":"我把特征向量搞混了"}
-→ {"id": 1}
+body: {"user_id":"local","library":"线性代数","question":"什么是特征值？","note":"我把特征向量搞混了",
+       "kind":"concept"}   # 错误类型可选：concept|step|condition|calc|wording
+→ {"id": 1}                        # 400 非法错误类型
 
 GET  /api/feedback?user_id=local
 → {"feedback": [{"id":1,"library":"...","question":"...","note":"...","created_at":...}]}
@@ -202,13 +203,14 @@ DELETE /api/feedback/{feedback_id}?user_id=local
 ```
 POST /api/practice/generate          # 出题
 body: {"user_id":"local","source":"mistakes","library":"","count":3,
-       "difficulty":"auto"}
+       "difficulty":"auto","mistake_ids":[1,2]}
 #   source: "mistakes"（从错题） | "knowledge_base"（从知识库，需 library）
 #   difficulty: "basic" | "apply" | "transfer" | "auto"（auto 按该学科掌握度分档：
 #               <40% basic / <80% apply / >=80% transfer）
 → {"questions":[{"id":1,"library":"线性代数","prompt":"...","source":"mistake",
                  "generator":"template","difficulty":"apply","due_at":...}]}
-# 400：没有可用错题 / 未选知识库 / 片段用尽
+#  mistake_ids 非空 → 按**选定错题**出变式题（一条误区一道），忽略 source/library 的筛选
+# 400：没有可用错题 / 未选知识库 / 片段用尽 / 选中的错题都出过题 / 错题不存在
 ```
 
 ```

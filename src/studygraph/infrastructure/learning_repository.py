@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS feedback (
     library TEXT NOT NULL DEFAULT '',
     question TEXT NOT NULL DEFAULT '',
     note TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL DEFAULT '',
     created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id, created_at DESC);
@@ -106,6 +107,16 @@ class SqliteLearningRepository:
                 "ON memories(user_id, project_id, content)"
             )
 
+        feedback_cols = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(feedback)").fetchall()
+        }
+        if "kind" not in feedback_cols:
+            # 误区错误类型（概念混淆 / 步骤遗漏 / …）：老数据留空，前端显示"未分类"。
+            connection.execute(
+                "ALTER TABLE feedback ADD COLUMN kind TEXT NOT NULL DEFAULT ''"
+            )
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path, timeout=5.0)
         connection.row_factory = sqlite3.Row
@@ -115,20 +126,27 @@ class SqliteLearningRepository:
     # -- 错题 -----------------------------------------------------------------
 
     def add_feedback(
-        self, *, user_id: str, library: str, question: str, note: str
+        self, *, user_id: str, library: str, question: str, note: str, kind: str = ""
     ) -> int:
         with self._connect() as connection:
             cursor = connection.execute(
-                "INSERT INTO feedback(user_id, library, question, note, created_at) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (user_id, library.strip(), question.strip(), note.strip(), time.time()),
+                "INSERT INTO feedback(user_id, library, question, note, kind, "
+                "created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    user_id,
+                    library.strip(),
+                    question.strip(),
+                    note.strip(),
+                    kind.strip(),
+                    time.time(),
+                ),
             )
             return int(cursor.lastrowid)
 
     def list_feedback(self, user_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT id, library, question, note, created_at FROM feedback "
+                "SELECT id, library, question, note, kind, created_at FROM feedback "
                 "WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
                 (user_id, limit),
             ).fetchall()
@@ -208,6 +226,34 @@ class SqliteLearningRepository:
                 (user_id, library, library, limit),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def mistakes_by_ids(
+        self, user_id: str, ids: list[int]
+    ) -> list[dict[str, Any]]:
+        """按 id 取误区（校验归属，按传入顺序返回）。"""
+
+        if not ids:
+            return []
+        placeholders = ", ".join("?" for _ in ids)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"SELECT id, library, question, note, kind FROM feedback "
+                f"WHERE user_id = ? AND id IN ({placeholders})",
+                (user_id, *ids),
+            ).fetchall()
+        by_id = {int(row["id"]): dict(row) for row in rows}
+        return [by_id[item] for item in ids if item in by_id]
+
+    def used_feedback_ids(self, user_id: str) -> set[int]:
+        """已经出过题的误区 id（同一误区不重复出题）。"""
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT DISTINCT source_feedback_id FROM practice_questions "
+                "WHERE user_id = ? AND source_feedback_id IS NOT NULL",
+                (user_id,),
+            ).fetchall()
+        return {int(row["source_feedback_id"]) for row in rows}
 
     def get_question_library(self, user_id: str, question_id: int) -> str | None:
         with self._connect() as connection:

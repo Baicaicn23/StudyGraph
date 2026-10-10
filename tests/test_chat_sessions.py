@@ -382,11 +382,11 @@ def test_chat_stream_rejects_foreign_session(tmp_path) -> None:
 def test_project_endpoints_crud(tmp_path) -> None:
     settings = Settings(database_path=str(tmp_path / "api.db"))
     with TestClient(create_app(settings)) as client:
-        # 首次列出 → 自动创建默认对话空间且排最前
+        # 首次列出 → 自动创建系统兜底空间「未归类」且排最前
         seeded = client.get("/api/projects", params={"user_id": "alice"}).json()[
             "projects"
         ]
-        assert seeded[0]["name"] == "默认对话空间"
+        assert seeded[0]["name"] == "未归类"
         assert seeded[0]["is_default"] == 1
         default_id = seeded[0]["id"]
 
@@ -412,7 +412,7 @@ def test_project_endpoints_crud(tmp_path) -> None:
         projects = client.get("/api/projects", params={"user_id": "alice"}).json()[
             "projects"
         ]
-        assert [p["name"] for p in projects] == ["默认对话空间", "线代总复习"]
+        assert [p["name"] for p in projects] == ["未归类", "线代总复习"]
 
         # 默认空间删除被拒：400
         blocked = client.delete(

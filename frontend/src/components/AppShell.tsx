@@ -73,9 +73,8 @@ function NavIcon({ name }: { name: string }) {
 }
 
 const NAV_ITEMS = [
-  { href: "/", icon: "chat", label: "聊天" },
-  { href: "/practice", icon: "practice", label: "练习复习" },
-  { href: "/mistakes", icon: "mistakes", label: "错题本" },
+  { href: "/", icon: "chat", label: "AI 对话" },
+  { href: "/practice", icon: "mistakes", label: "错题练习" },
   { href: "/plan", icon: "plan", label: "今日复习" },
   { href: "/schedule", icon: "schedule", label: "日程" },
   { href: "/knowledge", icon: "library", label: "知识库" },

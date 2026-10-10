@@ -76,3 +76,52 @@ def test_stream_learing_error_becomes_error_event(tmp_path) -> None:
         errors = [data for name, data in events if name == "error"]
         assert len(errors) == 1
         assert "知识库" in errors[0]["message"]
+
+
+def test_generate_from_selected_mistakes(tmp_path) -> None:
+    """按选定错题出变式题：一条误区一道，且不重复出。"""
+
+    with _client(tmp_path) as client:
+        first = client.post(
+            "/api/feedback",
+            json={
+                "library": "高等数学",
+                "question": "可去间断点的判定",
+                "note": "忽略了极限值是否等于函数值",
+                "kind": "concept",
+            },
+        ).json()["id"]
+        second = client.post(
+            "/api/feedback",
+            json={
+                "library": "数据结构",
+                "question": "哈希表要先查后存",
+                "note": "先存后查会自己和自己配对",
+                "kind": "step",
+            },
+        ).json()["id"]
+
+        body = client.post(
+            "/api/practice/generate",
+            json={"source": "mistakes", "mistake_ids": [first, second], "count": 5},
+        ).json()
+        assert len(body["questions"]) == 2
+        assert {item["source"] for item in body["questions"]} == {"mistake"}
+        assert {item["library"] for item in body["questions"]} == {"高等数学", "数据结构"}
+
+        # 同样的两条再出一次 → 已被出过，拒绝
+        again = client.post(
+            "/api/practice/generate",
+            json={"source": "mistakes", "mistake_ids": [first, second], "count": 5},
+        )
+        assert again.status_code == 400
+        assert "都出过题" in again.json()["detail"]
+
+        # 不存在的 id → 400
+        assert (
+            client.post(
+                "/api/practice/generate",
+                json={"source": "mistakes", "mistake_ids": [999999], "count": 1},
+            ).status_code
+            == 400
+        )
