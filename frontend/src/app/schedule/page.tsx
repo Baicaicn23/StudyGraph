@@ -16,6 +16,7 @@ import {
   type ScheduleWeekDay,
 } from "@/lib/api";
 import { Notice, Page } from "@/components/ui";
+import { DatePicker, TimePicker } from "@/components/SchedulePickers";
 
 /* 时间轴固定 06:00–24:00（与后端排期口径一致） */
 const DAY_START = 6 * 60;
@@ -43,13 +44,6 @@ function shiftDate(date: string, days: number): string {
 function minutesToLabel(minutes: number | null): string {
   if (minutes === null) return "未安排";
   return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
-}
-
-function labelToMinutes(value: string): number | null {
-  const match = value.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const minutes = Number(match[1]) * 60 + Number(match[2]);
-  return minutes >= 0 && minutes < 24 * 60 ? minutes : null;
 }
 
 function dateLabel(date: string): string {
@@ -559,40 +553,29 @@ export default function SchedulePage() {
                   {option.label}
                 </button>
               ))}
-              <input
-                type="date"
+              <DatePicker
                 value={form.date}
-                onChange={(event) =>
-                  setForm((prev) => (prev ? { ...prev, date: event.target.value } : prev))
+                onChange={(next) =>
+                  setForm((prev) => (prev ? { ...prev, date: next } : prev))
                 }
-                className="rounded-full bg-black/[0.04] px-3 py-1.5 text-xs text-zinc-600 outline-none focus:ring-2 focus:ring-teal-600"
               />
             </div>
 
             {/* 开始时间 + 时长 */}
             <div className="mt-3 flex gap-3">
-              <label className="flex-1 text-[11px] text-zinc-400">
-                开始时间
-                <input
-                  type="time"
-                  value={
-                    form.startMinutes === null
-                      ? ""
-                      : minutesToLabel(form.startMinutes)
-                  }
-                  onChange={(event) =>
-                    setForm((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            startMinutes: labelToMinutes(event.target.value),
-                          }
-                        : prev,
-                    )
-                  }
-                  className="mt-1.5 block w-full rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-black/10 outline-none focus:ring-2 focus:ring-teal-600"
-                />
-              </label>
+              <div className="flex-1">
+                <span className="text-[11px] text-zinc-400">开始时间</span>
+                <div className="mt-1.5">
+                  <TimePicker
+                    value={form.startMinutes}
+                    onChange={(minutes) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, startMinutes: minutes } : prev,
+                      )
+                    }
+                  />
+                </div>
+              </div>
               <div className="flex-1">
                 <span className="text-[11px] text-zinc-400">时长</span>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
