@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 
 import { getHealth } from "@/lib/api";
 import ChatsSection from "./ChatsSection";
-import useMediaQuery from "./useMediaQuery";
+import useMediaQuery, { useMounted } from "./useMediaQuery";
 
 const SIDEBAR_WIDTH_KEY = "studygraph-sidebar-width";
 const SIDEBAR_MIN_WIDTH = 180;
@@ -86,8 +86,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
 function AppShellInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [provider, setProvider] = useState<string>("");
+  const mounted = useMounted();
   const isLg = useMediaQuery("(min-width: 1024px)");
-  // 侧栏可变宽度：拖拽调节（180–340px），本地记忆；null = 用默认 w-56
+  // 侧栏可变宽度：拖拽调节（180–340px），本地记忆；null = 用默认 w-56。
+  // 初始值读 localStorage，但渲染输出由 mounted 门控（水合前与服务端一致）。
   const [sidebarWidth, setSidebarWidth] = useState<number | null>(() => {
     try {
       const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
@@ -137,14 +139,19 @@ function AppShellInner({ children }: { children: ReactNode }) {
     window.addEventListener("mouseup", onUp);
   }, []);
 
+  // 拖拽柄与自定义宽度只在水合完成后的宽屏渲染——避免服务端/客户端首帧不一致
+  const showResizeHandle = mounted && isLg;
+
   return (
     <div className="flex h-dvh bg-white text-zinc-900">
       <aside
         className="relative flex w-14 shrink-0 flex-col border-r border-black/[0.06] bg-white lg:w-56"
-        style={isLg && sidebarWidth ? { width: sidebarWidth } : undefined}
+        style={
+          showResizeHandle && sidebarWidth ? { width: sidebarWidth } : undefined
+        }
       >
         {/* 右缘拖拽柄：调节侧栏宽度（双击恢复默认） */}
-        {isLg && (
+        {showResizeHandle && (
           <div
             role="separator"
             aria-orientation="vertical"
