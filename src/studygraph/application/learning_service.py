@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from typing import Any
 
 from ..domain.errors import LearningError
@@ -74,6 +75,7 @@ class LearningService:
         count: int = 3,
         model: ChatModelPort | None = None,
         difficulty: str = "auto",
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
     ) -> list[dict[str, Any]]:
         if count < 1 or count > 10:
             raise LearningError("每次可生成 1 到 10 道练习题")
@@ -90,6 +92,7 @@ class LearningService:
                 count=count,
                 model=model,
                 difficulty=difficulty,
+                on_progress=on_progress,
             )
         return await self._from_library(
             user_id=user_id,
@@ -97,6 +100,7 @@ class LearningService:
             count=count,
             model=model,
             difficulty=difficulty,
+            on_progress=on_progress,
         )
 
     async def _from_library(
@@ -107,6 +111,7 @@ class LearningService:
         count: int,
         model: ChatModelPort | None,
         difficulty: str,
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
     ) -> list[dict[str, Any]]:
         if not library.strip():
             raise LearningError("请先选择知识库")
@@ -138,6 +143,15 @@ class LearningService:
                     difficulty=resolved,
                 )
             )
+            if on_progress is not None:
+                on_progress(
+                    {
+                        "done": len(created),
+                        "total": len(candidates),
+                        "library": library,
+                        "difficulty": resolved,
+                    }
+                )
         return created
 
     async def _from_mistakes(
@@ -148,6 +162,7 @@ class LearningService:
         count: int,
         model: ChatModelPort | None,
         difficulty: str,
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
     ) -> list[dict[str, Any]]:
         rows = self.repository.unused_mistakes(user_id, library, limit=count)
         if not rows:
@@ -182,6 +197,15 @@ class LearningService:
                     difficulty=resolved,
                 )
             )
+            if on_progress is not None:
+                on_progress(
+                    {
+                        "done": len(created),
+                        "total": len(rows),
+                        "library": str(row["library"]),
+                        "difficulty": resolved,
+                    }
+                )
         return created
 
     def _store_question(

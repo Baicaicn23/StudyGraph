@@ -6,10 +6,11 @@ import {
   answerQuestion,
   deleteQuestion,
   dueQuestions,
-  generatePractice,
+  generatePracticeStream,
   listLibraries,
   studyPlan,
   type AnswerResult,
+  type GenerateProgress,
   type Library,
   type PracticeDifficulty,
   type PracticeRating,
@@ -80,6 +81,39 @@ function splitMistake(prompt: string): { main: string; note: string | null } {
   };
 }
 
+/** 题面：标签行 + 题干 + 误区块（牌堆当前牌与飞走牌共用）。 */
+function QuestionBody({ question }: { question: Question }) {
+  const { main, note } = splitMistake(question.prompt);
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[11px] font-medium leading-4 text-zinc-600">
+          {question.library}
+        </span>
+        {question.source === "mistake" && (
+          <span className="rounded-full bg-red-100/80 px-2.5 py-0.5 text-[11px] font-medium leading-4 text-red-700">
+            来自你的误区
+          </span>
+        )}
+        <DifficultyTag difficulty={question.difficulty} />
+      </div>
+      <p className="mt-2.5 whitespace-pre-wrap text-sm leading-relaxed text-zinc-800">
+        {main}
+      </p>
+      {note && (
+        <div className="mt-2.5 rounded-lg bg-red-50/70 p-3">
+          <p className="text-xs font-semibold text-red-600">
+            你当时记下的误区
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-red-900/80">
+            {note}
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function PracticePage() {
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [source, setSource] = useState<PracticeSource>("knowledge_base");
@@ -96,10 +130,15 @@ export default function PracticePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [genMsg, setGenMsg] = useState("");
+  const [genProgress, setGenProgress] = useState<GenerateProgress | null>(null);
   const [autoStart, setAutoStart] = useState(true);
-  const [collapsed, setCollapsed] = useState<number[]>([]);
   const [starred, setStarred] = useState<number[]>([]);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
+  // 卡片堆叠：刚作答完、正在播放「飞走」动画的牌
+  const [flying, setFlying] = useState<{
+    question: Question;
+    result: AnswerResult;
+  } | null>(null);
 
   const reviewRef = useRef<HTMLDivElement>(null);
   const generateRef = useRef<HTMLDivElement>(null);
@@ -135,12 +174,14 @@ export default function PracticePage() {
     setBusy(true);
     setError("");
     setGenMsg("");
+    setGenProgress(null);
     try {
-      const questions = await generatePractice(
+      const questions = await generatePracticeStream(
         source,
         source === "knowledge_base" ? library : "",
         count,
         difficulty,
+        (progress) => setGenProgress(progress),
       );
       setGenerated(questions);
       setGenMsg(`已生成 ${questions.length} 道题，已加入今日待复习`);
@@ -156,25 +197,22 @@ export default function PracticePage() {
       setGenerated([]);
     } finally {
       setBusy(false);
+      setGenProgress(null);
     }
   };
 
   const onAnswer = async (questionId: number, rating: PracticeRating) => {
+    const question = queue.find((q) => q.id === questionId);
+    if (!question || flying) return;
     setError("");
     try {
       const result = await answerQuestion(questionId, rating);
       setResults((prev) => ({ ...prev, [questionId]: result }));
-      setQueue((prev) => {
-        const answered = prev.find((q) => q.id === questionId);
-        setLastResult(
-          answered
-            ? { ...result, prompt: answered.prompt }
-            : { ...result, prompt: "" },
-        );
-        return prev.filter((q) => q.id !== questionId);
-      });
-      // 平滑滚回列表顶部，让反馈条进入视野
-      reviewListRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      setLastResult({ ...result, prompt: question.prompt });
+      // 先把这张牌标记为「飞走」，出队交给动画结束时（flying 清空即消失）
+      setFlying({ question, result });
+      setQueue((prev) => prev.filter((q) => q.id !== questionId));
+      window.setTimeout(() => setFlying(null), 460);
       await refresh();
     } catch (err) {
       setError((err as Error).message);
@@ -207,11 +245,6 @@ export default function PracticePage() {
       return next;
     });
   };
-
-  const toggleCollapse = (id: number) =>
-    setCollapsed((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
 
   const answeredTotal = Object.keys(results).length + queue.length;
   const doneCount = Object.keys(results).length;
@@ -333,9 +366,38 @@ export default function PracticePage() {
                   disabled={busy || (source === "knowledge_base" && !library)}
                   className="flex-1 rounded-full bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] disabled:opacity-40"
                 >
-                  {busy ? "生成中…" : "生成"}
+                  {busy
+                    ? genProgress
+                      ? `正在出第 ${genProgress.done}/${genProgress.total} 题…`
+                      : "正在选题…"
+                    : "生成"}
                 </button>
               </div>
+
+              {/* 生成进度条：每出一题推进一格 */}
+              {busy && genProgress && (
+                <div className="animate-fade-up mt-3">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
+                    <div
+                      className="h-full rounded-full bg-teal-600 transition-all duration-500 ease-out"
+                      style={{
+                        width: `${(genProgress.done / genProgress.total) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-zinc-400">
+                    {genProgress.done} / {genProgress.total} ·{" "}
+                    {genProgress.library}
+                    {genProgress.difficulty && (
+                      <>
+                        {" · "}
+                        {DIFFICULTY_TAGS[genProgress.difficulty]?.label ??
+                          genProgress.difficulty}
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
 
               {/* 自动开始复习 */}
               <label className="mt-4 flex cursor-pointer items-center gap-2 text-xs text-zinc-400">
@@ -518,164 +580,126 @@ export default function PracticePage() {
                 </div>
               )}
 
-              {queue.length === 0 ? (
+              {queue.length === 0 && !flying ? (
                 <p className="py-10 text-center text-sm text-zinc-400">
                   暂无到期题目。去左侧生成几道吧。
                 </p>
               ) : (
-                queue.map((question) => {
-                  const isCollapsed = collapsed.includes(question.id);
-                  const isStarred = starred.includes(question.id);
-                  const draft = drafts[question.id] ?? "";
-                  return (
+                <div className="relative">
+                  {/* 飞走动画中的牌：盖在牌堆原位，动画结束即卸载 */}
+                  {flying && (
+                    <div className="animate-card-fly-out pointer-events-none absolute inset-x-0 top-0 z-20 rounded-2xl border border-black/[0.06] bg-white p-4">
+                      <QuestionBody question={flying.question} />
+                      <p className="mt-3 text-xs font-medium text-emerald-700">
+                        已记录自评：掌握度 {flying.result.mastery}% ·{" "}
+                        {flying.result.due_in_days > 0
+                          ? `${flying.result.due_in_days} 天后再来`
+                          : "稍后再来"}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 堆叠卡背：露出的下一题边缘 */}
+                  {queue.slice(1, 3).map((_, index) => (
                     <div
-                      key={question.id}
-                      className={`animate-fade-up rounded-xl border transition-all duration-200 hover:-translate-y-px hover:shadow-[0_2px_10px_rgba(0,0,0,0.06)] ${
-                        isCollapsed
-                          ? "border-black/[0.05] bg-black/[0.015]"
-                          : "border-black/[0.06] bg-black/[0.02]"
+                      key={queue[index + 1].id}
+                      aria-hidden
+                      className={`absolute inset-x-3 rounded-2xl border border-black/[0.06] bg-zinc-50 ${
+                        index === 0 ? "top-2 z-0" : "top-4"
                       }`}
-                    >
-                      {/* 题头区 */}
-                      <div className="flex items-center gap-2 px-4 pt-4">
-                        <span className="rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[11px] font-medium leading-4 text-zinc-600">
-                          {question.library}
-                        </span>
-                        {question.source === "mistake" && (
-                          <span className="rounded-full bg-red-100/80 px-2.5 py-0.5 text-[11px] font-medium leading-4 text-red-700">
-                            来自你的误区
-                          </span>
-                        )}
-                        <DifficultyTag difficulty={question.difficulty} />
-                        <span className="flex-1" />
-                        <button
-                          type="button"
-                          onClick={() => void onDeleteQuestion(question.id)}
-                          aria-label="删除本题"
-                          title="删除本题"
-                          className="grid h-6 w-6 place-items-center rounded-lg text-zinc-300 transition hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M3 6h18" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleStar(question.id)}
-                          aria-label={isStarred ? "取消星标" : "星标本题"}
-                          className={`grid h-6 w-6 place-items-center rounded-lg transition hover:bg-black/[0.05] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
-                            isStarred ? "text-amber-400" : "text-zinc-300"
-                          }`}
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill={isStarred ? "currentColor" : "none"}
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden
-                          >
-                            <path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleCollapse(question.id)}
-                          aria-expanded={!isCollapsed}
-                          aria-label={isCollapsed ? "展开题目" : "折叠题目"}
-                          className="grid h-6 w-6 place-items-center rounded-lg text-zinc-300 transition hover:bg-black/[0.05] hover:text-zinc-600 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
-                        >
-                          <svg
-                            width="13"
-                            height="13"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden
-                            className={`transition-transform duration-300 ease-out motion-reduce:transition-none ${
-                              isCollapsed ? "-rotate-90" : "rotate-0"
+                      style={{ height: "calc(100% - 10px)" }}
+                    />
+                  ))}
+
+                  {/* 当前牌 */}
+                  {queue[0] && (
+                    <div className="animate-fade-up relative z-10 rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
+                      <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <QuestionBody question={queue[0]} />
+                        </div>
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleStar(queue[0].id)}
+                            aria-label={starred.includes(queue[0].id) ? "取消星标" : "星标本题"}
+                            title="星标本题"
+                            className={`grid h-6 w-6 place-items-center rounded-lg transition hover:bg-black/[0.05] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                              starred.includes(queue[0].id)
+                                ? "text-amber-400"
+                                : "text-zinc-300"
                             }`}
                           >
-                            <path d="m6 9 6 6 6-6" />
-                          </svg>
-                        </button>
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill={starred.includes(queue[0].id) ? "currentColor" : "none"}
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden
+                            >
+                              <path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void onDeleteQuestion(queue[0].id)}
+                            aria-label="删除本题"
+                            title="删除本题"
+                            className="grid h-6 w-6 place-items-center rounded-lg text-zinc-300 transition hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M3 6h18" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
 
-                      {/* 内容区 */}
-                      {isCollapsed ? (
-                        <p className="truncate px-4 py-2.5 text-xs text-zinc-400">
-                          {question.prompt}
-                        </p>
-                      ) : (
-                        <div className="px-4 pb-4 pt-2">
-                          {(() => {
-                            const { main, note } = splitMistake(question.prompt);
-                            return (
-                              <>
-                                <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-800">
-                                  {main}
-                                </p>
-                                {note && (
-                                  <div className="mt-2.5 rounded-lg bg-red-50/70 p-3">
-                                    <p className="text-xs font-semibold text-red-600">
-                                      你当时记下的误区
-                                    </p>
-                                    <p className="mt-1 text-sm leading-relaxed text-red-900/80">
-                                      {note}
-                                    </p>
-                                  </div>
-                                )}
-                              </>
-                            );
-                          })()}
-                          {/* 作答区 */}
-                          <div className="mt-3">
-                            <div className="relative">
-                              <textarea
-                                rows={2}
-                                maxLength={500}
-                                value={draft}
-                                onChange={(event) =>
-                                  setDrafts((prev) => ({
-                                    ...prev,
-                                    [question.id]: event.target.value,
-                                  }))
-                                }
-                                placeholder="写下你的作答（自评用，不会提交）…"
-                                className="w-full rounded-xl bg-white px-3.5 py-2.5 pb-6 text-sm ring-1 ring-black/10 outline-none transition placeholder:text-zinc-400 focus:ring-2 focus:ring-teal-600"
-                              />
-                              <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] tabular-nums text-zinc-300/90">
-                                {draft.length}/500
-                              </span>
-                            </div>
-                          </div>
-                          <div className="mt-2.5 grid grid-cols-4 gap-2">
-                            {RATINGS.map((rating) => (
-                              <button
-                                key={rating.value}
-                                type="button"
-                                onClick={() =>
-                                  void onAnswer(question.id, rating.value)
-                                }
-                                className={`rounded-full border bg-zinc-50 py-1.5 text-xs font-medium text-center transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 focus-visible:outline-none ${rating.cls}`}
-                              >
-                                {rating.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      {/* 作答区 */}
+                      <div className="relative mt-3">
+                        <textarea
+                          rows={3}
+                          maxLength={500}
+                          value={drafts[queue[0].id] ?? ""}
+                          onChange={(event) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [queue[0].id]: event.target.value,
+                            }))
+                          }
+                          placeholder="写下你的作答（自评用，不会提交）…"
+                          className="w-full resize-none rounded-xl bg-zinc-50 px-3.5 py-2.5 pb-6 text-sm ring-1 ring-black/10 outline-none transition placeholder:text-zinc-400 focus:bg-white focus:ring-2 focus:ring-teal-600"
+                        />
+                        <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] tabular-nums text-zinc-300/90">
+                          {(drafts[queue[0].id] ?? "").length}/500
+                        </span>
+                      </div>
+                      <div className="mt-2.5 grid grid-cols-4 gap-2">
+                        {RATINGS.map((rating) => (
+                          <button
+                            key={rating.value}
+                            type="button"
+                            onClick={() => void onAnswer(queue[0].id, rating.value)}
+                            className={`rounded-full border bg-zinc-50 py-2 text-xs font-medium text-center transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-1 focus-visible:outline-none active:scale-95 ${rating.cls}`}
+                          >
+                            {rating.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  );
-                })
+                  )}
+
+                  {queue.length > 1 && (
+                    <p className="mt-3 text-center text-xs text-zinc-400">
+                      还有 {queue.length - 1} 题在队列里
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </section>

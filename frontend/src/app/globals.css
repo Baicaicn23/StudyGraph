@@ -55,9 +55,24 @@ body {
 .animate-pop-in {
   animation: pop-in 0.18s ease-out both;
 }
+/* 复习卡片作答完成：从牌堆飞出（向右上滑出 + 轻微旋转 + 淡出） */
+@keyframes card-fly-out {
+  from {
+    opacity: 1;
+    transform: translateX(0) rotate(0deg) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(120%) rotate(8deg) scale(0.92);
+  }
+}
+.animate-card-fly-out {
+  animation: card-fly-out 0.45s ease-in forwards;
+}
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-up,
-  .animate-pop-in {
+  .animate-pop-in,
+  .animate-card-fly-out {
     animation: none;
   }
 }

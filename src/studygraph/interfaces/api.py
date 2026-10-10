@@ -14,6 +14,7 @@ SSE 事件协议（每行一个事件，`data` 为 JSON）：
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from contextlib import asynccontextmanager
@@ -772,6 +773,52 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except LearningError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"questions": questions}
+
+    @app.post("/api/practice/generate/stream")
+    async def generate_practice_stream(
+        body: GenerateRequest, request: Request
+    ) -> StreamingResponse:
+        """流式出题：每出一题推一帧 progress，最后推 done（questions 全量）。"""
+
+        async def _stream() -> StreamingResponse:  # type: ignore[return]
+            events: asyncio.Queue[dict | None] = asyncio.Queue()
+
+            async def _run() -> None:
+                try:
+                    questions = await request.app.state.learning.generate(
+                        user_id=body.user_id,
+                        source=body.source,
+                        library=body.library,
+                        count=body.count,
+                        model=request.app.state.model,
+                        difficulty=body.difficulty,
+                        on_progress=lambda info: events.put_nowait(
+                            {"type": "progress", **info}
+                        ),
+                    )
+                    await events.put({"type": "done", "questions": questions})
+                except LearningError as exc:
+                    await events.put({"type": "error", "message": str(exc)})
+                except Exception as exc:  # noqa: BLE001 — 流内兜底，不让任务静默死
+                    await events.put(
+                        {"type": "error", "message": f"{type(exc).__name__}: {exc}"}
+                    )
+                finally:
+                    await events.put(None)
+
+            task = asyncio.create_task(_run())
+            while True:
+                event = await events.get()
+                if event is None:
+                    break
+                yield _sse(str(event.pop("type")), event)
+            await task
+
+        return StreamingResponse(
+            _stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     @app.get("/api/practice/due")
     async def due_practice(request: Request, user_id: str = "local") -> dict:

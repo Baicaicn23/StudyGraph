@@ -209,6 +209,69 @@ export async function generatePractice(
   return data.questions;
 }
 
+export interface GenerateProgress {
+  done: number;
+  total: number;
+  library: string;
+  difficulty: string;
+}
+
+/** 流式出题：每出一题回调一次 onProgress，结束时 resolve 全量题目。 */
+export async function generatePracticeStream(
+  source: PracticeSource,
+  library: string,
+  count: number,
+  difficulty: PracticeDifficulty,
+  onProgress: (progress: GenerateProgress) => void,
+): Promise<Question[]> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/api/practice/generate/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source, library, count, difficulty }),
+    });
+  } catch {
+    throw new Error("无法连接后端，请确认服务已启动。");
+  }
+  if (!response.ok || !response.body) {
+    throw new Error(`请求失败：${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let questions: Question[] | null = null;
+  let errorMessage = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let index: number;
+    while ((index = buffer.indexOf("\n\n")) !== -1) {
+      const block = buffer.slice(0, index);
+      buffer = buffer.slice(index + 2);
+      const eventLine = block
+        .split("\n")
+        .find((line) => line.startsWith("event: "));
+      const dataLine = block
+        .split("\n")
+        .find((line) => line.startsWith("data: "));
+      if (!eventLine || !dataLine) continue;
+      const payload = JSON.parse(dataLine.slice(6)) as Record<string, unknown>;
+      if (eventLine.slice(6) === "progress") {
+        onProgress(payload as unknown as GenerateProgress);
+      } else if (eventLine.slice(6) === "done") {
+        questions = (payload.questions as Question[]) ?? [];
+      } else if (eventLine.slice(6) === "error") {
+        errorMessage = String(payload.message ?? "出题失败");
+      }
+    }
+  }
+  if (errorMessage) throw new Error(errorMessage);
+  return questions ?? [];
+}
+
 export async function dueQuestions(): Promise<Question[]> {
   const data = await requestJson<{ questions: Question[] }>("/api/practice/due");
   return data.questions;
