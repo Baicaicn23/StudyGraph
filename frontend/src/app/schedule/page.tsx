@@ -221,6 +221,13 @@ export default function SchedulePage() {
 
   const tasks = day?.tasks ?? [];
   const doneCount = tasks.filter((task) => task.done).length;
+  const focusedMinutes = tasks
+    .filter((task) => task.done)
+    .reduce((sum, task) => sum + task.duration_minutes, 0);
+  const focusLabel =
+    focusedMinutes >= 60
+      ? `${Math.floor(focusedMinutes / 60)} 小时 ${focusedMinutes % 60} 分`
+      : `${focusedMinutes} 分钟`;
 
   return (
     <Page
@@ -378,45 +385,73 @@ export default function SchedulePage() {
 
         {/* 时间轴 */}
         <div className="min-w-0 flex-1 rounded-2xl border border-black/[0.06] bg-white p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-baseline justify-between">
             <span className="text-sm font-semibold text-zinc-800">时间轴</span>
-            <span className="text-[11px] tabular-nums text-zinc-400">
+            <span className="text-[11px] tabular-nums text-zinc-500">
               完成 {doneCount} / {tasks.length}
+              {focusedMinutes > 0 && ` · 专注 ${focusLabel}`}
             </span>
+          </div>
+          <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-black/[0.06]">
+            <div
+              className="h-full rounded-full bg-teal-600 transition-all duration-500 ease-out"
+              style={{
+                width: `${tasks.length > 0 ? (doneCount / tasks.length) * 100 : 0}%`,
+              }}
+            />
           </div>
 
           <div
             ref={scrollRef}
-            className="relative mt-3 max-h-[min(70vh,760px)] overflow-y-auto pr-1"
+            className="relative mt-4 max-h-[min(70vh,760px)] overflow-y-auto pr-2"
           >
             <div
               className="relative"
-              style={{ height: TIMELINE_HEIGHT, marginLeft: 52 }}
+              style={{ height: TIMELINE_HEIGHT, marginLeft: 56 }}
             >
-              {/* 小时刻度 */}
+              {/* 脊线：卡片挂在同一条竖线上 */}
+              <div className="absolute bottom-0 left-0 top-0 w-px bg-black/[0.06]" />
+
+              {/* 小时刻度 + 悬停空档 */}
               {Array.from({ length: (DAY_END - DAY_START) / 60 }).map((_, index) => {
                 const minutes = DAY_START + index * 60;
                 return (
                   <div
                     key={minutes}
                     className="absolute left-0 right-0"
-                    style={{ top: index * HOUR_HEIGHT }}
+                    style={{ top: index * HOUR_HEIGHT, height: HOUR_HEIGHT }}
                   >
-                    <span className="absolute -left-12 top-0 w-10 text-right text-[10px] tabular-nums text-zinc-300">
+                    <span className="absolute -left-14 top-0 w-11 text-right text-[11px] tabular-nums text-zinc-500">
                       {minutesToLabel(minutes)}
                     </span>
-                    <div className="h-px w-full bg-black/[0.04]" />
+                    <div className="absolute inset-x-0 top-0 h-px bg-black/[0.04]" />
+                    {/* 空白时段：悬停显示「在这里加一件事」，点击以该时刻新建 */}
+                    <button
+                      type="button"
+                      onClick={() => openCreate(minutes)}
+                      title={`${minutesToLabel(minutes)} 添加任务`}
+                      className="group absolute inset-x-1.5 top-1.5 h-[26px] rounded-lg border border-dashed border-teal-600/35 bg-teal-600/[0.04] opacity-0 transition focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none hover:opacity-100"
+                    >
+                      <span className="pl-3 text-left text-[11px] text-teal-700">
+                        ＋ 在这里加一件事
+                      </span>
+                    </button>
                   </div>
                 );
               })}
 
-              {/* 当前时刻 */}
+              {/* 当前时刻：带时间的小胶囊 */}
               {nowTop !== null && (
                 <div
-                  className="absolute left-0 right-0 z-20 border-t border-dashed border-red-500/70"
+                  className="absolute left-0 right-0 z-20"
                   style={{ top: nowTop }}
+                  aria-hidden
                 >
-                  <span className="absolute -left-12 -top-2 w-10 text-right text-[10px] font-medium tabular-nums text-red-500">
+                  <div className="border-t-[1.5px] border-dashed border-red-500/70" />
+                  <span className="absolute -left-14 -top-3 w-11 text-right text-[10px] font-medium tabular-nums text-red-600">
+                    现在
+                  </span>
+                  <span className="absolute -top-[9px] left-2 rounded-full border border-red-200 bg-white px-2 py-0.5 text-[10px] font-medium tabular-nums text-red-600">
                     {minutesToLabel(nowMinutes ?? 0)}
                   </span>
                 </div>
@@ -428,20 +463,39 @@ export default function SchedulePage() {
                 const top = ((start - DAY_START) / 60) * HOUR_HEIGHT;
                 const height = Math.max(
                   (task.duration_minutes / 60) * HOUR_HEIGHT,
-                  32,
+                  44,
                 );
                 const end = start + task.duration_minutes;
+                const running =
+                  !task.done &&
+                  nowMinutes !== null &&
+                  isToday &&
+                  nowMinutes >= start &&
+                  nowMinutes < end;
                 return (
                   <div
                     key={task.id}
-                    className={`absolute left-0 right-0 z-10 ${task.done ? "opacity-60" : ""}`}
+                    className="absolute left-0 right-0 z-10"
                     style={{ top, height }}
                   >
-                    <div
-                      className={`group flex h-full items-start gap-2 overflow-hidden rounded-xl border px-3 py-2 transition ${
+                    {/* 起点圆点：进行中青绿、当前浅青、已完成灰 */}
+                    <span
+                      aria-hidden
+                      className={`absolute -left-[4.5px] top-[13px] h-[9px] w-[9px] rounded-full ring-[3px] ring-white ${
                         task.done
-                          ? "border-black/[0.06] bg-zinc-50"
-                          : "border-black/[0.08] bg-white hover:shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
+                          ? "bg-zinc-400"
+                          : running
+                            ? "bg-teal-300"
+                            : "bg-teal-600"
+                      }`}
+                    />
+                    <div
+                      className={`group ml-3 flex h-full items-center gap-2.5 overflow-hidden rounded-xl px-3 py-2 transition ${
+                        task.done
+                          ? "bg-zinc-50"
+                          : running
+                            ? "bg-[#F1FAF6] shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                            : "bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_12px_rgba(0,0,0,0.05)] hover:shadow-[0_2px_4px_rgba(0,0,0,0.06),0_8px_20px_rgba(0,0,0,0.07)]"
                       }`}
                     >
                       <button
@@ -449,34 +503,49 @@ export default function SchedulePage() {
                         onClick={() => openEdit(task)}
                         className="min-w-0 flex-1 text-left focus-visible:outline-none"
                       >
-                        <div className="text-[10px] tabular-nums text-zinc-400">
-                          {minutesToLabel(start)} - {minutesToLabel(end)} ·{" "}
-                          {task.duration_minutes} 分钟
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`text-[11px] tabular-nums ${
+                              running ? "text-teal-700" : "text-zinc-500"
+                            }`}
+                          >
+                            {minutesToLabel(start)} – {minutesToLabel(end)}
+                          </span>
+                          {running && (
+                            <span className="rounded-full bg-teal-600/15 px-2 py-0.5 text-[10px] font-medium text-teal-800">
+                              进行中
+                            </span>
+                          )}
                         </div>
                         <div
-                          className={`mt-0.5 truncate text-[13px] font-medium ${
+                          className={`mt-0.5 truncate text-[13.5px] font-medium ${
                             task.done
-                              ? "text-zinc-400 line-through"
-                              : "text-zinc-800"
+                              ? "text-zinc-500 line-through"
+                              : "text-zinc-900"
                           }`}
                         >
                           {task.title}
                         </div>
-                        {task.note && height > 60 && (
-                          <div className="mt-0.5 line-clamp-2 text-[11px] text-zinc-400">
+                        {task.note && height >= 62 && (
+                          <div className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">
                             {task.note}
                           </div>
                         )}
                       </button>
+                      {!task.done && (
+                        <span className="shrink-0 rounded-full bg-teal-600/10 px-2 py-0.5 text-[10px] tabular-nums text-teal-700">
+                          {task.duration_minutes} 分
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => void onToggleDone(task)}
                         aria-label={task.done ? "标记未完成" : "标记完成"}
                         title={task.done ? "标记未完成" : "标记完成"}
-                        className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                        className={`grid h-5 w-5 shrink-0 place-items-center rounded-full transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
                           task.done
-                            ? "border-teal-600 bg-teal-600 text-white"
-                            : "border-teal-300 hover:border-teal-600"
+                            ? "bg-teal-600 text-white hover:bg-teal-700"
+                            : "border-[1.5px] border-teal-300 hover:border-teal-600"
                         }`}
                       >
                         {task.done && (
@@ -491,8 +560,17 @@ export default function SchedulePage() {
               })}
 
               {tasks.length === 0 && (
-                <div className="absolute inset-x-0 top-16 text-center text-xs text-zinc-400">
-                  这一天还没有安排。点右下角 ＋ 新建，或从收件箱安排一条。
+                <div className="absolute inset-x-0 top-14 ml-3 rounded-xl border border-dashed border-black/[0.12] py-6 text-center">
+                  <p className="text-xs text-zinc-500">
+                    这一天还没有安排
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openCreate(null)}
+                    className="mt-1.5 text-xs font-medium text-teal-700 transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                  >
+                    ＋ 新建一件，或从收件箱安排一条
+                  </button>
                 </div>
               )}
             </div>
