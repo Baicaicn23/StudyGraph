@@ -245,6 +245,58 @@ GET /api/usage?user_id=local&days=1
    "daily_token_budget":200000}
 ```
 
+## 日程（时间轴 + 收件箱）
+
+> date 为空的日程任务 = 留在收件箱；时间轴固定 06:00–24:00。
+> `start_minutes` 是当天分钟数（0–1439）。
+
+```
+GET /api/schedule?date=2026-10-10        # 某天时间轴 + 收件箱计数（页面一次拿全）
+→ {"date": "2026-10-10",
+   "tasks": [{"id": 1, "title": "背单词", "note": "", "date": "2026-10-10",
+              "start_minutes": 360, "duration_minutes": 30, "done": false, ...}],
+   "inbox_count": 3}
+# 400 日期格式必须是 YYYY-MM-DD
+```
+
+```
+GET /api/schedule/inbox?user_id=local
+→ {"tasks": [{"id": 2, "title": "写实验报告", "date": null, "start_minutes": null,
+              "duration_minutes": 90, "done": false, ...}]}
+```
+
+```
+GET /api/schedule/week?date=2026-10-10    # 周条密度（周日开头的 7 天）
+→ {"start": "2026-10-04", "end": "2026-10-10",
+   "days": [{"date": "2026-10-04", "total": 2, "done": 1}, ...]}
+```
+
+```
+POST /api/schedule/tasks                  # 新建（date 缺省 = 进收件箱）
+body: {"title": "复习特征值", "note": "教材 P120", "duration_minutes": 45,
+       "date": "2026-10-10", "start_minutes": 1265}   # date 给了但 start_minutes 缺省 → 自动落最早空档
+→ {"task": {...}}
+# 400 标题空/日期非法/时长越界；422 参数不合法
+```
+
+```
+PUT /api/schedule/tasks/{id}              # 更新（只传要改的字段）
+body: {"title": "新标题", "note": "...", "date": "2026-10-11",
+       "start_minutes": 600, "duration_minutes": 60, "done": true}
+→ {"task": {...}}                         # 400 任务不存在 / 无字段可更新
+```
+
+```
+POST /api/schedule/tasks/{id}/arrange?date=2026-10-10   # 一键安排：落到该日最早空档
+POST /api/schedule/tasks/{id}/unarrange                 # 退回收件箱（清日期与时间，保留时长）
+→ {"task": {...}}
+```
+
+```
+DELETE /api/schedule/tasks/{id}?user_id=local
+→ {"deleted": 1}                          # 404 任务不存在
+```
+
 ## 建议的前端页面 ↔ 接口映射
 
 | 页面 | 主要接口 |
@@ -255,6 +307,7 @@ GET /api/usage?user_id=local&days=1
 | 练习 / 复习 | `POST /api/practice/generate`、`GET /api/practice/due`、`POST|DELETE /api/practice/...` |
 | 错题本 | `POST|GET /api/feedback`、`DELETE /api/feedback/{id}` |
 | 今日复习 | `GET /api/study/plan`、`GET /api/study/activity` |
+| 日程 `/schedule` | `GET /api/schedule`、`/api/schedule/inbox`、`/api/schedule/week`、`POST|PUT|DELETE /api/schedule/tasks...`、`POST .../arrange`、`POST .../unarrange` |
 | 记忆 / 用量 | `GET /api/memories`、`DELETE /api/memories/{id}`、`GET /api/usage` |
 
 > CORS 已放行 `http://localhost:3000` 与 `http://127.0.0.1:3000`。
