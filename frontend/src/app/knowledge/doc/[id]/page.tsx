@@ -8,6 +8,8 @@ import {
   deleteDocument,
   getDocument,
   getHealth,
+  documentFileUrl,
+  parseDocumentFile,
   streamChat,
   updateDocument,
   type KnowledgeDocument,
@@ -88,7 +90,14 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
 
   // 编辑 / 删除当前笔记
   const router = useRouter();
+  // 原样文件（PDF/Word）：原件视图 / 解析后的文本视图 + 解析动作
+  const [fileView, setFileView] = useState<"original" | "text">("original");
+  const [parsing, setParsing] = useState(false);
+  const [parseMsg, setParseMsg] = useState("");
+  const [parseError, setParseError] = useState("");
   const [editing, setEditing] = useState(false);
+  const isFileDoc = doc?.kind === "file" || doc?.kind === "file_text";
+  const isPdf = Boolean(doc && doc.title.toLowerCase().endsWith(".pdf"));
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -392,7 +401,111 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
             ) : (
               doc && (
                 <article>
-                  {editing ? (
+                  {doc && doc.kind && doc.kind !== "text" ? (
+                    /* ---------- 原样文件（PDF/Word）---------- */
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {doc.kind === "file_text" && (
+                          <div className="flex rounded-lg bg-black/[0.04] p-0.5 text-[11px]">
+                            {(
+                              [
+                                { key: "original" as const, label: "原件" },
+                                { key: "text" as const, label: "文本" },
+                              ]
+                            ).map((tab) => (
+                              <button
+                                key={tab.key}
+                                type="button"
+                                onClick={() => setFileView(tab.key)}
+                                className={`rounded-md px-2.5 py-1 transition ${
+                                  fileView === tab.key
+                                    ? "bg-white font-medium text-zinc-800 shadow-sm"
+                                    : "text-zinc-500"
+                                }`}
+                              >
+                                {tab.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {doc.kind === "file" && isPdf && !parsing && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setParsing(true);
+                              setParseError("");
+                              try {
+                                const r = await parseDocumentFile(doc.id);
+                                setParseMsg(
+                                  `解析完成：${r.chars} 字已建立检索索引，AI 问答可以引用了`,
+                                );
+                                const fresh = await getDocument(doc.id);
+                                setDoc(fresh);
+                                setFileView("text");
+                              } catch (err) {
+                                setParseError((err as Error).message);
+                              } finally {
+                                setParsing(false);
+                              }
+                            }}
+                            className="rounded-full border border-teal-600/40 px-3 py-1 text-[11px] font-medium text-teal-700 transition hover:bg-teal-600/10 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                          >
+                            解析入库（建立检索索引）
+                          </button>
+                        )}
+                        <a
+                          href={documentFileUrl(doc.id)}
+                          download
+                          className="ml-auto text-[11px] text-zinc-400 underline-offset-2 transition hover:text-zinc-600 hover:underline"
+                        >
+                          下载原文
+                        </a>
+                      </div>
+                      {parsing && (
+                        <p className="mt-3 flex items-center gap-2 text-[12px] text-teal-700">
+                          <span className="h-3 w-3 animate-spin rounded-full border-2 border-teal-600/30 border-t-teal-600" />
+                          正在解析 PDF 并建立索引…
+                        </p>
+                      )}
+                      {parseError && (
+                        <p className="mt-3 text-[12px] text-red-500">{parseError}</p>
+                      )}
+                      {parseMsg && (
+                        <p className="mt-3 text-[12px] text-teal-700">{parseMsg}</p>
+                      )}
+
+                      {isPdf && (fileView === "original" || doc.kind === "file") ? (
+                        /* PDF 原件：浏览器内置渲染，就是「PDF 的样子」 */
+                        <iframe
+                          src={documentFileUrl(doc.id)}
+                          title={doc.title}
+                          className="mt-4 h-[72vh] w-full rounded-xl ring-1 ring-black/10"
+                        />
+                      ) : doc.kind === "file" ? (
+                        /* 非 PDF 原样文件：下载卡片 */
+                        <div className="mt-4 rounded-2xl bg-zinc-50 p-8 text-center ring-1 ring-black/[0.06]">
+                          <p className="text-sm font-medium text-zinc-600">
+                            {doc.title}
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-400">
+                            该格式暂不支持在线预览，可下载原文查看
+                          </p>
+                          <a
+                            href={documentFileUrl(doc.id)}
+                            download
+                            className="mt-3 inline-block rounded-full bg-teal-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-teal-700"
+                          >
+                            下载原文
+                          </a>
+                        </div>
+                      ) : (
+                        /* 解析出的文本视图 */
+                        <div className="prose prose-zinc mt-5 max-w-none text-sm leading-loose">
+                          <Markdown content={doc.content} />
+                        </div>
+                      )}
+                    </div>
+                  ) : editing ? (
                     <div className="space-y-3">
                       {editError && (
                         <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-600/10">

@@ -14,6 +14,9 @@ export interface DocumentItem {
   title: string;
   created_at: number;
   chars: number;
+  /** text = 传统文本资料；file = 原样文件（PDF/Word）；file_text = 原样文件 + 已解析文本 */
+  kind?: "text" | "file" | "file_text";
+  file_size?: number | null;
 }
 
 export interface Question {
@@ -152,6 +155,20 @@ export interface KnowledgeDocument {
   title: string;
   content: string;
   created_at: number;
+  kind?: "text" | "file" | "file_text";
+  file_size?: number | null;
+}
+
+/** 原样文件（PDF/Word）的内联预览 / 下载地址。 */
+export function documentFileUrl(id: number): string {
+  return `${API_BASE}/api/knowledge/doc/${id}/file`;
+}
+
+/** 懒解析：把原样文件（目前 PDF）抽出文本并建立检索索引。 */
+export async function parseDocumentFile(
+  id: number,
+): Promise<{ chars: number; indexed: number }> {
+  return postJson(`/api/knowledge/doc/${id}/parse`, {});
 }
 
 export async function getDocument(id: number): Promise<KnowledgeDocument> {

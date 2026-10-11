@@ -110,6 +110,7 @@ class KnowledgeStore:
         self.recall_depth = recall_depth
         self.rrf_k = rrf_k
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        self.files_root = Path(self.db_path).parent / "knowledge_files"
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
@@ -122,6 +123,25 @@ class KnowledgeStore:
         with self._connect() as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.executescript(_SCHEMA)
+            # 原样文件存储（PDF/Word 等二进制资料直接落盘，不解析）：
+            # 旧库平滑迁移——缺哪列补哪列
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(documents)").fetchall()
+            }
+            if "kind" not in columns:
+                connection.execute(
+                    "ALTER TABLE documents ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'"
+                )
+            if "file_path" not in columns:
+                connection.execute(
+                    "ALTER TABLE documents ADD COLUMN file_path TEXT"
+                )
+            if "file_size" not in columns:
+                connection.execute(
+                    "ALTER TABLE documents ADD COLUMN file_size INTEGER"
+                )
+        self.files_root.mkdir(parents=True, exist_ok=True)
 
     # -- 写入 -----------------------------------------------------------------
 
@@ -152,6 +172,87 @@ class KnowledgeStore:
                 content=content,
             )
         return document_id
+
+    def save_file_document(
+        self,
+        library: str,
+        title: str,
+        filename: str,
+        data: bytes,
+    ) -> int:
+        """原样保存二进制资料（PDF/Word 等）：文件落盘 + 建一条 kind=file 的文档。
+
+        不做任何解析/切块/向量化——需要参与检索问答时由用户手动触发解析。
+        """
+
+        self.ensure_library(library)
+        now = time.time()
+        safe = re.sub(r'[:/\\*?"<>|]+', "_", filename.strip() or "未命名").strip(".") or "未命名"
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "INSERT INTO documents(library, title, content, kind, created_at) "
+                "VALUES (?, ?, '', 'file', ?)",
+                (library, title, now),
+            )
+            document_id = int(cursor.lastrowid)
+        rel_name = f"{document_id}__{safe}"
+        target = self.files_root / rel_name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE documents SET file_path = ?, file_size = ? WHERE id = ?",
+                (rel_name, len(data), document_id),
+            )
+        return document_id
+
+    def get_document_file(
+        self, document_id: int
+    ) -> dict[str, str] | None:
+        """取原样文件的落盘路径与文件名（下载/内联预览用）。"""
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id, title, file_path FROM documents "
+                "WHERE id = ? AND kind = 'file' AND file_path IS NOT NULL",
+                (document_id,),
+            ).fetchone()
+        if row is None or not row["file_path"]:
+            return None
+        return {
+            "id": int(row["id"]),
+            "title": str(row["title"]),
+            "path": str(self.files_root / row["file_path"]),
+            "stored_name": str(row["file_path"]),
+        }
+
+    def attach_text_content(self, document_id: int, content: str) -> int:
+        """给 kind=file 的文档补上文本内容并建立检索索引（懒解析用）。
+
+        同时把 kind 升级为 'file_text'——原件保留，文本视图与检索从此可用。
+        返回建立的切块数。
+        """
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT library, title FROM documents WHERE id = ? AND kind = 'file'",
+                (document_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError("文档不存在或不是原样文件")
+            self._drop_document_index(connection, document_id=document_id)
+            connection.execute(
+                "UPDATE documents SET content = ?, kind = 'file_text' WHERE id = ?",
+                (content, document_id),
+            )
+            indexed = self._index_chunks(
+                connection,
+                library=str(row["library"]),
+                title=str(row["title"]),
+                document_id=document_id,
+                content=content,
+            )
+        return indexed
 
     def add_note(self, library: str, title: str, content: str) -> int:
         return self.add_document(library, title, content)
@@ -305,8 +406,8 @@ class KnowledgeStore:
 
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT id, library, title, content, created_at "
-                "FROM documents WHERE id = ?",
+                "SELECT id, library, title, content, created_at, kind, "
+                "file_path, file_size FROM documents WHERE id = ?",
                 (document_id,),
             ).fetchone()
         if row is None:
@@ -317,6 +418,9 @@ class KnowledgeStore:
             "title": str(row["title"]),
             "content": str(row["content"]),
             "created_at": float(row["created_at"]),
+            "kind": str(row["kind"] or "text"),
+            "file_path": row["file_path"],
+            "file_size": row["file_size"],
         }
 
     def list_documents(self, library: str) -> list[dict[str, object]]:
@@ -325,7 +429,8 @@ class KnowledgeStore:
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT id, title, created_at, LENGTH(content) AS chars
+                SELECT id, title, created_at, kind, file_size,
+                LENGTH(content) AS chars
                 FROM documents WHERE library = ?
                 ORDER BY created_at DESC, id DESC
                 """,
@@ -336,6 +441,8 @@ class KnowledgeStore:
                 "id": int(row["id"]),
                 "title": str(row["title"]),
                 "created_at": float(row["created_at"]),
+                "kind": str(row["kind"] or "text"),
+                "file_size": row["file_size"],
                 "chars": int(row["chars"]),
             }
             for row in rows

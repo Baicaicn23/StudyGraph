@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import mimetypes
 import time
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,7 +37,6 @@ from ..application.guardrails import screen_input, screen_output
 from ..application.image_notes import ImageNoteError, image_to_markdown
 from ..application.learning_service import LearningService
 from ..application.note_distiller import NoteDistillError, distill_note
-from ..application.pdf_formatter import format_pdf_markdown
 from ..application.schedule_service import ScheduleService
 from ..application.title_writer import generate_title
 from ..config import Settings, get_settings, parse_mcp_servers
@@ -168,6 +169,18 @@ _IMAGE_MIME_BY_SUFFIX = {
 
 
 # 工具名 → 用户能看懂的状态文案（前端状态行直接展示）。
+_BINARY_DOC_SUFFIXES = (
+    ".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx",
+)
+
+
+def is_binary_document(filename: str) -> bool:
+    """PDF / Word 等二进制资料——上传时原样落盘，不解析不调模型。"""
+
+    name = (filename or "").lower()
+    return name.endswith(_BINARY_DOC_SUFFIXES)
+
+
 _TOOL_STATUS = {
     "knowledge_search": "检索知识库",
     "mistake_search": "查阅错题记录",
@@ -624,6 +637,48 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except NoteDistillError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.get("/api/knowledge/doc/{document_id}/file")
+    async def get_document_file(document_id: int, request: Request):
+        """原样文件的内联预览 / 下载（PDF 浏览器直接渲染，Word 走下载）。"""
+
+        info = request.app.state.store.get_document_file(document_id)
+        if info is None:
+            raise HTTPException(status_code=404, detail="原样文件不存在")
+        media = mimetypes.guess_type(info["stored_name"])[0] or "application/octet-stream"
+        encoded = quote(info["stored_name"])
+        return FileResponse(
+            info["path"],
+            media_type=media,
+            headers={
+                "Content-Disposition": f"inline; filename*=UTF-8''{encoded}",
+            },
+        )
+
+    @app.post("/api/knowledge/doc/{document_id}/parse")
+    async def parse_document_file(document_id: int, request: Request):
+        """懒解析：把原样文件（目前支持 PDF）抽出文本并建立检索索引。"""
+
+        info = request.app.state.store.get_document_file(document_id)
+        if info is None:
+            raise HTTPException(status_code=404, detail="原样文件不存在")
+        if not info["stored_name"].lower().endswith(".pdf"):
+            raise HTTPException(
+                status_code=400,
+                detail="该格式暂不支持解析（目前支持 PDF）；可直接下载原文查看。",
+            )
+        data = Path(info["path"]).read_bytes()
+        try:
+            text = extract_text(info["stored_name"], data)
+        except ExtractError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if not text.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="PDF 里没有可提取的文本（可能是扫描件，需要视觉模型处理）",
+            )
+        indexed = request.app.state.store.attach_text_content(document_id, text)
+        return {"chars": len(text), "indexed": indexed}
+
     @app.post("/api/knowledge/upload")
     async def upload_document(
         request: Request,
@@ -648,22 +703,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 text = await image_to_markdown(model, file.filename or "", data)
             except ImageNoteError as exc:
                 raise HTTPException(status_code=502, detail=str(exc)) from exc
+        elif is_binary_document(file.filename or ""):
+            # PDF / Word 等二进制资料**原样秒传**：文件落盘，不解析不调模型。
+            # 需要参与检索问答时，在阅读器里手动点「解析」（PDF）。
+            document_id = request.app.state.store.save_file_document(
+                library, title, file.filename or "未命名", data
+            )
+            return {
+                "id": document_id,
+                "library": library,
+                "title": title,
+                "kind": "file",
+            }
         else:
             try:
                 text = extract_text(file.filename or "", data)
             except ExtractError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
-        # PDF 智能格式化：pypdf 抽出的平铺文本重排为结构化 Markdown
-        #（忠实转换不增删内容；Mock/失败回退原文）。真实模型才做。
-        if (
-            (file.filename or "").lower().endswith(".pdf")
-            and text.strip()
-            and getattr(request.app.state.model, "_llm_type", "") != "study-mock"
-        ):
-            try:
-                text = await format_pdf_markdown(request.app.state.model, raw_text=text)
-            except Exception:  # noqa: BLE001 — 格式化失败不阻断上传
-                pass
         if not text.strip():
             raise HTTPException(status_code=400, detail="文件里没有可提取的文本")
         document_id = request.app.state.store.add_document(library, title, text)

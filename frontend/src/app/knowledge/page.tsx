@@ -952,7 +952,7 @@ export default function KnowledgePage() {
                             {doc.title}
                           </span>
                           <span className="shrink-0 text-[11px] tabular-nums text-zinc-400">
-                            {formatDay(doc.created_at)} · {doc.chars} 字
+                            {formatDay(doc.created_at)} · {doc.kind === "file" || doc.kind === "file_text" ? (doc.title.toLowerCase().endsWith(".pdf") ? "PDF" : "文档") : `${doc.chars} 字`}
                           </span>
                           <svg
                             width="14"
