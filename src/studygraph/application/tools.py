@@ -369,35 +369,164 @@ def _search_web(query: str, max_results: int) -> list[dict[str, Any]]:
     raise RuntimeError("；".join(errors) or "没有可用搜索后端")
 
 
+# 域名权威度权重：官网/百科/系统文档 > 知名技术社区 > 默认 > 低质文库采集站。
+# 多路召回合并后按它降序排序——SEO 垃圾和标题党会被压下去。
+_DOMAIN_WEIGHTS = {
+    "zh.wikipedia.org": 5,
+    "en.wikipedia.org": 5,
+    "oi-wiki.org": 5,
+    "hello-algo.com": 5,
+    "developer.mozilla.org": 5,
+    "docs.python.org": 5,
+    "baike.baidu.com": 4,
+    "www.runoob.com": 4,
+    "runoob.com": 4,
+    "blog.csdn.net": 3,
+    "juejin.cn": 3,
+    "cnblogs.com": 3,
+    "zhuanlan.zhihu.com": 2,
+    "www.zhihu.com": 2,
+    "wenku.baidu.com": 1,
+    "doc88.com": 0,
+    "www.docin.com": 0,
+    "www.renrendoc.com": 0,
+    "max.book118.com": 0,
+}
+
+# 同一域名最多出现条数（多样性：避免结果全来自同一来源）
+_MAX_PER_DOMAIN = 3
+
+
+def _domain_weight(url: str) -> int:
+    host = urllib.parse.urlparse(url).netloc.lower()
+    return _DOMAIN_WEIGHTS.get(host, 1)
+
+
+def _text_tokens(text: str) -> set[str]:
+    """极简分词：拉丁词 + 中文二元组（够做相关性过滤，不引分词依赖）。"""
+
+    text = text.lower()
+    tokens = set(re.findall(r"[a-z0-9]{2,}", text))
+    for chunk in re.findall(r"[\u4e00-\u9fff]+", text):
+        for i in range(len(chunk) - 1):
+            tokens.add(chunk[i : i + 2])
+    return tokens
+
+
+def _merge_and_rank(
+    per_query: list[list[dict[str, Any]]],
+    limit: int,
+    queries: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """多路召回合并：相关性过滤 → URL/标题去重 → 权威度降序 → 同域限量。
+
+    相关性 = 查询词与（标题+摘要）的词/二元组重叠数。搜索引擎经常混入
+    「单个汉字的词典释义」「相关搜索」之类的垃圾结果——只要整批结果里
+    存在相关项，就把零相关的全部丢掉。
+    """
+
+    query_tokens = _text_tokens(" ".join(queries or []))
+    # 相关性阈值自适应：查询信息量够（≥4 个词/二元组）时要求至少命中 2 处，
+    # 且标题命中按 2 倍计——只沾一个词的结果（常见于 SEO 垃圾）会被丢掉。
+    needed = 2 if len(query_tokens) >= 4 else 1
+    seen_urls: set[str] = set()
+    seen_titles: set[str] = set()
+    merged: list[dict[str, Any]] = []
+    for results in per_query:
+        for item in results:
+            url = str(item.get("href") or item.get("url") or "").strip()
+            title = str(item.get("title") or "").strip()
+            body = str(item.get("body") or "")
+            norm = url.rstrip("/").split("?")[0]
+            if not url or norm in seen_urls or (title and title in seen_titles):
+                continue
+            seen_urls.add(norm)
+            if title:
+                seen_titles.add(title)
+            title_tokens = _text_tokens(title)
+            body_tokens = _text_tokens(body)
+            relevance = (
+                len(title_tokens & query_tokens) * 2
+                + len(body_tokens & query_tokens)
+                if query_tokens
+                else 1
+            )
+            merged.append(
+                {**item, "href": url, "_relevance": relevance, "_needed": needed}
+            )
+
+    has_relevant = any(item["_relevance"] >= item["_needed"] for item in merged)
+    merged = [
+        item
+        for item in merged
+        if item["_relevance"] >= item["_needed"] or not has_relevant
+    ]
+    merged.sort(
+        key=lambda item: (
+            -item["_relevance"],
+            -_domain_weight(str(item.get("href") or "")),
+        )
+    )
+
+    per_domain: dict[str, int] = {}
+    picked: list[dict[str, Any]] = []
+    for item in merged:
+        host = urllib.parse.urlparse(str(item.get("href") or "")).netloc.lower()
+        if per_domain.get(host, 0) >= _MAX_PER_DOMAIN:
+            continue
+        per_domain[host] = per_domain.get(host, 0) + 1
+        picked.append({k: v for k, v in item.items() if not k.startswith("_")})
+        if len(picked) >= limit:
+            break
+    return picked
+
+
 @tool
-def web_search(query: str, max_results: int = 5) -> str:
-    """联网搜索：在公开网页上查找资料，返回标题、摘要和链接。当需要
-    最新信息、通用知识、范文模板，或知识库里没有相关内容时使用；
-    引用搜索结果时要注明来源 URL。"""
-    query = (query or "").strip()
-    if not query:
+def web_search(queries: list[str], max_results: int = 8) -> str:
+    """联网搜索：一次给 2-4 个**不同角度**的查询词（多路召回），结果会自动
+    去重、按来源权威度排序，返回标题、摘要和链接。当需要最新信息、通用知识、
+    范文模板或知识库里没有相关内容时使用。查询词要具体：
+    比如 ["2026 六级作文 议论文 模板", "site:blog.csdn.net 六级作文 模板"]。
+    读完结果若仍不相关，换角度再搜（最多 3 轮）；引用结果注明来源 URL。"""
+    if isinstance(queries, str):
+        queries = [queries]
+    queries = [str(q).strip() for q in (queries or []) if str(q).strip()][:5]
+    if not queries:
         return "联网搜索失败：查询词为空。"
-    try:
-        max_results = max(1, min(int(max_results or 5), 10))
-        # 搜索后端偶发瞬时网络错误：原地重试一次（错误转可读提示，不炸回合）
-        results: list[dict[str, Any]] = []
+    max_results = max(3, min(int(max_results or 8), 12))
+
+    per_query: list[list[dict[str, Any]]] = []
+    errors: list[str] = []
+    for query in queries:
+        rows: list[dict[str, Any]] = []
+        # 搜索后端偶发瞬时网络错误：每个查询原地重试一次
         for attempt in range(2):
             try:
-                results = _search_web(query, max_results)
+                rows = _search_web(query, max_results)
                 break
-            except Exception:
+            except Exception as exc:  # noqa: BLE001 — 重试一次后放弃该查询
                 if attempt == 1:
-                    raise
-                time.sleep(0.8)
-    except Exception as exc:  # noqa: BLE001 — 网络故障转成可读提示，不炸回合
-        return (
-            f"联网搜索失败：{type(exc).__name__} {exc}。"
-            "可以先基于已有资料回答，并说明未能联网核实。"
-        )
-    if not results:
-        return f"没有搜索到与「{query}」相关的结果。"
-    lines = [f"共 {len(results)} 条结果："]
-    for item in results:
+                    errors.append(f"{query}: {type(exc).__name__}")
+                    rows = []
+                else:
+                    time.sleep(0.5)
+        per_query.append(rows)
+
+    merged = _merge_and_rank(per_query, max_results, queries)
+    if not merged:
+        if errors:
+            return (
+                f"联网搜索失败（{errors[0]}…）。"
+                "可以先基于已有资料回答，并说明未能联网核实。"
+            )
+        return f"没有搜索到与「{'；'.join(queries)}」相关的结果，换个说法再试。"
+
+    raw_total = sum(len(rows) for rows in per_query)
+    lines = [
+        f"共合并 {len(merged)} 条（{len(queries)} 个查询召回 {raw_total} 条，"
+        "已去重、按权威度排序）："
+    ]
+    for item in merged:
         title = str(item.get("title") or "").strip()[:80]
         snippet = str(item.get("body") or item.get("snippet") or "").strip()[:160]
         url = str(item.get("href") or item.get("url") or "").strip()
@@ -489,10 +618,39 @@ def _fetch_page_text(url: str) -> str:
     raise last_error
 
 
+def _extract_relevant_paragraphs(text: str, focus: str, limit: int = 12) -> str:
+    """证据抽取：按与 focus 的词重叠度挑出最相关的段落，保留原文顺序。"""
+
+    paragraphs = [p.strip() for p in text.split("\n") if len(p.strip()) >= 20]
+    if not paragraphs:
+        return ""
+    terms = [
+        term.lower()
+        for term in re.split(r"[\s,，。；;、?!？·]+", focus or "")
+        if len(term) >= 2
+    ]
+    terms.append(focus.strip().lower())
+
+    def score(paragraph: str) -> int:
+        lowered = paragraph.lower()
+        return sum(1 for term in set(terms) if term and term in lowered)
+
+    scored = sorted(
+        ((index, score(paragraph)) for index, paragraph in enumerate(paragraphs)),
+        key=lambda pair: -pair[1],
+    )[:limit]
+    keep = {index for index, _ in scored if _ > 0}
+    if not keep:
+        # 一个词都匹配不上：退回首部内容，至少让模型看到页面讲了什么
+        return "\n".join(paragraphs[: limit // 2 or 3])
+    return "\n".join(paragraphs[index] for index in sorted(keep))
+
+
 @tool
-def fetch_url(url: str) -> str:
+def fetch_url(url: str, focus: str = "") -> str:
     """读取一个网页的正文文本（自动去掉标签与脚本）。配合联网搜索使用：
-    先 web_search 拿到链接，再用它读取具体页面。只支持 http/https 公网地址。"""
+    先 web_search 拿到链接，再用它读取具体页面。只支持 http/https 公网地址。
+    focus 传当前研究的问题（可选）：会只抽取与它最相关的段落，省 token 也更准。"""
     url = (url or "").strip()
     try:
         _assert_public_url(url)
@@ -502,6 +660,12 @@ def fetch_url(url: str) -> str:
     if not text:
         return "网页内容为空（可能是纯脚本渲染的页面，换个来源试试）。"
     host = urllib.parse.urlparse(url).netloc
+
+    focus = (focus or "").strip()
+    if focus:
+        picked = _extract_relevant_paragraphs(text, focus)
+        note = f"（已按「{focus[:40]}」抽取相关段落）"
+        return f"读取成功：{host}{note}\n\n{picked}"
     note = (
         f"\n\n（内容过长，已截断到前 {READ_CHAR_LIMIT} 字）"
         if len(text) > READ_CHAR_LIMIT

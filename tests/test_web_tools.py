@@ -73,18 +73,18 @@ def test_web_search_formats_and_degrades(workspace, monkeypatch) -> None:
             }
         ],
     )
-    out = tools.web_search.invoke({"query": "英语六级作文模板"})
-    assert out.startswith("共 1 条结果：")
+    out = tools.web_search.invoke({"queries": ["英语六级作文模板"]})
+    assert out.startswith("共合并 1 条") and "1 个查询召回 1 条" in out
     assert "【六级作文模板】" in out and "https://example.com/a" in out
 
     def boom(query, max_results):
         raise RuntimeError("network down")
 
     monkeypatch.setattr(tools, "_search_web", boom)
-    degraded = tools.web_search.invoke({"query": "x"})
-    assert degraded.startswith("联网搜索失败：") and "network down" in degraded
+    degraded = tools.web_search.invoke({"queries": ["x"]})
+    assert degraded.startswith("联网搜索失败") and "RuntimeError" in degraded
 
-    assert tools.web_search.invoke({"query": ""}).startswith("联网搜索失败")
+    assert tools.web_search.invoke({"queries": []}).startswith("联网搜索失败")
 
 
 def test_fetch_url_guard_and_format(workspace, monkeypatch) -> None:
@@ -181,7 +181,7 @@ def test_tavily_takes_priority_and_formats(monkeypatch) -> None:
     monkeypatch.setattr(tools, "_bing_cn_text", fake_tavily)
     monkeypatch.setattr(tools, "_ddg_text", fake_ddg)
 
-    out = tools.web_search.invoke({"query": "六级作文"})
+    out = tools.web_search.invoke({"queries": ["六级作文"]})
     assert calls["tavily"] == 1 and calls["ddg"] == 0
     assert "【T】" in out
 
@@ -191,12 +191,85 @@ def test_tavily_takes_priority_and_formats(monkeypatch) -> None:
 
     monkeypatch.setattr(tools, "_tavily_text", broken_tavily)
     monkeypatch.setattr(tools, "_bing_cn_text", broken_tavily)
-    out = tools.web_search.invoke({"query": "六级作文"})
+    out = tools.web_search.invoke({"queries": ["六级作文"]})
     assert calls["ddg"] == 1 and "【D】" in out
 
     # 没配 Key → 直接 DDG
     monkeypatch.setattr(
         "studygraph.config.get_settings", lambda: Settings(tavily_api_key="")
     )
-    out = tools.web_search.invoke({"query": "六级作文"})
+    out = tools.web_search.invoke({"queries": ["六级作文"]})
     assert calls["ddg"] == 2
+
+
+def test_multi_query_merge_dedupe_and_rerank(monkeypatch) -> None:
+    """多路召回：多查询合并 → URL/标题去重 → 权威度排序。"""
+
+    def fake_search(query, n):
+        if "教程" in query:
+            return [
+                {
+                    "title": "菜鸟教程 DP",
+                    "body": "动态规划 教程 入门",
+                    "href": "https://www.runoob.com/dp",
+                },
+                {
+                    "title": "重复文章",
+                    "body": "动态规划 解法",
+                    "href": "https://blog.csdn.net/a",
+                },
+            ]
+        return [
+            {
+                "title": "重复文章",
+                "body": "动态规划 解法",
+                "href": "https://blog.csdn.net/a",
+            },
+            {
+                "title": "维基 DP",
+                "body": "动态规划 定义 适用条件",
+                "href": "https://zh.wikipedia.org/wiki/DP",
+            },
+            # 与查询零相关的词典/机构页：相关性过滤应把它们丢掉
+            {"title": "六（汉字）- 词典释义", "body": "数字六的解释", "href": "https://dict.example/liu"},
+            {"title": "教师资格考试官网", "body": "报名入口", "href": "https://ntce.example/x"},
+        ]
+
+    monkeypatch.setattr(tools, "_search_web", fake_search)
+    out = tools.web_search.invoke(
+        {"queries": ["动态规划 教程", "动态规划 定义"], "max_results": 8}
+    )
+    lines = [line for line in out.split("\n") if line.startswith("【")]
+    # 相关性过滤：零相关的词典/机构页被丢弃
+    assert not any("词典" in line or "教师资格" in line for line in lines)
+    # 相关性优先于权威度：菜鸟（标题+正文命中多）在维基（仅正文命中）之前
+    assert lines[0].startswith("【菜鸟教程 DP】")
+    assert lines[1].startswith("【维基 DP】")
+    # 去重：同一篇「重复文章」只出现一次
+    assert sum(1 for line in lines if "重复文章" in line) == 1
+
+
+def test_merge_and_rank_caps_per_domain() -> None:
+    rows = [
+        {"title": f"t{i} 相关", "body": f"t0 相关内容 {i}", "href": f"https://same.example/{i}"}
+        for i in range(5)
+    ]
+    picked = tools._merge_and_rank([rows], 10, queries=["t0 相关"])
+    assert len(picked) == tools._MAX_PER_DOMAIN
+
+
+def test_fetch_url_focus_extracts_relevant_paragraphs(monkeypatch) -> None:
+    text = "\n".join(
+        [
+            "网站导航 | 首页 | 联系我们 | 版权所有 © 某某网站",
+            "动态规划是一种把原问题分解为子问题的方法，核心是状态转移方程。",
+            "本站使用 Cookie 收集浏览数据并用于广告投放，请阅读隐私政策。",
+            "记忆化搜索避免了重复计算，大幅提升时间效率。",
+        ]
+    )
+    monkeypatch.setattr(tools, "_fetch_page_text", lambda url: text)
+    out = tools.fetch_url.invoke(
+        {"url": "https://example.com/dp", "focus": "动态规划 状态转移 记忆化"}
+    )
+    assert "状态转移方程" in out and "记忆化搜索" in out
+    assert "Cookie" not in out and "网站导航" not in out

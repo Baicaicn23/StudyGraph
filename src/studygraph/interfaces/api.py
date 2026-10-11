@@ -205,9 +205,15 @@ def _summarize_tool_args(name: str, args: dict) -> str:
     if name == "save_note":
         return " · ".join(p for p in (text("library", 16), text("title")) if p)
     if name == "web_search":
+        queries = args.get("queries")
+        if isinstance(queries, list):
+            joined = " · ".join(str(q) for q in queries[:3])
+            return (joined[:56] + "…") if len(joined) > 58 else joined
         return text("query", 48)
     if name == "fetch_url":
-        return text("url", 56)
+        head = text("url", 44)
+        focus = args.get("focus")
+        return head + (f"（焦点：{str(focus)[:18]}）" if focus else "")
     if name == "write_file":
         return text("filename", 40)
     if name == "read_file":
