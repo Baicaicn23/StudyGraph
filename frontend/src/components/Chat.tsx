@@ -54,9 +54,25 @@ interface PendingInterrupt {
 /* 首屏课程空间引导的常用课程（大学生视角的直觉分类） */
 const COURSE_PRESETS = ["高等数学", "线性代数", "大学物理", "四六级", "数据结构"];
 
+/** 原始报错与术语翻译成人话；[tool_error] 前缀剥掉。 */
+function humanizeToolText(text: string): string {
+  const t = (text || "").replace(/\[tool_error\]\s*/g, "").trim();
+  if (
+    /DDGSException|ConnectError|error sending request|Failed to fetch|NetworkError|SSL/i.test(
+      t,
+    )
+  ) {
+    return "网络连不上，搜索服务暂时不可用（已自动重试）";
+  }
+  if (/403 Forbidden/i.test(t)) return "目标网站拒绝访问（403），换一个来源试试";
+  if (/429|Too Many Requests/i.test(t)) return "搜索被限流了，稍后再试";
+  if (/timed? ?out|Timeout/i.test(t)) return "请求超时了";
+  return t;
+}
+
 /** 工具结果压成一句话：取首行、去掉 Markdown 记号与【来源】前缀，超长截断。 */
 function stepDetailText(detail: string): string {
-  const raw = (detail ?? "").trim();
+  const raw = humanizeToolText(detail);
   if (!raw) return "";
   const firstLine = raw
     .split("\n")[0]
@@ -66,21 +82,53 @@ function stepDetailText(detail: string): string {
   return firstLine.length > 64 ? `${firstLine.slice(0, 64)}…` : firstLine;
 }
 
-/** 原始报错翻译成人话：不让 DDGSException 这类术语出现在界面上。 */
-function sanitizeResult(text: string): string {
-  const raw = stepDetailText(text);
-  if (!raw) return "";
-  if (/DDGSException|ConnectError|error sending request|Failed to fetch|NetworkError/i.test(raw)) {
-    return "网络连不上，搜索服务暂时不可用";
-  }
-  if (/403 Forbidden/i.test(raw)) return "目标网站拒绝访问（403）";
-  if (/429|Too Many Requests/i.test(raw)) return "被限流了，稍后再试";
-  if (/timed? ?out|Timeout/i.test(raw)) return "超时了";
-  return raw;
+/** 展开详情用的全文（人性化 + 温和截断，不截到 64 字）。 */
+function sanitizeFull(text: string): string {
+  const t = humanizeToolText(text);
+  return t.length > 600 ? `${t.slice(0, 600)}…` : t;
 }
 
 function isFailedResult(result: string): boolean {
-  return /失败|网络连不上|拒绝访问|被限流/.test(result);
+  return /失败|网络连不上|拒绝访问|被限流|超时/.test(result);
+}
+
+/** 「制定学习计划」的 detail 可能是 JSON 数组或「1. …」编号文本，解析成条目列表。 */
+function planItems(detail: string): string[] | null {
+  const t = (detail || "").trim();
+  if (!t) return null;
+  if (t.startsWith("[")) {
+    try {
+      const arr = JSON.parse(t);
+      if (Array.isArray(arr) && arr.length > 0 && arr.every((x) => typeof x === "string")) {
+        return arr.map((item) => String(item).trim()).filter(Boolean);
+      }
+    } catch {
+      /* 不是 JSON，继续尝试编号文本 */
+    }
+  }
+  if (/(^|\n)\s*1[.、]/.test(t)) {
+    const items = t
+      .split("\n")
+      .map((line) => line.replace(/^\s*\d+[.、]\s*/, "").replace(/^["“”\[\]]+|["“”\[\]]+$/g, "").trim())
+      .filter(Boolean);
+    return items.length > 0 ? items : null;
+  }
+  return null;
+}
+
+/** 消息正文若整段就是一个字符串数组（模型把计划原样吐出来），转成条目渲染。 */
+function stringListFrom(content: string): string[] | null {
+  const t = (content || "").trim();
+  if (!t.startsWith("[") || !t.endsWith("]")) return null;
+  try {
+    const arr = JSON.parse(t);
+    if (Array.isArray(arr) && arr.length > 0 && arr.every((x) => typeof x === "string")) {
+      return arr.map((item) => String(item).trim()).filter(Boolean);
+    }
+  } catch {
+    /* 不是 JSON */
+  }
+  return null;
 }
 
 interface StepRow {
@@ -89,6 +137,8 @@ interface StepRow {
   tool: string;
   param: string;
   result: string;
+  /** 原始 detail（展开详情用，已人性化） */
+  detail: string;
   ok: boolean;
   /** 连续同样失败的合并计数（联网搜索 ×3） */
   count: number;
@@ -97,6 +147,13 @@ interface StepRow {
 /** 把步骤事件流整理成「每行一个动作」的可读列表：
  * 调用与结果配对成一行；连续同样的失败合并成一条（×N）；
  * 悬空的调用（还在跑）单独成行，由实时态接手展示。 */
+/** 把多路召回的长摘要压短：「共合并 10 条（4 个查询召回 40 条…）」→「召回 40 条 · 精选 10 条」 */
+function compactResult(result: string): string {
+  const m = result.match(/共合并 (\d+) 条（(\d+) 个查询召回 (\d+) 条[^）]*）?：?$/);
+  if (m) return `多路召回 ${m[3]} 条 · 精选 ${m[1]} 条`;
+  return result;
+}
+
 function buildStepRows(steps: { kind: string; title: string; detail: string }[]): StepRow[] {
   const rows: StepRow[] = [];
   let pending: { tool: string; param: string } | null = null;
@@ -108,6 +165,7 @@ function buildStepRows(steps: { kind: string; title: string; detail: string }[])
       tool: pending.tool,
       param: pending.param,
       result: "",
+      detail: "",
       ok: true,
       count: 1,
     });
@@ -123,6 +181,7 @@ function buildStepRows(steps: { kind: string; title: string; detail: string }[])
         tool: step.title,
         param: step.detail,
         result: "",
+        detail: step.detail,
         ok: true,
         count: 1,
       });
@@ -135,7 +194,7 @@ function buildStepRows(steps: { kind: string; title: string; detail: string }[])
       pending = { tool, param: stepDetailText(step.detail) };
       return;
     }
-    const result = sanitizeResult(step.detail);
+    const result = stepDetailText(step.detail);
     const ok = !step.title.endsWith("· 失败") && !isFailedResult(result);
     if (pending && pending.tool === tool) {
       rows.push({
@@ -143,7 +202,8 @@ function buildStepRows(steps: { kind: string; title: string; detail: string }[])
         kind: "tool",
         tool,
         param: pending.param,
-        result,
+        result: compactResult(result),
+        detail: step.detail,
         ok,
         count: 1,
       });
@@ -154,7 +214,8 @@ function buildStepRows(steps: { kind: string; title: string; detail: string }[])
         kind: "tool",
         tool,
         param: "",
-        result,
+        result: compactResult(result),
+        detail: step.detail,
         ok,
         count: 1,
       });
@@ -1766,6 +1827,173 @@ export default function Chat() {
   );
 }
 
+/** 过程面板的单行步骤：收起 = 图标 + 一行摘要；点击展开详情。
+ * 进行中的行强制展开并显示转圈。 */
+function ProcessRow({
+  row,
+  expanded,
+  running,
+  onToggle,
+}: {
+  row: StepRow;
+  expanded: boolean;
+  running: boolean;
+  onToggle: () => void;
+}) {
+  if (row.kind === "thinking") {
+    const items = planItems(row.param);
+    return (
+      <div className="px-2 py-1.5">
+        <p className="text-[12px] font-medium text-zinc-600">{row.tool}</p>
+        {expanded &&
+          (items ? (
+            <ol className="mt-1.5 space-y-1.5">
+              {items.map((item, i) => (
+                <li
+                  key={i}
+                  className="flex gap-2.5 text-[12px] leading-relaxed text-zinc-500"
+                >
+                  <span className="shrink-0 tabular-nums text-zinc-400">
+                    {i + 1}.
+                  </span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            row.param && (
+              <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-500">
+                {row.param}
+              </p>
+            )
+          ))}
+      </div>
+    );
+  }
+
+  const hasDetail = Boolean(row.param || row.result);
+  const failed = !row.ok;
+  return (
+    <div>
+      {hasDetail ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          className="flex w-full items-center gap-2.5 rounded-lg px-2 py-[5px] text-left transition hover:bg-black/[0.03] focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+        >
+          <StepIcon running={running} failed={failed} />
+          <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-600">
+            <span className="font-medium text-zinc-700">{row.tool}</span>
+            {row.param && <span className="text-zinc-400"> ·「{row.param}」</span>}
+            {row.result && (
+              <span className={failed ? "text-red-400" : "text-zinc-400"}>
+                {" → "}
+                {row.result}
+                {row.count > 1 && ` ×${row.count}`}
+              </span>
+            )}
+          </span>
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className={`shrink-0 text-zinc-300 transition-transform ${
+              expanded ? "" : "-rotate-90"
+            }`}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+      ) : (
+        <div className="flex items-center gap-2.5 px-2 py-[5px] text-[12px] text-zinc-500">
+          <StepIcon running={running} failed={failed} />
+          <span className="min-w-0 flex-1 truncate">
+            <span className="font-medium text-zinc-600">{row.tool}</span>
+            {row.param && <span className="text-zinc-400"> ·「{row.param}」</span>}
+          </span>
+        </div>
+      )}
+
+      {/* 展开的详情：参数 + 完整结果（已人性化，不显示原始异常） */}
+      {expanded && hasDetail && (
+        <div className="ml-[26px] space-y-1 rounded-lg bg-white px-3 py-2 text-[11.5px] leading-relaxed text-zinc-500 ring-1 ring-black/[0.04]">
+          {row.param && (
+            <p>
+              <span className="text-zinc-400">输入：</span>
+              {row.param}
+            </p>
+          )}
+          {row.detail && (
+            <p className="whitespace-pre-wrap">
+              <span className="text-zinc-400">结果：</span>
+              {sanitizeFull(row.detail)}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 步骤状态图标：完成 = 对勾；进行中 = 旋转加载；失败 = 感叹号。无彩色圆点。 */
+function StepIcon({
+  running,
+  failed,
+}: {
+  running: boolean;
+  failed: boolean;
+}) {
+  if (running) {
+    return (
+      <span
+        className="mt-[2px] h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-[1.5px] border-teal-600/30 border-t-teal-600"
+        aria-hidden
+      />
+    );
+  }
+  if (failed) {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#f87171"
+        strokeWidth="2"
+        strokeLinecap="round"
+        aria-hidden
+        className="mt-[1px] shrink-0"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 8v4M12 16h.01" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#0d9488"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className="mt-[1px] shrink-0"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
 function MessageRow({
   message,
   busy,
@@ -1811,6 +2039,8 @@ function MessageRow({
   // 点击头部的耗时/箭头可手动开合
   const [traceOverride, setTraceOverride] = useState<boolean | null>(null);
   const traceOpen = traceOverride ?? busy;
+  // 展开详情的步骤行（点击切换；进行中的行由 isLive 控制，不进这里）
+  const [openRows, setOpenRows] = useState<Set<string>>(new Set());
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -1879,6 +2109,8 @@ function MessageRow({
   const isLong = message.content.length > 1500;
   const shown =
     isLong && !expanded ? `${message.content.slice(0, 1500)}…` : message.content;
+  // 模型把计划原样吐成 JSON 数组时，转成清单排版而不是裸代码
+  const planList = stringListFrom(shown);
 
   return (
     <div className="flex gap-3">
@@ -1926,70 +2158,42 @@ function MessageRow({
             ) : null}
           </div>
 
-          {/* 过程面板：进行中自动展开（实时态），完成后收起保持沉静 */}
+          {/* 过程面板：进行中只展开当前步骤，完成后全部收成一行摘要；点击行展开详情 */}
           {steps.length > 0 && traceOpen && (
-            <div className="border-b border-black/[0.05] bg-[#FAFAF8] px-4 py-2.5">
+            <div className="border-b border-black/[0.05] bg-[#FAFAF8]/80 px-3 py-2">
               {chain && (
-                <div className="mb-1.5 text-[10.5px] text-zinc-400">{chain}</div>
+                <div className="px-2 pb-1.5 text-[10.5px] tracking-wide text-zinc-400">
+                  {chain}
+                </div>
               )}
-              <div className="space-y-1.5">
-                {stepRows.map((row) =>
-                  row.kind === "thinking" ? (
-                    <div
+              <div>
+                {stepRows.map((row, rowIndex) => {
+                  const isLive = busy && rowIndex === stepRows.length - 1;
+                  return (
+                    <ProcessRow
                       key={row.key}
-                      className="flex items-start gap-2 text-[11.5px]"
-                    >
-                      <span
-                        className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-zinc-300"
-                        aria-hidden
-                      />
-                      <span className="min-w-0 flex-1 text-zinc-500">
-                        {row.tool}
-                        {row.param && (
-                          <span className="text-zinc-400"> · {row.param}</span>
-                        )}
-                      </span>
-                    </div>
-                  ) : (
-                    <div
-                      key={row.key}
-                      className="flex items-start gap-2 text-[11.5px]"
-                    >
-                      <span
-                        className={`mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full ${
-                          row.ok ? "bg-teal-500" : "bg-red-400"
-                        }`}
-                        aria-hidden
-                      />
-                      <span className="min-w-0 flex-1 leading-relaxed">
-                        <span className="font-medium text-zinc-600">
-                          {row.tool}
-                        </span>
-                        {row.param && (
-                          <span className="text-zinc-400"> ·「{row.param}」</span>
-                        )}
-                        {row.result && (
-                          <span
-                            className={row.ok ? "text-zinc-400" : "text-red-400"}
-                          >
-                            {" → "}
-                            {row.result}
-                            {row.count > 1 && ` ×${row.count}`}
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  ),
-                )}
-
-                {/* 实时态：正在做的那一步（带转圈） */}
+                      row={row}
+                      expanded={isLive || openRows.has(row.key)}
+                      running={isLive}
+                      onToggle={() =>
+                        setOpenRows((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(row.key)) next.delete(row.key);
+                          else next.add(row.key);
+                          return next;
+                        })
+                      }
+                    />
+                  );
+                })}
+                {/* 实时状态行 */}
                 {busy && (
-                  <div className="flex items-start gap-2 text-[11.5px]">
+                  <div className="flex items-center gap-2.5 px-2 py-1.5 text-[12px] text-teal-700">
                     <span
-                      className="mt-[2px] h-[13px] w-[13px] shrink-0 animate-spin rounded-full border-[1.5px] border-teal-600/30 border-t-teal-600"
+                      className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-[1.5px] border-teal-600/30 border-t-teal-600"
                       aria-hidden
                     />
-                    <span className="font-medium text-teal-700">
+                    <span className="font-medium">
                       {statusLabel || "正在思考…"}
                     </span>
                   </div>
@@ -2012,9 +2216,30 @@ function MessageRow({
               </div>
             )}
             {message.content ? (
+              planList ? (
+                <div className="px-1 py-1">
+                  <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                    本轮执行计划
+                  </p>
+                  <ol className="space-y-2.5">
+                    {planList.map((item, i) => (
+                      <li
+                        key={i}
+                        className="flex gap-3 text-sm leading-relaxed text-zinc-700"
+                      >
+                        <span className="grid h-5.5 w-5.5 shrink-0 place-items-center rounded-full bg-teal-600/10 text-[11px] font-semibold tabular-nums text-teal-700" style={{ width: 22, height: 22 }}>
+                          {i + 1}
+                        </span>
+                        <span className="min-w-0 flex-1 pt-0.5">{item}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ) : (
               <div className="prose prose-zinc max-w-none text-sm leading-relaxed">
                 <Markdown content={shown} />
               </div>
+              )
             ) : busy ? (
               <span className="inline-block h-4 w-2 animate-pulse rounded-sm bg-zinc-300" />
             ) : null}
