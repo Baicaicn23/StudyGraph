@@ -809,6 +809,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         }
         if body.knowledge_bases:
             payload["knowledge_bases"] = body.knowledge_bases
+            payload["retrieval_mode"] = body.retrieval_mode
 
         # 自动保存：没有 session_id 就新建会话（标题先占位，回复完后自动起名）。
         session = None

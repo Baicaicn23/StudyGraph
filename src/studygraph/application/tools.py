@@ -65,6 +65,16 @@ def get_knowledge() -> KnowledgePort:
     return _knowledge
 
 
+def list_library_names() -> list[str]:
+    """全部知识库名称（智能选库的候选列表）。"""
+
+    if _knowledge is None:
+        return []
+    return [
+        str(item["name"]) for item in _knowledge.list_libraries() if item.get("name")
+    ]
+
+
 def set_current_libraries(libraries: list[str] | None) -> None:
     _current_libraries.set(list(libraries) if libraries else None)
 

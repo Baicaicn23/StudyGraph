@@ -39,6 +39,7 @@ from ..domain.note_style import NOTE_STYLE_GUIDE
 from ..domain.note_style import applies_to as note_style_applies
 from ..domain.planning import is_complex
 from .context import compact_messages
+from .library_selector import select_libraries
 from .planner import build_plan
 from .ports import ChatModelPort, UsageRepositoryPort
 from .routing import (
@@ -51,7 +52,7 @@ from .routing import (
 )
 from .state import StudyState
 from .tool_runner import run_tool
-from .tools import get_tool, set_current_libraries, set_current_user
+from .tools import get_tool, list_library_names, set_current_libraries, set_current_user
 
 _BASE_PROMPT = (
     "你是 StudyGraph，一个面向大学生的 AI 私教。你的目标不是替学生答题，"
@@ -191,7 +192,24 @@ def build_graph(
 
         bound = active_model.bind_tools(tools) if tools else active_model
 
-        set_current_libraries(state.get("knowledge_bases"))
+        # 检索范围：manual = 用户指定的知识库；auto = 模型根据问题挑相关子集
+        #（选不出 / 失败 → None，回落全库）。结果写回 state，tools 节点直接复用，
+        # 两个节点各设一次 contextvar（contextvar 不跨节点传播）。
+        manual = state.get("knowledge_bases")
+        effective: list[str] | None
+        if manual:
+            effective = list(manual)
+        elif state.get("retrieval_mode") == "auto" and any(
+            name == "knowledge_search" for name in tool_names
+        ):
+            effective = await select_libraries(
+                active_model,
+                question=_last_human_text(state["messages"]),
+                libraries=list_library_names(),
+            )
+        else:
+            effective = None
+        set_current_libraries(effective)
         set_current_user(state.get("user_id", "local"))
         prompt = build_system_prompt(profile.agent, state)
         # 上下文工程：历史过长时保留最近若干条，更早的压缩成一句提示。
@@ -209,7 +227,7 @@ def build_graph(
             aggregated = AIMessageChunk(content="")
 
         await _record_usage(usage_repository, user_id, active_model, aggregated)
-        return {"messages": [aggregated]}
+        return {"messages": [aggregated], "effective_libraries": effective}
 
     async def tools_node(state: StudyState) -> dict[str, Any]:
         last = state["messages"][-1]
@@ -217,7 +235,10 @@ def build_graph(
         # contextvar 不跨节点传播：agent 节点里设置的"本轮选中知识库"在这里读不到，
         # 必须在本节点重新设置，否则前端选了库检索仍会落到全库（曾导致选了
         # 「高等数学」却返回《四级英语》片段的串库缺陷）。
-        set_current_libraries(state.get("knowledge_bases"))
+        effective = state.get("effective_libraries")
+        if effective is None and "effective_libraries" not in state:
+            effective = state.get("knowledge_bases")
+        set_current_libraries(effective)
         set_current_user(state.get("user_id", "local"))
         outputs: list[ToolMessage] = []
         for call in getattr(last, "tool_calls", []) or []:

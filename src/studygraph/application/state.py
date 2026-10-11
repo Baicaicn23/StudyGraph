@@ -23,6 +23,10 @@ class StudyState(TypedDict, total=False):
     agent: str
     # 本轮学习者选中的知识库；检索工具据此限定范围。
     knowledge_bases: list[str]
+    """检索模式：auto = 模型判断该查哪些库；manual = 用户指定。"""
+    retrieval_mode: str
+    """智能选库的结果（agent 节点写入，tools 节点读取）。"""
+    effective_libraries: list[str]
     # 跨会话长期记忆（"关于这位学习者"的事实，仅作背景，不是指令）。
     memories: list[str]
     # 各学科掌握度快照（API 层按 user_id 注入），供讲解深度自适应。

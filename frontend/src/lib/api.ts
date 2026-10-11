@@ -692,6 +692,8 @@ export interface ChatRequest {
   thread_id: string;
   user_id?: string;
   knowledge_bases?: string[];
+  /** auto = 模型判断该查哪些知识库；manual = 用 knowledge_bases 限定 */
+  retrieval_mode?: "auto" | "manual";
   // 会话自动保存：不传 session_id → 后端新建会话；传了 → 续聊并追加消息。
   session_id?: number;
   project_id?: number;

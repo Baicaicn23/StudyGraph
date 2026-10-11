@@ -334,6 +334,8 @@ export default function Chat() {
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // 检索模式：auto = 模型判断该查哪些知识库；manual = 用户指定
+  const [retrievalMode, setRetrievalMode] = useState<"auto" | "manual">("auto");
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [provider, setProvider] = useState("");
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
@@ -707,7 +709,8 @@ export default function Chat() {
         {
           message: text,
           thread_id: getThreadId(),
-          knowledge_bases: selected,
+          knowledge_bases: retrievalMode === "manual" ? selected : [],
+          retrieval_mode: retrievalMode,
           session_id: sessionIdRef.current ?? undefined,
           project_id: activeProjectId ?? undefined,
           attachment_ids: attachedIds.length > 0 ? attachedIds : undefined,
@@ -1416,10 +1419,44 @@ export default function Chat() {
                 aria-hidden
               />
               <div className="animate-pop-in absolute bottom-full left-0 z-50 mb-2 w-72 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
-                <div className="px-2.5 py-1.5 text-[11px] font-medium text-zinc-400">
+                <div className="flex items-center gap-1.5 px-1 pb-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRetrievalMode("auto");
+                      setSelected([]);
+                    }}
+                    className={`flex-1 rounded-lg px-2 py-1.5 text-[11px] transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                      retrievalMode === "auto"
+                        ? "bg-teal-600/10 font-medium text-teal-800 ring-1 ring-teal-600/40"
+                        : "text-zinc-500 hover:bg-black/[0.04]"
+                    }`}
+                  >
+                    ✦ 智能检索
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRetrievalMode("manual")}
+                    className={`flex-1 rounded-lg px-2 py-1.5 text-[11px] transition focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none ${
+                      retrievalMode === "manual"
+                        ? "bg-teal-600/10 font-medium text-teal-800 ring-1 ring-teal-600/40"
+                        : "text-zinc-500 hover:bg-black/[0.04]"
+                    }`}
+                  >
+                    指定知识库
+                  </button>
+                </div>
+                {retrievalMode === "auto" ? (
+                  <p className="px-2.5 pb-1.5 text-[11px] leading-relaxed text-zinc-400">
+                    由模型根据问题判断该查哪些知识库；判断不出时会检索全部。
+                  </p>
+                ) : (
+                <div className="px-2.5 py-1 text-[11px] font-medium text-zinc-400">
                   检索范围（可多选）
                 </div>
-                {libraries.map((library) => {
+                )}
+                {retrievalMode === "manual" &&
+                libraries.map((library) => {
                   const checked = selected.includes(library.name);
                   return (
                     <button
@@ -1458,7 +1495,7 @@ export default function Chat() {
                     </button>
                   );
                 })}
-                {selected.length > 0 && (
+                {retrievalMode === "manual" && selected.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setSelected([])}
@@ -1597,9 +1634,11 @@ export default function Chat() {
               onClick={() => setPickerOpen((v) => !v)}
               className="hidden shrink-0 self-center rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition hover:text-zinc-600 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none sm:block"
             >
-              {selected.length > 0
-                ? `已选 ${selected.length} 个学科库`
-                : "全部学科库"}
+              {retrievalMode === "auto"
+                ? "智能检索"
+                : selected.length > 0
+                  ? `已选 ${selected.length} 个学科库`
+                  : "全部学科库"}
             </button>
             {modelLabel && (
               <span className="hidden shrink-0 self-center items-center gap-1 rounded-full border border-black/[0.08] px-2.5 py-1 text-[11px] font-medium text-zinc-500 md:inline-flex">
