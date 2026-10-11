@@ -244,13 +244,33 @@ def _safe_resolve(filename: str) -> Path:
     return candidate
 
 
+_SEARCH_BACKENDS = ("auto", "duckduckgo", "brave", "mojeek", "wikipedia")
+
+
 def _ddg_text(query: str, max_results: int) -> list[dict[str, Any]]:
-    """DuckDuckGo 搜索（零配置兜底；独立成函数便于测试时替换）。"""
+    """DuckDuckGo 搜索（零配置兜底；独立成函数便于测试时替换）。
+
+    单一后端在受限网络下经常整批失败：按顺序轮换多个后端，
+    谁先返回非空结果就用谁。
+    """
 
     from ddgs import DDGS
 
-    with DDGS() as ddgs:
-        return list(ddgs.text(query, max_results=max_results))
+    last_error: Exception | None = None
+    for backend in _SEARCH_BACKENDS:
+        try:
+            with DDGS() as ddgs:
+                rows = list(
+                    ddgs.text(query, max_results=max_results, backend=backend)
+                )
+            if rows:
+                return rows
+        except Exception as exc:  # noqa: BLE001 — 换下一个后端
+            last_error = exc
+            time.sleep(0.3)
+    if last_error is not None:
+        raise last_error
+    return []
 
 
 def _tavily_text(query: str, max_results: int) -> list[dict[str, Any]]:
@@ -284,17 +304,69 @@ def _tavily_text(query: str, max_results: int) -> list[dict[str, Any]]:
     ]
 
 
-def _search_web(query: str, max_results: int) -> list[dict[str, Any]]:
-    """搜索调度：配了 Tavily Key 用 Tavily，否则 DuckDuckGo。"""
+def _bing_cn_text(query: str, max_results: int) -> list[dict[str, Any]]:
+    """必应中国网页搜索：国内直连稳定，结果本身就是国内可达的页面。
 
+    抓 cn.bing.com 的搜索结果页并解析 b_algo 块；解析不出视为失败，
+    让上层换下一个搜索后端。直连（trust_env=False），不绕代理节点。
+    """
+
+    import httpx
+
+    response = httpx.get(
+        "https://cn.bing.com/search",
+        params={"q": query, "count": str(min(max_results * 2, 20))},
+        headers=_BROWSER_HEADERS,
+        timeout=15,
+        follow_redirects=True,
+        trust_env=False,
+    )
+    response.raise_for_status()
+    html = response.text
+    results: list[dict[str, Any]] = []
+    for block in re.findall(r'<li class="b_algo".*?</li>', html, flags=re.I | re.S)[
+        :max_results
+    ]:
+        link = re.search(
+            r'<h2[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>', block, re.I | re.S
+        )
+        if not link:
+            continue
+        url = link.group(1)
+        title = re.sub(r"<[^>]+>", "", link.group(2))
+        snippet_match = re.search(r"<p[^>]*>(.*?)</p>", block, re.I | re.S)
+        snippet = re.sub(r"<[^>]+>", "", snippet_match.group(1)) if snippet_match else ""
+        results.append(
+            {"title": title.strip(), "body": snippet.strip()[:200], "href": url}
+        )
+    if not results:
+        raise RuntimeError("Bing 未解析出结果（页面结构可能变化）")
+    return results
+
+
+def _search_web(query: str, max_results: int) -> list[dict[str, Any]]:
+    """搜索调度：Tavily（配了 Key）→ 必应中国（国内直连最稳）→ DuckDuckGo。"""
+
+    errors: list[str] = []
     try:
         from ..config import get_settings
 
         if get_settings().tavily_api_key:
-            return _tavily_text(query, max_results)
-    except Exception:  # noqa: BLE001 — Tavily 失败回落 DDG
+            try:
+                return _tavily_text(query, max_results)
+            except Exception as exc:  # noqa: BLE001 — 换下一个后端
+                errors.append(f"tavily: {exc}")
+    except Exception:  # noqa: BLE001 — 读配置失败忽略
         pass
-    return _ddg_text(query, max_results)
+    try:
+        return _bing_cn_text(query, max_results)
+    except Exception as exc:  # noqa: BLE001 — 换下一个后端
+        errors.append(f"bing: {exc}")
+    try:
+        return _ddg_text(query, max_results)
+    except Exception as exc:  # noqa: BLE001 — 最后一个后端
+        errors.append(f"ddg: {exc}")
+    raise RuntimeError("；".join(errors) or "没有可用搜索后端")
 
 
 @tool
@@ -352,29 +424,69 @@ def _assert_public_url(url: str) -> None:
         raise ValueError("不允许访问内网或本机地址")
 
 
-def _fetch_page_text(url: str) -> str:
-    """抓取网页并做极简正文抽取（去脚本/样式/标签，按块级元素换行）。"""
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+}
+
+
+def _fetch_attempt(url: str, *, use_env_proxy: bool) -> str:
+    """按一种网络策略抓取网页（trust_env 决定是否走系统代理）。"""
 
     import html as html_lib
 
     import httpx
 
-    response = httpx.get(
-        url,
-        timeout=15,
+    with httpx.Client(
+        timeout=20,
         follow_redirects=True,
-        headers={"User-Agent": "Mozilla/5.0 (compatible; StudyGraph/0.2)"},
-    )
-    response.raise_for_status()
-    content_type = response.headers.get("content-type", "")
-    if content_type and not content_type.startswith(("text/", "application/json")):
-        raise ValueError(f"不支持的内容类型：{content_type.split(';')[0]}")
-    html = response.text
+        trust_env=use_env_proxy,
+        headers=_BROWSER_HEADERS,
+    ) as client:
+        response = client.get(url)
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "")
+        if content_type and not content_type.startswith(
+            ("text/", "application/json")
+        ):
+            raise ValueError(f"不支持的内容类型：{content_type.split(';')[0]}")
+        html = response.text
+
     html = re.sub(r"<(script|style)[\s\S]*?</\1>", " ", html, flags=re.I)
     html = re.sub(r"<(br|/p|/div|/h[1-6]|/li|/tr)[^>]*>", "\n", html, flags=re.I)
     text = html_lib.unescape(re.sub(r"<[^>]+>", " ", html))
     lines = [re.sub(r"\s+", " ", line).strip() for line in text.splitlines()]
     return "\n".join(line for line in lines if line)
+
+
+def _fetch_page_text(url: str) -> str:
+    """多策略抓取：直连 → 代理 → 再直连。
+
+    国内站点直连最快最稳（代理节点反而在国外）；国外站点直连被重置时
+    由代理策略兜底。三种策略轮着试，谁成功用谁；全失败才抛给上层。
+    """
+
+    attempts = (
+        {"use_env_proxy": False},
+        {"use_env_proxy": True},
+        {"use_env_proxy": False},
+    )
+    last_error: Exception | None = None
+    for attempt in attempts:
+        try:
+            text = _fetch_attempt(url, **attempt)
+            if text:
+                return text
+            last_error = ValueError("网页内容为空")
+        except Exception as exc:  # noqa: BLE001 — 记住最后一个错误，换下一策略
+            last_error = exc
+            time.sleep(0.4)
+    assert last_error is not None
+    raise last_error
 
 
 @tool

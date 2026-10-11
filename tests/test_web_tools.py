@@ -64,7 +64,7 @@ def test_read_missing_file_is_readable_error(workspace) -> None:
 def test_web_search_formats_and_degrades(workspace, monkeypatch) -> None:
     monkeypatch.setattr(
         tools,
-        "_ddg_text",
+        "_search_web",
         lambda q, n: [
             {
                 "title": "六级作文模板",
@@ -80,7 +80,7 @@ def test_web_search_formats_and_degrades(workspace, monkeypatch) -> None:
     def boom(query, max_results):
         raise RuntimeError("network down")
 
-    monkeypatch.setattr(tools, "_ddg_text", boom)
+    monkeypatch.setattr(tools, "_search_web", boom)
     degraded = tools.web_search.invoke({"query": "x"})
     assert degraded.startswith("联网搜索失败：") and "network down" in degraded
 
@@ -131,6 +131,12 @@ def test_profiles_get_new_tools() -> None:
     practice = allowed_tools(profile_for_agent("practice"), None)
     assert "web_search" not in practice and "write_file" not in practice
 
+    # chat 也是通用助手：联网 + 文件能力齐备
+    chat = allowed_tools(profile_for_agent("chat"), None)
+    assert {"web_search", "fetch_url", "write_file", "read_file", "list_files"} <= set(
+        chat
+    )
+
     assert allowed_tools(profile_for_agent("progress"), None) == []
 
 
@@ -172,6 +178,7 @@ def test_tavily_takes_priority_and_formats(monkeypatch) -> None:
         return [{"title": "D", "body": "B2", "href": "https://d.example/a"}]
 
     monkeypatch.setattr(tools, "_tavily_text", fake_tavily)
+    monkeypatch.setattr(tools, "_bing_cn_text", fake_tavily)
     monkeypatch.setattr(tools, "_ddg_text", fake_ddg)
 
     out = tools.web_search.invoke({"query": "六级作文"})
@@ -183,6 +190,7 @@ def test_tavily_takes_priority_and_formats(monkeypatch) -> None:
         raise RuntimeError("tavily down")
 
     monkeypatch.setattr(tools, "_tavily_text", broken_tavily)
+    monkeypatch.setattr(tools, "_bing_cn_text", broken_tavily)
     out = tools.web_search.invoke({"query": "六级作文"})
     assert calls["ddg"] == 1 and "【D】" in out
 

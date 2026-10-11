@@ -195,6 +195,10 @@ AGENT_PROFILES: dict[str, AgentProfile] = {
             "save_note",
             "mistake_search",
             "web_search",
+            "fetch_url",
+            "write_file",
+            "read_file",
+            "list_files",
         ),
     ),
 }
