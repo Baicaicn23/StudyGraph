@@ -30,6 +30,26 @@ def chunk_text(text: str, *, max_chars: int = 480, overlap: int = 80) -> list[st
     return chunks
 
 
+def chunk_pages(
+    pages: list[tuple[str | None, str]], *, max_chars: int = 480, overlap: int = 80
+) -> list[str]:
+    """按页切块：每页独立走 `chunk_text`，每块前带页码出处（如「【第 3 页】」）。
+
+    PPT 一页 slide、PDF 一页就是一个自然边界，比整篇盲切更贴合出处引用——
+    检索命中后引文能落到具体页。页码标签随块进入 FTS/向量索引，是无害的可搜文本。
+    """
+
+    chunks: list[str] = []
+    for label, page_text in pages:
+        cleaned = (page_text or "").strip()
+        if not cleaned:
+            continue
+        prefix = f"【{label}】" if label else ""
+        for piece in chunk_text(cleaned, max_chars=max_chars, overlap=overlap):
+            chunks.append(f"{prefix}{piece}" if prefix else piece)
+    return chunks
+
+
 def rrf_fuse(rankings: list[list[SearchHit]], *, k: int = 60) -> list[SearchHit]:
     """Reciprocal Rank Fusion：把多路排名按 ``1/(k+rank)`` 相加融合。
 

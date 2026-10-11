@@ -13,7 +13,7 @@ from array import array
 from pathlib import Path
 
 from ..domain.models import Chunk, SearchHit
-from ..domain.retrieval import chunk_text, rrf_fuse
+from ..domain.retrieval import chunk_pages, chunk_text, rrf_fuse
 from .embeddings import cosine
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -226,11 +226,18 @@ class KnowledgeStore:
             "stored_name": str(row["file_path"]),
         }
 
-    def attach_text_content(self, document_id: int, content: str) -> int:
+    def attach_text_content(
+        self,
+        document_id: int,
+        content: str,
+        *,
+        pages: list[tuple[str | None, str]] | None = None,
+    ) -> int:
         """给 kind=file 的文档补上文本内容并建立检索索引（懒解析用）。
 
         同时把 kind 升级为 'file_text'——原件保留，文本视图与检索从此可用。
-        返回建立的切块数。
+        ``pages`` 是按页拆分的 (页码标签, 页文本) 列表；给了就按页切块、块带
+        页码出处，否则整篇盲切。返回建立的切块数。
         """
 
         with self._connect() as connection:
@@ -251,6 +258,7 @@ class KnowledgeStore:
                 title=str(row["title"]),
                 document_id=document_id,
                 content=content,
+                pages=pages,
             )
         return indexed
 
@@ -267,10 +275,14 @@ class KnowledgeStore:
         title: str,
         document_id: int,
         content: str,
+        pages: list[tuple[str | None, str]] | None = None,
     ) -> None:
-        """切块 + 向量化 + 写入 chunks / FTS / 向量表（新增与改写共用）。"""
+        """切块 + 向量化 + 写入 chunks / FTS / 向量表（新增与改写共用）。
 
-        chunks = chunk_text(content)
+        ``pages`` 给了就走按页切块（块带页码出处），否则整篇盲切。
+        """
+
+        chunks = chunk_pages(pages) if pages else chunk_text(content)
         vectors = self.embedder.embed(chunks) if self.embedder and chunks else []
         for index, chunk in enumerate(chunks):
             chunk_cursor = connection.execute(

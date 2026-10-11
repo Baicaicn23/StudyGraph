@@ -26,7 +26,7 @@ StudyGraph 面向大学生：平时把资料分学科存进去、聊天随手沉
 | 能力 | 说明 |
 | --- | --- |
 | 🔎 混合检索 RAG | SQLite + FTS5 **trigram** 中文检索 + **向量余弦相似度**，两路用 **RRF** 融合；中文查询拆 3-gram、短词 LIKE 兜底，结果带出处 |
-| 📥 资料入库 | TXT / Markdown / PDF 抽文本（`pypdf`）；**图片走视觉转写**成规范 Markdown 笔记 |
+| 📥 资料入库 | TXT / Markdown / PDF 抽文本；PDF/Word/PPT/Excel **原样秒传 + 懒解析**（markitdown 引擎，PDF/PPT 逐页切块带页码出处）；**图片走视觉转写**成规范 Markdown 笔记 |
 | 🗂️ Obsidian 式阅读 | 笔记页三栏：常驻共享文件树 + 正文 + 右侧双 tab 面板（AI 助手 / 目录大纲），面板**内联折叠展开**、可拖拽调宽，大纲带 scroll-spy |
 | 🔧 全量 CRUD | 知识库 / 资料的新建、编辑（重建切块 + 向量 + FTS 索引）、删除；右键菜单 + 悬停操作 |
 
@@ -191,7 +191,7 @@ uv sync --extra openai
 ## 测试、评测与诊断
 
 ```bash
-uv run pytest -q --basetemp=/tmp/sg-pytest   # 169 passed（本机沙箱须指定 basetemp）
+uv run pytest -q --basetemp=/tmp/sg-pytest   # 211 passed（本机沙箱须指定 basetemp）
 uv run ruff check src tests scripts
 
 # 评测门禁（有基线时掉超过容差 → 退出码 1）
@@ -256,7 +256,7 @@ studygraph/
 │       ├── app/           7 个路由（聊天 / 知识库 / 笔记 / 练习 / 错题 / 今日复习 / 日程）
 │       ├── components/    AppShell · Chat · ChatsSection · KnowledgeTree · SchedulePickers · Markdown · ui
 │       └── lib/api.ts     接口封装（含两个 SSE 解析器）
-├── tests/             169 个自动测试（Mock，零 API 消耗）
+├── tests/             211 个自动测试（Mock，零 API 消耗）
 ├── scripts/dev.sh     一键起前后端
 ├── data/              SQLite 库 + 附件 + 备份（git 忽略）
 └── docs/              架构设计 / 使用指南 / 交接文档 / 接口一览

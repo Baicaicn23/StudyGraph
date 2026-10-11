@@ -164,7 +164,7 @@ export function documentFileUrl(id: number): string {
   return `${API_BASE}/api/knowledge/doc/${id}/file`;
 }
 
-/** 懒解析：把原样文件（目前 PDF）抽出文本并建立检索索引。 */
+/** 懒解析：把原样文件（PDF/Word/PPT/Excel）抽出文本并建立检索索引。 */
 export async function parseDocumentFile(
   id: number,
 ): Promise<{ chars: number; indexed: number }> {

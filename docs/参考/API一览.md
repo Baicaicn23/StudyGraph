@@ -67,9 +67,25 @@ body: {"library": "...", "title": "...", "content": "..."}
 ```
 POST /api/knowledge/upload           # multipart/form-data
 form: library=高等数学   file=@导数笔记.md
-→ {"id": 2, "library": "高等数学", "title": "导数笔记.md", "chars": 1234}
-# 文本（PDF/TXT/MD）走抽取管线；图片（png/jpg/jpeg/webp）走视觉转写
+→ 文本/图片：{"id": 2, "library": "高等数学", "title": "导数笔记.md", "chars": 1234}
+→ 二进制资料（秒传）：{"id": 3, "library": "高等数学", "title": "课件.pptx", "kind": "file"}
+# 文本（PDF/TXT/MD）走抽取管线；图片（png/jpg/jpeg/webp）走视觉转写；
+# PDF/Word/PPT/Excel 等二进制资料原样落盘不解析（kind="file"），在阅读器里懒解析。
 # 400 不支持的类型 / 无文本 / Mock 模式传图；413 文件过大；502 视觉转写失败
+```
+
+```
+POST /api/knowledge/doc/{document_id}/parse    # 懒解析：原样文件抽文本建索引
+→ {"chars": 8100, "indexed": null}             # kind 升级为 file_text
+# 支持 PDF / DOCX / PPTX / XLSX / XLS / HTML / CSV（markitdown 引擎，魔数校验挡损坏文件）；
+# PDF 按物理页、PPTX 按 slide 拆页，每个切块带页码出处（如「【第 3 页】」），引文可落页。
+# .doc/.ppt 老格式不支持（400）；空文本 400（可能是扫描件）；404 原样文件不存在
+```
+
+```
+GET /api/knowledge/doc/{document_id}/file       # 原样文件内联预览 / 下载
+→ FileResponse（PDF 浏览器直接渲染，其余格式下载）
+# 404 原样文件不存在（含随库删除）
 ```
 
 ## 项目空间（对话分组）

@@ -98,6 +98,20 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
   const [editing, setEditing] = useState(false);
   const isFileDoc = doc?.kind === "file" || doc?.kind === "file_text";
   const isPdf = Boolean(doc && doc.title.toLowerCase().endsWith(".pdf"));
+  // 懒解析支持范围与后端 PARSE_SUFFIXES 对齐（.doc/.ppt 老格式不支持）
+  const canParse = Boolean(
+    doc &&
+      [
+        ".pdf",
+        ".docx",
+        ".pptx",
+        ".xlsx",
+        ".xls",
+        ".html",
+        ".htm",
+        ".csv",
+      ].some((ext) => doc.title.toLowerCase().endsWith(ext)),
+  );
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -428,7 +442,7 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
                             ))}
                           </div>
                         )}
-                        {doc.kind === "file" && isPdf && !parsing && (
+                        {doc.kind === "file" && canParse && !parsing && (
                           <button
                             type="button"
                             onClick={async () => {
@@ -464,7 +478,7 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
                       {parsing && (
                         <p className="mt-3 flex items-center gap-2 text-[12px] text-teal-700">
                           <span className="h-3 w-3 animate-spin rounded-full border-2 border-teal-600/30 border-t-teal-600" />
-                          正在解析 PDF 并建立索引…
+                          正在解析并建立索引…
                         </p>
                       )}
                       {parseError && (

@@ -43,7 +43,13 @@ from ..config import Settings, get_settings, parse_mcp_servers
 from ..domain.errors import LearningError
 from ..infrastructure.chat_repository import SqliteChatRepository
 from ..infrastructure.embeddings import get_embedder
-from ..infrastructure.extract import ExtractError, extract_text, is_image
+from ..infrastructure.extract import (
+    ExtractError,
+    extract_pages,
+    extract_text,
+    is_image,
+    is_parseable_document,
+)
 from ..infrastructure.knowledge import KnowledgeStore
 from ..infrastructure.learning_repository import SqliteLearningRepository
 from ..infrastructure.llm import build_chat_model
@@ -656,27 +662,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/knowledge/doc/{document_id}/parse")
     async def parse_document_file(document_id: int, request: Request):
-        """懒解析：把原样文件（目前支持 PDF）抽出文本并建立检索索引。"""
+        """懒解析：把原样文件（PDF / Word / PPT / Excel）抽出文本并建立检索索引。
+
+        PDF / PPTX 按页拆分，每个切块带页码出处（如「【第 3 页】」），
+        AI 引文能落到具体页；Word / Excel 整篇切块。
+        """
 
         info = request.app.state.store.get_document_file(document_id)
         if info is None:
             raise HTTPException(status_code=404, detail="原样文件不存在")
-        if not info["stored_name"].lower().endswith(".pdf"):
+        if not is_parseable_document(info["stored_name"]):
             raise HTTPException(
                 status_code=400,
-                detail="该格式暂不支持解析（目前支持 PDF）；可直接下载原文查看。",
+                detail="该格式暂不支持解析（支持 PDF / Word / PPT / Excel）；"
+                "可直接下载原文查看。",
             )
         data = Path(info["path"]).read_bytes()
         try:
-            text = extract_text(info["stored_name"], data)
+            pages = extract_pages(info["stored_name"], data)
         except ExtractError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        if not text.strip():
+        text = "\n\n".join(page_text for _label, page_text in pages).strip()
+        if not text:
             raise HTTPException(
                 status_code=400,
-                detail="PDF 里没有可提取的文本（可能是扫描件，需要视觉模型处理）",
+                detail="文件里没有可提取的文本（可能是扫描件，需要视觉模型处理）",
             )
-        indexed = request.app.state.store.attach_text_content(document_id, text)
+        indexed = request.app.state.store.attach_text_content(
+            document_id, text, pages=pages
+        )
         return {"chars": len(text), "indexed": indexed}
 
     @app.post("/api/knowledge/upload")

@@ -16,6 +16,7 @@ dependencies = [
     "python-dotenv",
     "ddgs>=9.16.0",
     "httpx>=0.28.1",
+    "markitdown[docx,pptx,xlsx]>=0.1.8",
 ]
 
 [project.optional-dependencies]
