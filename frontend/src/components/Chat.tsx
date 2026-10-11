@@ -6,6 +6,7 @@ import type { ChangeEvent, ClipboardEvent, DragEvent, KeyboardEvent } from "reac
 
 import {
   addFeedback,
+  createLibrary,
   addNote,
   attachmentRawUrl,
   chatActivity,
@@ -560,6 +561,16 @@ export default function Chat() {
       // 后端未启动时保持空列表。
     }
   }, []);
+
+  /** 消息操作条「存进知识库」里直接新建库：创建后刷新列表并选中 */
+  const handleCreateLibraryForMessage = useCallback(
+    async (name: string) => {
+      await createLibrary(name);
+      await refreshLibraries();
+      setKbTarget(name);
+    },
+    [refreshLibraries],
+  );
 
   const refreshPlan = useCallback(async () => {
     try {
@@ -1201,6 +1212,7 @@ export default function Chat() {
                     settle={
                       busy && index === messages.length - 1 ? settle : null
                     }
+                    onCreateLibrary={handleCreateLibraryForMessage}
                     onAskAgain={() => inputRef.current?.focus()}
                     interruptNote={
                       busy && index === messages.length - 1 && interruptNote
@@ -2028,6 +2040,7 @@ function MessageRow({
   interruptNote,
   interruptPending,
   settle,
+  onCreateLibrary,
 }: {
   message: Message;
   busy: boolean;
@@ -2048,9 +2061,30 @@ function MessageRow({
   interruptNote?: string;
   interruptPending?: boolean;
   settle?: { key: string; summary: string } | null;
+  onCreateLibrary: (name: string) => Promise<void>;
 }) {
   const steps = message.steps ?? [];
   const toolSteps = steps.filter((step) => step.kind === "tool");
+  // 「存进知识库」选库条：内联新建知识库
+  const [creatingLib, setCreatingLib] = useState(false);
+  const [newLibName, setNewLibName] = useState("");
+  const [libBusy, setLibBusy] = useState(false);
+  const [libError, setLibError] = useState("");
+  const submitNewLib = async () => {
+    const name = newLibName.trim();
+    if (!name || libBusy) return;
+    setLibBusy(true);
+    setLibError("");
+    try {
+      await onCreateLibrary(name);
+      setCreatingLib(false);
+      setNewLibName("");
+    } catch (err) {
+      setLibError((err as Error).message);
+    } finally {
+      setLibBusy(false);
+    }
+  };
   // 过程区默认收起（WorkBuddy 式的沉静）：进行中自动展开看实时进度，完成后收起；
   // 点击头部的耗时/箭头可手动开合
   const [traceOverride, setTraceOverride] = useState<boolean | null>(null);
@@ -2422,31 +2456,89 @@ function MessageRow({
           </div>
         )}
 
-        {/* 加入知识库：选库确认 */}
+        {/* 加入知识库：选库确认 + 内联新建 */}
         {kbPickerFor === index && (
-          <div className="animate-fade-up mt-2 flex items-center gap-2 rounded-xl bg-black/[0.03] p-2.5">
-            <select
-              value={kbTarget}
-              onChange={(event) => onKbTargetChange(event.target.value)}
-              className="rounded-lg bg-white px-2 py-1.5 text-xs ring-1 ring-black/10 outline-none transition focus:ring-2 focus:ring-teal-600"
-            >
-              {(libraries.length > 0
-                ? libraries.map((item) => item.name)
-                : ["日常沉淀"]
-              ).map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => onAction("kb")}
-              disabled={actionBusy}
-              className="rounded-full bg-teal-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-teal-700 disabled:opacity-40"
-            >
-              {actionBusy ? "保存中…" : "确认加入"}
-            </button>
+          <div className="animate-fade-up mt-2 rounded-xl bg-black/[0.03] p-2.5">
+            {creatingLib ? (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={newLibName}
+                  maxLength={64}
+                  onChange={(event) => setNewLibName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && newLibName.trim()) {
+                      void submitNewLib();
+                    }
+                    if (event.key === "Escape") {
+                      setCreatingLib(false);
+                      setNewLibName("");
+                      setLibError("");
+                    }
+                  }}
+                  placeholder="新知识库名称，例如：高等数学"
+                  className="min-w-0 flex-1 rounded-lg bg-white px-2.5 py-1.5 text-xs ring-1 ring-teal-600 outline-none placeholder:text-zinc-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => void submitNewLib()}
+                  disabled={libBusy || !newLibName.trim()}
+                  className="rounded-full bg-teal-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-teal-700 disabled:opacity-40"
+                >
+                  {libBusy ? "创建中…" : "创建"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatingLib(false);
+                    setNewLibName("");
+                    setLibError("");
+                  }}
+                  className="text-xs text-zinc-400 transition hover:text-zinc-600"
+                >
+                  取消
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <select
+                  value={kbTarget}
+                  onChange={(event) => onKbTargetChange(event.target.value)}
+                  className="min-w-0 flex-1 rounded-lg bg-white px-2 py-1.5 text-xs ring-1 ring-black/10 outline-none transition focus:ring-2 focus:ring-teal-600"
+                >
+                  {(libraries.length > 0
+                    ? libraries.map((item) => item.name)
+                    : ["日常沉淀"]
+                  ).map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => onAction("kb")}
+                  disabled={actionBusy}
+                  className="shrink-0 rounded-full bg-teal-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-teal-700 disabled:opacity-40"
+                >
+                  {actionBusy ? "保存中…" : "确认加入"}
+                </button>
+                <button
+                  type="button"
+                  title="新建知识库"
+                  aria-label="新建知识库"
+                  onClick={() => setCreatingLib(true)}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-dashed border-teal-600/50 text-teal-700 transition hover:bg-teal-600/10 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            {libError && (
+              <p className="mt-1.5 text-[11px] text-red-500">{libError}</p>
+            )}
           </div>
         )}
       </div>
