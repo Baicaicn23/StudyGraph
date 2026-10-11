@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 
 import {
   createProject,
@@ -63,6 +64,14 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [menuFor, setMenuFor] = useState<number | null>(null);
   const [chatMenuFor, setChatMenuFor] = useState<number | null>(null);
+  // 右键菜单：光标处弹出（course / chat / blank 三种形态）
+  const [ctxMenu, setCtxMenu] = useState<{
+    x: number;
+    y: number;
+    kind: "course" | "chat" | "blank";
+    project?: ChatProject;
+    chat?: ChatSession;
+  } | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -191,6 +200,14 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
     <div
       key={chat.id}
       className="group relative flex items-center rounded-lg transition hover:bg-black/[0.05]"
+      onContextMenu={(event) => {
+        // 右键：在光标处弹出菜单，并阻止浏览器原生菜单
+        event.preventDefault();
+        event.stopPropagation();
+        setMenuFor(null);
+        setChatMenuFor(null);
+        setCtxMenu({ x: event.clientX, y: event.clientY, kind: "chat", chat });
+      }}
     >
       <button
         type="button"
@@ -287,7 +304,21 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
     const isCollapsed = isGroupCollapsed(key);
     return (
       <section key={project.id} className="mt-1">
-        <div className="group relative flex items-center rounded-lg px-2 py-1.5 transition hover:bg-black/[0.03]">
+        <div
+          className="group relative flex items-center rounded-lg px-2 py-1.5 transition hover:bg-black/[0.03]"
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setMenuFor(null);
+            setChatMenuFor(null);
+            setCtxMenu({
+              x: event.clientX,
+              y: event.clientY,
+              kind: "course",
+              project,
+            });
+          }}
+        >
           <button
             type="button"
             onClick={() => toggleGroup(key)}
@@ -402,8 +433,17 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
   };
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-2 pb-4">
+    <>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto px-2 pb-4"
+        onContextMenu={(event) => {
+          // 空白处右键：接管原生菜单，给出"新建"两个动作
+          if (menuFor !== null || chatMenuFor !== null) return;
+          event.preventDefault();
+          setCtxMenu({ x: event.clientX, y: event.clientY, kind: "blank" });
+        }}
+      >
         <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
           <span className="text-[11px] text-zinc-400">课程空间</span>
         </div>
@@ -461,5 +501,143 @@ export default function ChatsSection({ pathname }: { pathname: string }) {
         )}
       </div>
     </div>
+
+      {/* 右键菜单：portal 到 body —— fixed 定位不受任何祖先（transform/overflow）影响 */}
+      {ctxMenu &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setCtxMenu(null)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setCtxMenu(null);
+              }}
+              aria-hidden
+            />
+            <div
+              className="fixed z-50 w-44 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10"
+              style={{
+                left: Math.min(ctxMenu.x, window.innerWidth - 192),
+                top: Math.min(ctxMenu.y, window.innerHeight - 200),
+              }}
+              role="menu"
+            >
+              {ctxMenu.kind === "blank" && (
+                <>
+                  <MenuItem
+                    label="新建对话"
+                    onClick={() => {
+                      setCtxMenu(null);
+                      handleNewChatInProject(
+                        projects.find((item) => !item.is_default)?.id ?? null,
+                      );
+                    }}
+                  />
+                  <MenuItem
+                    label="新建课程空间"
+                    onClick={() => {
+                      setCtxMenu(null);
+                      void handleCreateProject();
+                    }}
+                  />
+                </>
+              )}
+
+              {ctxMenu.kind === "course" && ctxMenu.project && (
+                <>
+                  <MenuItem
+                    label={`在「${ctxMenu.project.name}」新建对话`}
+                    onClick={() => {
+                      setCtxMenu(null);
+                      handleNewChatInProject(ctxMenu.project?.id ?? null);
+                    }}
+                  />
+                  <MenuItem
+                    label="重命名课程"
+                    onClick={() => {
+                      const target = ctxMenu.project;
+                      setCtxMenu(null);
+                      if (target) void handleRenameProject(target);
+                    }}
+                  />
+                  {ctxMenu.project.is_default ? (
+                    <p className="px-2.5 py-1.5 text-[11px] text-zinc-400">
+                      系统兜底空间，不可删除
+                    </p>
+                  ) : (
+                    <MenuItem
+                      danger
+                      label="删除课程"
+                      onClick={() => {
+                        const target = ctxMenu.project;
+                        setCtxMenu(null);
+                        if (target) void handleDeleteProject(target);
+                      }}
+                    />
+                  )}
+                </>
+              )}
+
+              {ctxMenu.kind === "chat" && ctxMenu.chat && (
+                <>
+                  <MenuItem
+                    label="打开对话"
+                    onClick={() => {
+                      const target = ctxMenu.chat;
+                      setCtxMenu(null);
+                      if (target) openSession(target);
+                    }}
+                  />
+                  <MenuItem
+                    label="重命名"
+                    onClick={() => {
+                      const target = ctxMenu.chat;
+                      setCtxMenu(null);
+                      if (target) void handleRenameChat(target);
+                    }}
+                  />
+                  <MenuItem
+                    danger
+                    label="删除对话"
+                    onClick={() => {
+                      const target = ctxMenu.chat;
+                      setCtxMenu(null);
+                      if (target) void handleDeleteChat(target.id);
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          </>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+function MenuItem({
+  label,
+  onClick,
+  danger = false,
+}: {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={`flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] transition ${
+        danger
+          ? "text-red-600 hover:bg-red-50"
+          : "text-zinc-700 hover:bg-black/[0.04]"
+      }`}
+    >
+      <span className="truncate">{label}</span>
+    </button>
   );
 }

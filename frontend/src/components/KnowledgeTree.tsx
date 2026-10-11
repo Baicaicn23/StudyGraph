@@ -5,6 +5,7 @@
 // 数据变化通过 window 事件 "sg:knowledge-changed" 通知所有实例刷新。
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 import {
@@ -298,10 +299,12 @@ export default function KnowledgeTree({
         )}
       </div>
 
-      {/* 右键菜单 */}
-      {menu && (
-        <>
-          <div
+      {/* 右键菜单：portal 到 body，fixed 定位不受祖先容器影响 */}
+      {menu &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div
             className="fixed inset-0 z-40"
             onClick={() => setMenu(null)}
             onContextMenu={(event) => {
@@ -354,8 +357,10 @@ export default function KnowledgeTree({
               </button>
             )}
           </div>
-        </>
-      )}
+          </>
+          ,
+          document.body,
+        )}
     </aside>
   );
 }

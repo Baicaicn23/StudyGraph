@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   addNote,
@@ -1032,9 +1033,11 @@ export default function KnowledgePage() {
       )}
 
       {/* 右键菜单：新建知识库 / 删除 */}
-      {treeMenu && (
-        <>
-          <div
+      {treeMenu &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div
             className="fixed inset-0 z-40"
             onClick={() => setTreeMenu(null)}
             onContextMenu={(event) => {
@@ -1091,8 +1094,10 @@ export default function KnowledgePage() {
               </button>
             )}
           </div>
-        </>
-      )}
+          </>
+          ,
+          document.body,
+        )}
     </div>
   );
 }
