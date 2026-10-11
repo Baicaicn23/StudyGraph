@@ -92,8 +92,17 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     let detail = `请求失败：${response.status}`;
     try {
-      const body = (await response.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
+      const body = (await response.json()) as {
+        detail?: string | { msg?: string }[];
+      };
+      // FastAPI 校验错误的 detail 是数组；业务错误是字符串
+      if (typeof body.detail === "string") detail = body.detail;
+      else if (Array.isArray(body.detail)) {
+        detail = body.detail
+          .map((item) => item?.msg ?? "")
+          .filter(Boolean)
+          .join("；");
+      }
     } catch {
       /* ignore */
     }
@@ -181,6 +190,19 @@ export function addNote(
   content: string,
 ): Promise<unknown> {
   return postJson("/api/knowledge/notes", { library, title, content });
+}
+
+/** 智能沉淀：把助手回复提炼成符合写作规范的笔记（不落库）。 */
+export function distillNote(
+  library: string,
+  question: string,
+  reply: string,
+): Promise<{ title: string; content: string; generator: string }> {
+  return postJson("/api/knowledge/distill-note", {
+    library,
+    question,
+    reply: reply.slice(0, 6000),
+  });
 }
 
 export async function uploadDocument(

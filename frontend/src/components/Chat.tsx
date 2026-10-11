@@ -7,6 +7,7 @@ import type { ChangeEvent, ClipboardEvent, DragEvent, KeyboardEvent } from "reac
 import {
   addFeedback,
   createLibrary,
+  distillNote,
   addNote,
   attachmentRawUrl,
   chatActivity,
@@ -967,10 +968,24 @@ export default function Chat() {
     try {
       if (action === "kb") {
         const lib = kbTarget || targetLibrary();
-        await addNote(lib, msg.content.slice(0, 30), msg.content);
+        const question = userTextBefore(index);
+        // 智能沉淀：先提炼成符合写作规范的笔记，而不是原文转存
         setActionFeedback((prev) => ({
           ...prev,
-          [index]: `已加入「${lib}」知识库`,
+          [index]: "智能整理中…",
+        }));
+        const distilled = await distillNote(
+          lib,
+          question,
+          msg.content.slice(0, 6000),
+        );
+        await addNote(lib, distilled.title, distilled.content);
+        setActionFeedback((prev) => ({
+          ...prev,
+          [index]:
+            distilled.generator === "model"
+              ? `已智能整理为笔记《${distilled.title}》并存入「${lib}」`
+              : `已原文转存至「${lib}」（智能整理需真实模型）`,
         }));
       } else if (action === "practice") {
         const lib = selected[0] || libraries[0]?.name || "";

@@ -34,6 +34,7 @@ from ..application.graph import build_graph
 from ..application.guardrails import screen_input, screen_output
 from ..application.image_notes import ImageNoteError, image_to_markdown
 from ..application.learning_service import LearningService
+from ..application.note_distiller import NoteDistillError, distill_note
 from ..application.schedule_service import ScheduleService
 from ..application.title_writer import generate_title
 from ..config import Settings, get_settings, parse_mcp_servers
@@ -116,6 +117,13 @@ class AnswerRequest(BaseModel):
     user_id: str = Field(default="local", max_length=64)
     question_id: int
     rating: str = Field(min_length=1, max_length=16)
+
+
+class DistillNoteRequest(BaseModel):
+    user_id: str = Field(default="local", max_length=64)
+    library: str = Field(default="", max_length=64)
+    question: str = Field(default="", max_length=4000)
+    reply: str = Field(min_length=1, max_length=8000)
 
 
 class ScheduleTaskRequest(BaseModel):
@@ -601,6 +609,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             body.library, body.title, body.content
         )
         return {"id": document_id, "library": body.library, "title": body.title}
+
+    @app.post("/api/knowledge/distill-note")
+    async def distill_note_endpoint(body: DistillNoteRequest, request: Request) -> dict:
+        """智能沉淀：把助手回复提炼成符合写作规范的笔记（不落库，前端确认后再 addNote）。"""
+
+        try:
+            return await distill_note(
+                request.app.state.model,
+                question=body.question,
+                reply=body.reply,
+            )
+        except NoteDistillError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post("/api/knowledge/upload")
     async def upload_document(
