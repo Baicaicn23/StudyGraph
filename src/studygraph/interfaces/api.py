@@ -35,6 +35,7 @@ from ..application.guardrails import screen_input, screen_output
 from ..application.image_notes import ImageNoteError, image_to_markdown
 from ..application.learning_service import LearningService
 from ..application.note_distiller import NoteDistillError, distill_note
+from ..application.pdf_formatter import format_pdf_markdown
 from ..application.schedule_service import ScheduleService
 from ..application.title_writer import generate_title
 from ..config import Settings, get_settings, parse_mcp_servers
@@ -652,6 +653,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 text = extract_text(file.filename or "", data)
             except ExtractError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
+        # PDF 智能格式化：pypdf 抽出的平铺文本重排为结构化 Markdown
+        #（忠实转换不增删内容；Mock/失败回退原文）。真实模型才做。
+        if (
+            (file.filename or "").lower().endswith(".pdf")
+            and text.strip()
+            and getattr(request.app.state.model, "_llm_type", "") != "study-mock"
+        ):
+            try:
+                text = await format_pdf_markdown(request.app.state.model, raw_text=text)
+            except Exception:  # noqa: BLE001 — 格式化失败不阻断上传
+                pass
         if not text.strip():
             raise HTTPException(status_code=400, detail="文件里没有可提取的文本")
         document_id = request.app.state.store.add_document(library, title, text)
