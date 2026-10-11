@@ -155,3 +155,46 @@ body {
     animation: none;
   }
 }
+
+/* ---------- 过程面板单行活动模式 ----------
+ * 完成的动作：✓ 摘要短暂停留（前 55%）后渐隐上移；
+ * 下一动作：淡入滑入到位。全程低干扰。 */
+@keyframes step-settle {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  62% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.step-settle {
+  animation: step-settle 1500ms ease-out both;
+}
+@keyframes step-appear {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.step-appear {
+  animation: step-appear 220ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-settle,
+  .step-appear {
+    animation: none;
+  }
+}

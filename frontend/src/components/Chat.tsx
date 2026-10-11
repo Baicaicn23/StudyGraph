@@ -335,6 +335,8 @@ export default function Chat() {
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [provider, setProvider] = useState("");
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
+  // 过程面板的「刚完成动作」摘要（✓ 短暂停留后渐隐，随事件流更新）
+  const [settle, setSettle] = useState<{ key: string; summary: string } | null>(null);
   // HITL 中断痕迹（显示在消息里）：中断时"暂停等确认"，确认后改为"已继续/已取消"
   const [interruptNote, setInterruptNote] = useState<{
     message: string;
@@ -622,6 +624,15 @@ export default function Chat() {
           next[next.length - 1] = last;
           return next;
         });
+        // 工具结果事件 → 更新「刚完成动作」的 ✓ 摘要（短暂停留后渐隐）
+        if (event.kind === "tool" && / · (完成|失败)$/.test(event.title)) {
+          const tool = event.title.replace(/ · (完成|失败)$/, "");
+          const short = stepDetailText(event.detail);
+          setSettle({
+            key: `settle-${Date.now()}`,
+            summary: `${tool} → ${short}`,
+          });
+        }
       } else if (event.type === "session") {
         // 后端自动保存/自动起标题 → 记住会话 id，通知全局侧栏刷新
         if (sessionIdRef.current === null) {
@@ -1187,6 +1198,9 @@ export default function Chat() {
                     }
                     onAction={(action) => void runMessageAction(index, action)}
                     onPreviewAttachment={(file) => setPreview(file)}
+                    settle={
+                      busy && index === messages.length - 1 ? settle : null
+                    }
                     onAskAgain={() => inputRef.current?.focus()}
                     interruptNote={
                       busy && index === messages.length - 1 && interruptNote
@@ -2013,6 +2027,7 @@ function MessageRow({
   onAskAgain,
   interruptNote,
   interruptPending,
+  settle,
 }: {
   message: Message;
   busy: boolean;
@@ -2032,6 +2047,7 @@ function MessageRow({
   onAskAgain: () => void;
   interruptNote?: string;
   interruptPending?: boolean;
+  settle?: { key: string; summary: string } | null;
 }) {
   const steps = message.steps ?? [];
   const toolSteps = steps.filter((step) => step.kind === "tool");
@@ -2064,6 +2080,24 @@ function MessageRow({
     .filter((title, i, arr) => arr.indexOf(title) === i)
     .join(" → ");
   const stepRows = buildStepRows(steps);
+
+  /* —— 单行活动模式：同一时刻只显示当前动作 ——
+   * 动作完成 → ✓ 摘要短暂停留并渐隐 → 下一行动画滑入；
+   * 已完成的历史收成一行小字计数，不再逐条堆叠。 */
+  const doneRows = stepRows.filter((row) => row.kind === "tool" && row.result !== "");
+  const doneCount = doneRows.length;
+  const activeRow = [...stepRows]
+    .reverse()
+    .find((row) => row.kind === "tool" && row.result === "");
+  const toolCounts = Object.entries(
+    doneRows.reduce<Record<string, number>>((acc, row) => {
+      const name = row.tool;
+      acc[name] = (acc[name] ?? 0) + 1;
+      return acc;
+    }, {}),
+  )
+    .map(([name, count]) => (count > 1 ? `${name} ×${count}` : name))
+    .join(" · ");
 
   if (message.role === "user") {
     return (
@@ -2158,8 +2192,77 @@ function MessageRow({
             ) : null}
           </div>
 
-          {/* 过程面板：进行中只展开当前步骤，完成后全部收成一行摘要；点击行展开详情 */}
-          {steps.length > 0 && traceOpen && (
+          {/* 过程面板：进行中 = 单行活动行（完成渐隐、下一行滑入）；完成后 = 完整步骤列表（默认收起） */}
+          {steps.length > 0 && traceOpen && busy && (
+            <div className="border-b border-black/[0.05] bg-[#FAFAF8]/80 px-3 py-2.5">
+              {chain && (
+                <div className="px-2 pb-1 text-[10.5px] tracking-wide text-zinc-400">
+                  {chain}
+                </div>
+              )}
+              {doneCount > 0 && (
+                <div className="px-2 pb-2 text-[10.5px] text-zinc-400">
+                  已完成 {doneCount} 步{toolCounts ? ` · ${toolCounts}` : ""}
+                </div>
+              )}
+              {settle ? (
+                /* 刚完成的动作：✓ 摘要短暂停留后渐隐 */
+                <div
+                  key={settle.key}
+                  className="step-settle flex items-center gap-2.5 px-2 py-1.5 text-[12px]"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#0d9488"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                    className="shrink-0"
+                  >
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  <span className="min-w-0 flex-1 truncate text-zinc-600">
+                    {settle.summary}
+                  </span>
+                </div>
+              ) : activeRow ? (
+                /* 当前动作：淡入的活动行 */
+                <div
+                  key={activeRow.key}
+                  className="step-appear flex items-center gap-2.5 px-2 py-1.5 text-[12px]"
+                >
+                  <span
+                    className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-[1.5px] border-teal-600/30 border-t-teal-600"
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="font-medium text-zinc-700">
+                      {activeRow.tool}
+                    </span>
+                    {activeRow.param && (
+                      <span className="text-zinc-400">
+                        {" ·「"}
+                        {activeRow.param}」
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 px-2 py-1.5 text-[12px] text-teal-700">
+                  <span
+                    className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-[1.5px] border-teal-600/30 border-t-teal-600"
+                    aria-hidden
+                  />
+                  <span className="font-medium">{statusLabel || "正在思考…"}</span>
+                </div>
+              )}
+            </div>
+          )}
+          {steps.length > 0 && traceOpen && !busy && (
             <div className="border-b border-black/[0.05] bg-[#FAFAF8]/80 px-3 py-2">
               {chain && (
                 <div className="px-2 pb-1.5 text-[10.5px] tracking-wide text-zinc-400">
@@ -2167,37 +2270,22 @@ function MessageRow({
                 </div>
               )}
               <div>
-                {stepRows.map((row, rowIndex) => {
-                  const isLive = busy && rowIndex === stepRows.length - 1;
-                  return (
-                    <ProcessRow
-                      key={row.key}
-                      row={row}
-                      expanded={isLive || openRows.has(row.key)}
-                      running={isLive}
-                      onToggle={() =>
-                        setOpenRows((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(row.key)) next.delete(row.key);
-                          else next.add(row.key);
-                          return next;
-                        })
-                      }
-                    />
-                  );
-                })}
-                {/* 实时状态行 */}
-                {busy && (
-                  <div className="flex items-center gap-2.5 px-2 py-1.5 text-[12px] text-teal-700">
-                    <span
-                      className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-[1.5px] border-teal-600/30 border-t-teal-600"
-                      aria-hidden
-                    />
-                    <span className="font-medium">
-                      {statusLabel || "正在思考…"}
-                    </span>
-                  </div>
-                )}
+                {stepRows.map((row) => (
+                  <ProcessRow
+                    key={row.key}
+                    row={row}
+                    expanded={openRows.has(row.key)}
+                    running={false}
+                    onToggle={() =>
+                      setOpenRows((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(row.key)) next.delete(row.key);
+                        else next.add(row.key);
+                        return next;
+                      })
+                    }
+                  />
+                ))}
               </div>
             </div>
           )}
