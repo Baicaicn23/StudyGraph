@@ -66,6 +66,122 @@ function stepDetailText(detail: string): string {
   return firstLine.length > 64 ? `${firstLine.slice(0, 64)}…` : firstLine;
 }
 
+/** 原始报错翻译成人话：不让 DDGSException 这类术语出现在界面上。 */
+function sanitizeResult(text: string): string {
+  const raw = stepDetailText(text);
+  if (!raw) return "";
+  if (/DDGSException|ConnectError|error sending request|Failed to fetch|NetworkError/i.test(raw)) {
+    return "网络连不上，搜索服务暂时不可用";
+  }
+  if (/403 Forbidden/i.test(raw)) return "目标网站拒绝访问（403）";
+  if (/429|Too Many Requests/i.test(raw)) return "被限流了，稍后再试";
+  if (/timed? ?out|Timeout/i.test(raw)) return "超时了";
+  return raw;
+}
+
+function isFailedResult(result: string): boolean {
+  return /失败|网络连不上|拒绝访问|被限流/.test(result);
+}
+
+interface StepRow {
+  key: string;
+  kind: "thinking" | "tool";
+  tool: string;
+  param: string;
+  result: string;
+  ok: boolean;
+  /** 连续同样失败的合并计数（联网搜索 ×3） */
+  count: number;
+}
+
+/** 把步骤事件流整理成「每行一个动作」的可读列表：
+ * 调用与结果配对成一行；连续同样的失败合并成一条（×N）；
+ * 悬空的调用（还在跑）单独成行，由实时态接手展示。 */
+function buildStepRows(steps: { kind: string; title: string; detail: string }[]): StepRow[] {
+  const rows: StepRow[] = [];
+  let pending: { tool: string; param: string } | null = null;
+  const flushPending = () => {
+    if (!pending) return;
+    rows.push({
+      key: `pending-${rows.length}`,
+      kind: "tool",
+      tool: pending.tool,
+      param: pending.param,
+      result: "",
+      ok: true,
+      count: 1,
+    });
+    pending = null;
+  };
+
+  steps.forEach((step, index) => {
+    if (step.kind === "thinking") {
+      flushPending();
+      rows.push({
+        key: `think-${index}`,
+        kind: "thinking",
+        tool: step.title,
+        param: step.detail,
+        result: "",
+        ok: true,
+        count: 1,
+      });
+      return;
+    }
+    const isOutcome = / · (完成|失败)$/.test(step.title);
+    const tool = step.title.replace(/ · (完成|失败)$/, "");
+    if (!isOutcome) {
+      flushPending();
+      pending = { tool, param: stepDetailText(step.detail) };
+      return;
+    }
+    const result = sanitizeResult(step.detail);
+    const ok = !step.title.endsWith("· 失败") && !isFailedResult(result);
+    if (pending && pending.tool === tool) {
+      rows.push({
+        key: `act-${index}`,
+        kind: "tool",
+        tool,
+        param: pending.param,
+        result,
+        ok,
+        count: 1,
+      });
+      pending = null;
+    } else {
+      rows.push({
+        key: `act-${index}`,
+        kind: "tool",
+        tool,
+        param: "",
+        result,
+        ok,
+        count: 1,
+      });
+    }
+  });
+  flushPending();
+
+  const merged: StepRow[] = [];
+  for (const row of rows) {
+    const last = merged[merged.length - 1];
+    if (
+      !row.ok &&
+      last &&
+      !last.ok &&
+      last.kind === "tool" &&
+      last.tool === row.tool &&
+      last.param === row.param &&
+      last.result === row.result
+    ) {
+      last.count += 1;
+      continue;
+    }
+    merged.push(row);
+  }
+  return merged;
+}
+
 /** 耗时展示：42s / 1m42s（对齐 WorkBuddy 的「已处理 1m42s」） */
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -1691,10 +1807,10 @@ function MessageRow({
 }) {
   const steps = message.steps ?? [];
   const toolSteps = steps.filter((step) => step.kind === "tool");
-  const hasTools = toolSteps.length > 0;
-  // 有工具调用的回合默认展开过程（让用户看见"它干了什么"）；纯聊天回合保持简洁
+  // 过程区默认收起（WorkBuddy 式的沉静）：进行中自动展开看实时进度，完成后收起；
+  // 点击头部的耗时/箭头可手动开合
   const [traceOverride, setTraceOverride] = useState<boolean | null>(null);
-  const traceOpen = traceOverride ?? (busy || hasTools);
+  const traceOpen = traceOverride ?? busy;
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -1708,12 +1824,16 @@ function MessageRow({
     return () => window.clearInterval(timer);
   }, [busy, message.startedAt]);
 
-  const elapsedLabel = elapsed > 0 ? `已处理 ${formatDuration(elapsed)}` : "";
+  const durationLabel =
+    message.startedAt && elapsed > 0
+      ? `${busy ? "已处理" : "已完成"} ${formatDuration(elapsed)}`
+      : "";
   // 链路摘要：工具链一眼可见（「· 完成」这类收尾步骤不进摘要）
   const chain = toolSteps
-    .map((step) => step.title.replace(/ · 完成$/, ""))
+    .map((step) => step.title.replace(/ · 完成$/, "").replace(/ · 失败$/, ""))
     .filter((title, i, arr) => arr.indexOf(title) === i)
     .join(" → ");
+  const stepRows = buildStepRows(steps);
 
   if (message.role === "user") {
     return (
@@ -1768,24 +1888,22 @@ function MessageRow({
       <div className="min-w-0 flex-1">
         {/* WorkBuddy 式过程卡片：头部（名称/耗时）→ 思考与工具步骤 → 最终回答 */}
         <div className="overflow-hidden rounded-2xl rounded-tl-lg bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03),0_2px_8px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.04]">
-          {/* 头部 */}
+          {/* 头部：名称 + 耗时（有过程时，耗时旁的箭头控制过程面板开合） */}
           <div className="flex items-center gap-2 px-4 pt-3">
             <span className="text-[13px] font-semibold text-zinc-900">
               StudyGraph 智能体
             </span>
-            {elapsedLabel && (
-              <span className="text-[11px] text-zinc-400">{elapsedLabel}</span>
-            )}
-          </div>
-
-          {/* 过程流：一条「执行过程」+ 链路摘要 + 逐条步骤（可收起） */}
-          {steps.length > 0 && (
-            <div className="border-b border-black/[0.05] bg-[#FAFAF8] px-4 py-2.5">
+            {steps.length > 0 ? (
               <button
                 type="button"
                 onClick={() => setTraceOverride(!traceOpen)}
-                className="flex w-full items-center gap-2 text-left focus-visible:outline-none"
+                aria-expanded={traceOpen}
+                title={traceOpen ? "收起过程" : "展开过程"}
+                className="ml-auto flex items-center gap-1 text-[11px] text-zinc-400 transition hover:text-zinc-600 focus-visible:outline-none"
               >
+                {durationLabel && (
+                  <span className="tabular-nums">{durationLabel}</span>
+                )}
                 <svg
                   width="11"
                   height="11"
@@ -1796,82 +1914,87 @@ function MessageRow({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   aria-hidden
-                  className={`shrink-0 text-zinc-400 transition-transform ${
-                    traceOpen ? "" : "-rotate-90"
-                  }`}
+                  className={`transition-transform ${traceOpen ? "" : "-rotate-90"}`}
                 >
                   <path d="m6 9 6 6 6-6" />
                 </svg>
-                <span className="shrink-0 text-[11.5px] font-medium text-zinc-600">
-                  执行过程 · {steps.length} 步
-                </span>
-                {chain && (
-                  <span className="min-w-0 flex-1 truncate text-[11px] text-zinc-400">
-                    {chain}
-                  </span>
-                )}
-                <span className="ml-auto shrink-0 text-[11px] text-zinc-400">
-                  {traceOpen ? "收起" : "展开"}
-                </span>
               </button>
+            ) : durationLabel ? (
+              <span className="ml-auto text-[11px] text-zinc-400">
+                {durationLabel}
+              </span>
+            ) : null}
+          </div>
 
-              {traceOpen && (
-                <div className="mt-2 space-y-1.5">
-                  {steps.map((step, i) => {
-                    const done = step.title.endsWith("· 完成");
-                    const title = step.title.replace(/ · 完成$/, "");
-                    return (
-                      <div
-                        key={`${step.title}-${i}`}
-                        className="flex items-start gap-2 text-[11.5px]"
-                      >
-                        <span
-                          className={`mt-[1px] grid h-[15px] w-[15px] shrink-0 place-items-center rounded-full text-[9px] tabular-nums ${
-                            step.kind === "thinking"
-                              ? "bg-black/[0.06] text-zinc-500"
-                              : done
-                                ? "bg-teal-600/15 text-teal-700"
-                                : "bg-teal-600/10 text-teal-700"
-                          }`}
-                          aria-hidden
-                        >
-                          {done ? "✓" : i + 1}
-                        </span>
-                        <span className="min-w-0 flex-1 leading-relaxed">
-                          <span
-                            className={
-                              step.kind === "thinking"
-                                ? "text-zinc-500"
-                                : "font-medium text-zinc-600"
-                            }
-                          >
-                            {title}
-                          </span>
-                          {step.detail && (
-                            <span className="text-zinc-400">
-                              {" · "}
-                              {stepDetailText(step.detail)}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  })}
-
-                  {/* 实时态：正在做的那一步（带转圈） */}
-                  {busy && (
-                    <div className="flex items-start gap-2 text-[11.5px]">
+          {/* 过程面板：进行中自动展开（实时态），完成后收起保持沉静 */}
+          {steps.length > 0 && traceOpen && (
+            <div className="border-b border-black/[0.05] bg-[#FAFAF8] px-4 py-2.5">
+              {chain && (
+                <div className="mb-1.5 text-[10.5px] text-zinc-400">{chain}</div>
+              )}
+              <div className="space-y-1.5">
+                {stepRows.map((row) =>
+                  row.kind === "thinking" ? (
+                    <div
+                      key={row.key}
+                      className="flex items-start gap-2 text-[11.5px]"
+                    >
                       <span
-                        className="mt-[2px] h-[13px] w-[13px] shrink-0 animate-spin rounded-full border-[1.5px] border-teal-600/30 border-t-teal-600"
+                        className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-zinc-300"
                         aria-hidden
                       />
-                      <span className="font-medium text-teal-700">
-                        {statusLabel || "正在思考…"}
+                      <span className="min-w-0 flex-1 text-zinc-500">
+                        {row.tool}
+                        {row.param && (
+                          <span className="text-zinc-400"> · {row.param}</span>
+                        )}
                       </span>
                     </div>
-                  )}
-                </div>
-              )}
+                  ) : (
+                    <div
+                      key={row.key}
+                      className="flex items-start gap-2 text-[11.5px]"
+                    >
+                      <span
+                        className={`mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full ${
+                          row.ok ? "bg-teal-500" : "bg-red-400"
+                        }`}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1 leading-relaxed">
+                        <span className="font-medium text-zinc-600">
+                          {row.tool}
+                        </span>
+                        {row.param && (
+                          <span className="text-zinc-400"> ·「{row.param}」</span>
+                        )}
+                        {row.result && (
+                          <span
+                            className={row.ok ? "text-zinc-400" : "text-red-400"}
+                          >
+                            {" → "}
+                            {row.result}
+                            {row.count > 1 && ` ×${row.count}`}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ),
+                )}
+
+                {/* 实时态：正在做的那一步（带转圈） */}
+                {busy && (
+                  <div className="flex items-start gap-2 text-[11.5px]">
+                    <span
+                      className="mt-[2px] h-[13px] w-[13px] shrink-0 animate-spin rounded-full border-[1.5px] border-teal-600/30 border-t-teal-600"
+                      aria-hidden
+                    />
+                    <span className="font-medium text-teal-700">
+                      {statusLabel || "正在思考…"}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -1944,25 +2067,9 @@ function MessageRow({
           )}
         </div>
 
-        {/* 收束条：完成信号 + 后续动作（替代原来三个裸链接） */}
+        {/* 收束条：后续动作（完成信号在头部耗时里，避免重复） */}
         {message.content && !busy && (
           <div className="mt-2 flex flex-wrap items-center gap-2 px-1">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-600/10 px-2.5 py-1 text-[11px] font-medium text-teal-800">
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M20 6 9 17l-5-5" />
-              </svg>
-              已完成{elapsed > 0 ? ` · 用时 ${formatDuration(elapsed)}` : ""}
-            </span>
             <button
               type="button"
               onClick={onAskAgain}
