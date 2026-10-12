@@ -13,6 +13,7 @@ from ..domain.quiz import (
     WrittenQuestion,
     parse_question,
 )
+from .json_mode import invoke_json
 from .ports import ChatModelPort
 
 _SYSTEM_PROMPT = (
@@ -31,11 +32,12 @@ async def write_question(
     if model is None or getattr(model, "_llm_type", "") == "study-mock":
         return WrittenQuestion(prompt=fallback, generator="template")
     try:
-        response = await model.ainvoke(
+        response = await invoke_json(
+            model,
             [
                 SystemMessage(_SYSTEM_PROMPT),
                 HumanMessage(instruction[:MAX_INSTRUCTION_CHARS]),
-            ]
+            ],
         )
         question = parse_question(getattr(response, "content", ""))
     except Exception:  # noqa: BLE001 — 出题失败绝不阻塞，退回模板

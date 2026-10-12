@@ -56,6 +56,8 @@ class Settings:
     max_history_messages: int = 24
     max_upload_bytes: int = 5_000_000
     mcp_servers: str = ""
+    # 可选：轮级推理力度（auto=按意图自动 low/max，仅推理模型/白名单 provider 生效）
+    reasoning_effort_mode: str = ""
     # 可选：Tavily 联网搜索的 API Key（配了就用 Tavily，稳定；不配则回落 DuckDuckGo）
     tavily_api_key: str = ""
     # 可选：博查 Web Search API Key（中文搜索质量最好，付费；配了在 Tavily 之前优先用）
@@ -71,6 +73,9 @@ def get_settings() -> Settings:
         openai_base_url=os.environ.get("ZHIJI_OPENAI_BASE_URL", ""),
         openai_api_key=os.environ.get("ZHIJI_OPENAI_API_KEY", ""),
         max_output_tokens=int(os.environ.get("ZHIJI_MAX_OUTPUT_TOKENS", "2048")),
+        reasoning_effort_mode=os.environ.get("ZHIJI_REASONING_EFFORT", "")
+        .strip()
+        .lower(),
         daily_token_budget=int(os.environ.get("ZHIJI_DAILY_TOKEN_BUDGET", "0")),
         budget_exceeded_action=os.environ.get(
             "ZHIJI_BUDGET_EXCEEDED_ACTION", "block"

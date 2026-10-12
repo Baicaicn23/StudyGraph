@@ -5,6 +5,7 @@ from __future__ import annotations
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..domain.planning import fallback_plan, parse_plan
+from .json_mode import invoke_json
 from .ports import ChatModelPort
 
 _SYSTEM_PROMPT = (
@@ -20,8 +21,8 @@ async def build_plan(model: ChatModelPort | None, request: str) -> list[str]:
     if model is None or getattr(model, "_llm_type", "") == "study-mock":
         return fallback_plan(request)
     try:
-        response = await model.ainvoke(
-            [SystemMessage(_SYSTEM_PROMPT), HumanMessage(request[:600])]
+        response = await invoke_json(
+            model, [SystemMessage(_SYSTEM_PROMPT), HumanMessage(request[:600])]
         )
         plan = parse_plan(getattr(response, "content", ""))
     except Exception:  # noqa: BLE001 - 规划失败不阻塞，退回规则计划

@@ -62,6 +62,7 @@ export interface UsageSummary {
     input_tokens: number;
     output_tokens: number;
     total_tokens: number;
+    cached_tokens: number;
     calls: number;
   }[];
   by_day?: { date: string; total_tokens: number }[];

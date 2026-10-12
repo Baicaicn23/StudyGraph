@@ -149,6 +149,7 @@ class UsageRepositoryPort(Protocol):
         output_tokens: int,
         total_tokens: int,
         created_at: float,
+        cached_tokens: int = 0,
     ) -> None: ...
 
     def total_since(self, *, user_id: str, since: float) -> int: ...

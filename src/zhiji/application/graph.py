@@ -34,7 +34,7 @@ from langchain_core.messages import (
 from langgraph.errors import GraphInterrupt
 from langgraph.graph import END, START, StateGraph
 
-from ..domain.model_routing import model_tier
+from ..domain.model_routing import model_tier, reasoning_effort
 from ..domain.note_style import NOTE_STYLE_GUIDE
 from ..domain.note_style import applies_to as note_style_applies
 from ..domain.planning import is_complex
@@ -91,6 +91,10 @@ async def _record_usage(repository, user_id: str, model: Any, message: Any) -> N
     usage = getattr(message, "usage_metadata", None)
     if not usage:
         return
+    # 上下文缓存命中数（OpenAI 兼容服务的 cached_tokens，LangChain 统一映射为
+    # input_token_details.cache_read）——命中部分按半价计费，记账用于成本证明。
+    details = usage.get("input_token_details") or {}
+    cached = int(details.get("cache_read") or 0)
     await asyncio.to_thread(
         repository.record,
         user_id=user_id,
@@ -98,13 +102,20 @@ async def _record_usage(repository, user_id: str, model: Any, message: Any) -> N
         input_tokens=int(usage.get("input_tokens", 0)),
         output_tokens=int(usage.get("output_tokens", 0)),
         total_tokens=int(usage.get("total_tokens", 0)),
+        cached_tokens=cached,
         created_at=time.time(),
     )
 
 
 def build_system_prompt(profile_agent: str, state: StudyState) -> str:
     profile = profile_for_agent(profile_agent)
+    # 结构对上游**上下文缓存**友好：稳定不变的人格/规范放前部（同会话逐字节
+    # 一致 → 重复前缀命中缓存、输入 token 半价），每轮变化的动态内容全部放尾部。
     parts = [_BASE_PROMPT, TEACHING_CHARTER, profile.system_prompt]
+    # 笔记写作规范：只挂给会写笔记进知识库的子智能体（tutor/chat/retriever），
+    # 计算器、进度这类角色不需要，省提示词预算。它也是静态内容，归入稳定前缀。
+    if note_style_applies(profile.agent):
+        parts.append(NOTE_STYLE_GUIDE)
     plan = state.get("plan") or []
     if plan:
         steps = "\n".join(f"{i}. {s}" for i, s in enumerate(plan, 1))
@@ -129,10 +140,6 @@ def build_system_prompt(profile_agent: str, state: StudyState) -> str:
         )
     if state.get("knowledge_bases"):
         parts.append("学生本轮选中的知识库：" + "、".join(state["knowledge_bases"]))
-    # 笔记写作规范：只挂给会写笔记进知识库的子智能体（tutor/chat/retriever），
-    # 计算器、进度这类角色不需要，省提示词预算。
-    if note_style_applies(profile.agent):
-        parts.append(NOTE_STYLE_GUIDE)
     return "\n\n".join(part for part in parts if part)
 
 
@@ -170,7 +177,8 @@ def build_graph(
 
         text = _last_human_text(state["messages"])
         tier = model_tier(state.get("intent", ""), text)
-        active_model = model_router(tier) if model_router else model
+        effort = reasoning_effort(state.get("intent", ""), text)
+        active_model = model_router(tier, effort) if model_router else model
 
         # 成本控制：当日预算用尽时阻止真实调用（block）。读库放到线程里，避免
         # 阻塞事件循环导致检查点连接无法释放锁。

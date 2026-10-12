@@ -16,6 +16,7 @@ import re
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from .json_mode import invoke_json
 from .ports import ChatModelPort
 
 _SYSTEM_PROMPT = (
@@ -61,14 +62,15 @@ async def select_libraries(
     if not libraries:
         return None
     try:
-        response = await model.ainvoke(
+        response = await invoke_json(
+            model,
             [
                 SystemMessage(_SYSTEM_PROMPT),
                 HumanMessage(
                     f"学生的问题：{question[:500]}\n"
                     f"候选知识库：{json.dumps(libraries, ensure_ascii=False)}"
                 ),
-            ]
+            ],
         )
         chosen = _parse(str(getattr(response, "content", "")), libraries)
     except Exception:  # noqa: BLE001 — 判断失败回落全库

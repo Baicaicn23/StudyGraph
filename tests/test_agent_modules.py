@@ -56,10 +56,10 @@ async def test_simple_request_skips_planning(tmp_path: Path) -> None:
 
 
 async def test_model_router_receives_tier(tmp_path: Path) -> None:
-    seen: list[str] = []
+    seen: list[tuple[str, str | None]] = []
 
-    def router(tier: str) -> MockChatModel:
-        seen.append(tier)
+    def router(tier: str, effort: str | None = None) -> MockChatModel:
+        seen.append((tier, effort))
         return MockChatModel()
 
     graph = _build(tmp_path, model_router=router)
@@ -69,7 +69,7 @@ async def test_model_router_receives_tier(tmp_path: Path) -> None:
         {"messages": [HumanMessage("帮我算一下 6 * 7")]},
         {"configurable": {"thread_id": "route-small"}},
     )
-    assert "small" in seen
+    assert ("small", "low") in seen
 
     seen.clear()
     await _run(
@@ -77,7 +77,7 @@ async def test_model_router_receives_tier(tmp_path: Path) -> None:
         {"messages": [HumanMessage("讲解一下导数的几何意义")]},
         {"configurable": {"thread_id": "route-standard"}},
     )
-    assert "standard" in seen
+    assert ("standard", "max") in seen
 
 
 async def test_usage_is_recorded(tmp_path: Path) -> None:

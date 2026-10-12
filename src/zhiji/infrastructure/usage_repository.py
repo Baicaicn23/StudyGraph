@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS llm_usage (
     input_tokens INTEGER NOT NULL DEFAULT 0,
     output_tokens INTEGER NOT NULL DEFAULT 0,
     total_tokens INTEGER NOT NULL DEFAULT 0,
+    cached_tokens INTEGER NOT NULL DEFAULT 0,
     created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_usage_user_time ON llm_usage(user_id, created_at DESC);
@@ -28,6 +29,16 @@ class SqliteUsageRepository:
         with self._connect() as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.executescript(_SCHEMA)
+            # 旧库平滑迁移：缺 cached_tokens 列就补上（上下文缓存记账用）
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(llm_usage)").fetchall()
+            }
+            if "cached_tokens" not in columns:
+                connection.execute(
+                    "ALTER TABLE llm_usage "
+                    "ADD COLUMN cached_tokens INTEGER NOT NULL DEFAULT 0"
+                )
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path, timeout=5.0)
@@ -44,12 +55,21 @@ class SqliteUsageRepository:
         output_tokens: int,
         total_tokens: int,
         created_at: float,
+        cached_tokens: int = 0,
     ) -> None:
         with self._connect() as connection:
             connection.execute(
                 "INSERT INTO llm_usage(user_id, model, input_tokens, output_tokens, "
-                "total_tokens, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (user_id, model, input_tokens, output_tokens, total_tokens, created_at),
+                "total_tokens, cached_tokens, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    user_id,
+                    model,
+                    input_tokens,
+                    output_tokens,
+                    total_tokens,
+                    cached_tokens,
+                    created_at,
+                ),
             )
 
     def total_since(self, *, user_id: str, since: float) -> int:
@@ -66,6 +86,7 @@ class SqliteUsageRepository:
             rows = connection.execute(
                 "SELECT model, SUM(input_tokens) AS input_tokens, "
                 "SUM(output_tokens) AS output_tokens, SUM(total_tokens) AS total_tokens, "
+                "SUM(cached_tokens) AS cached_tokens, "
                 "COUNT(*) AS calls FROM llm_usage WHERE user_id = ? AND created_at >= ? "
                 "GROUP BY model ORDER BY total_tokens DESC",
                 (user_id, since),

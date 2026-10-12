@@ -511,16 +511,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         model = build_chat_model(resolved)
         tier_models: dict[str, object] = {}
 
-        def model_router(tier: str):
+        def model_router(tier: str, effort: str | None = None):
             name = {
                 "small": resolved.model_small,
                 "large": resolved.model_large,
             }.get(tier, "")
+            # 轮级推理力度：仅在显式开启（ZHIJI_REASONING_EFFORT=auto）且 provider
+            # 在白名单内时附加——普通 deepseek-chat 等非推理模型不认这个参数。
+            attach_effort = effort if resolved.reasoning_effort_mode == "auto" else None
             if not name:
-                return model
-            if tier not in tier_models:
-                tier_models[tier] = build_chat_model(replace(resolved, model=name))
-            return tier_models[tier]
+                if not attach_effort:
+                    return model
+                key = f"effort:{attach_effort}"
+                if key not in tier_models:
+                    tier_models[key] = build_chat_model(
+                        resolved, reasoning_effort=attach_effort
+                    )
+                return tier_models[key]
+            cache_key = f"{tier}:{attach_effort or ''}"
+            if cache_key not in tier_models:
+                tier_models[cache_key] = build_chat_model(
+                    replace(resolved, model=name), reasoning_effort=attach_effort
+                )
+            return tier_models[cache_key]
 
         async with AsyncSqliteSaver.from_conn_string(resolved.database_path) as checkpointer:
             app.state.settings = resolved

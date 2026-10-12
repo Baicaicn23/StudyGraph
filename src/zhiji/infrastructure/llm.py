@@ -89,6 +89,7 @@ class MockChatModel(BaseChatModel):
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "total_tokens": input_tokens + output_tokens,
+            "input_token_details": {"cache_read": 0},
         }
 
     def _decide(self, messages: list[BaseMessage]) -> AIMessage:
@@ -143,7 +144,14 @@ class MockChatModel(BaseChatModel):
         )
 
 
-def build_chat_model(settings: Settings) -> BaseChatModel:
+# 支持 reasoning_effort 参数的 provider 白名单（按 base_url 判定）——
+# 不在名单内的服务商会拒绝这个未知参数，宁可附加失败也不冒 400 的险。
+_EFFORT_PROVIDERS = ("deepseek", "bigmodel", "glm")
+
+
+def build_chat_model(
+    settings: Settings, *, reasoning_effort: str | None = None
+) -> BaseChatModel:
     provider = settings.llm_provider
     if provider in ("", "mock"):
         return MockChatModel()
@@ -154,11 +162,17 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
             raise RuntimeError(
                 "接入真实模型需要 langchain-openai：请执行 `uv sync --extra openai`"
             ) from exc
+        extra_body: dict[str, Any] | None = None
+        if reasoning_effort:
+            base_url = (settings.openai_base_url or "").lower()
+            if any(host in base_url for host in _EFFORT_PROVIDERS):
+                extra_body = {"reasoning_effort": reasoning_effort}
         return ChatOpenAI(
             model=settings.model,
             base_url=settings.openai_base_url or None,
             api_key=settings.openai_api_key or "not-needed",
             max_tokens=settings.max_output_tokens,
             temperature=0.3,
+            extra_body=extra_body,
         )
     raise ValueError(f"未知的 LLM Provider：{provider}")

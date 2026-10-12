@@ -9,6 +9,9 @@
 - **学习周报**：「今日复习」页新增「本周概览」——提问 / 练习作答（含自评良好率）/ 新增错题 / 日程完成四张指标卡（带较上周升降徽章）+ 每日提问七柱图 + 掌握度升降横条；全部为 SQL 确定性聚合，**零模型调用**；新增 `mastery_snapshots` 周快照表支持掌握度升降对比
 - **DeepSeek 原生联网搜索**：主模型是 DeepSeek 时 `web_search` 自动走其服务端搜索（`web_search_20250305`）——服务端搜索、抓网页全文、解密并基于全文整理答案，一次调用覆盖全部查询角度；复用主模型 Key，`ZHIJI_DEEPSEEK_SEARCH=1/0` 可强制开关
 - **博查（Bocha）可选搜索后端**：`ZHIJI_BOCHA_API_KEY`，中文质量最好的付费 API
+- **轮级推理力度**：`ZHIJI_REASONING_EFFORT=auto` 时按意图自动附加 `reasoning_effort`（讲解/出题 max、计算/闲聊 low、其余交模型），参考 GLM 分级设计；provider 白名单决定是否附加，非推理模型零影响
+- **上下文缓存利用与记账**：系统提示词重排为"稳定前缀在前、动态内容在后"（命中上游隐式缓存，命中 token 半价）；token 记账新增 `cached_tokens`（LangChain `input_token_details.cache_read`），用量卡片显示"缓存命中 N"
+- **结构化输出 JSON 模式**：出题 / 规划 / 智能选库三处统一走 `response_format=json_object`（`application/json_mode.py`），provider 不支持自动回落普通调用——解析失败率大幅下降
 - **检索质量四连修**：jieba 词级 FTS 查询（消灭跨词 3-gram 噪声）；Markdown **标题结构切块**（标题做块前缀出处）；fetch_url 换 **trafilatura** 正文抽取（导航/广告自动剔除，正则兜底）；**Embedding 服务独立可配**（`ZHIJI_EMBEDDING_BASE_URL/KEY`，支持智谱 / 硅基流动 bge-m3），向量服务故障自动降级纯关键词检索
 - **搜索结果概念覆盖过滤**：查询剥指令词（"搜索/一篇/帮我"）、按空格拆概念段，结果须盖住某查询全部段才算全相关——报名页/词典页/软件帖等沾边噪声直接过滤
 

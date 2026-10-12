@@ -53,3 +53,30 @@ def test_total_since_respects_time_window(tmp_path: Path) -> None:
         created_at=time.time() - 100000,
     )
     assert repository.total_since(user_id="u1", since=time.time() - 10) == 0
+
+
+def test_cached_tokens_recorded_and_summarized(tmp_path) -> None:
+    """上下文缓存命中数：record 写入、summary 汇总——成本证明的数据源。"""
+
+    repository = SqliteUsageRepository(tmp_path / "usage.db")
+    repository.record(
+        user_id="u1",
+        model="deepseek-flash",
+        input_tokens=1000,
+        output_tokens=200,
+        total_tokens=1200,
+        cached_tokens=800,
+        created_at=time.time(),
+    )
+    repository.record(
+        user_id="u1",
+        model="deepseek-flash",
+        input_tokens=500,
+        output_tokens=100,
+        total_tokens=600,
+        created_at=time.time() + 1,
+    )
+    summary = repository.summary(user_id="u1", since=0)
+    assert len(summary) == 1
+    assert summary[0]["input_tokens"] == 1500
+    assert summary[0]["cached_tokens"] == 800

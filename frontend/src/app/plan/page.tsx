@@ -802,6 +802,12 @@ export default function PlanPage() {
                       {tokens.by_model.map((item) => (
                         <li key={item.model} className="tabular-nums">
                           {item.model} · {item.calls} 次调用
+                          {item.cached_tokens > 0 && (
+                            <span className="text-teal-600">
+                              {" "}
+                              · 缓存命中 {item.cached_tokens.toLocaleString()}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>
