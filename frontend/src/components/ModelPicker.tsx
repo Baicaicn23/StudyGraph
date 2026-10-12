@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 
 const INTENSITY_LEVELS: { value: ThinkingIntensity; label: string }[] = [
+  { value: "off", label: "关" },
   { value: "auto", label: "自动" },
   { value: "low", label: "低" },
   { value: "high", label: "高" },
@@ -17,6 +18,7 @@ const INTENSITY_LEVELS: { value: ThinkingIntensity; label: string }[] = [
 ];
 
 const INTENSITY_LABELS: Record<ThinkingIntensity, string> = {
+  off: "关",
   auto: "自动",
   low: "低",
   high: "高",

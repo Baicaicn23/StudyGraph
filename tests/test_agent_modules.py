@@ -69,7 +69,7 @@ async def test_model_router_receives_tier(tmp_path: Path) -> None:
         {"messages": [HumanMessage("帮我算一下 6 * 7")]},
         {"configurable": {"thread_id": "route-small"}},
     )
-    assert ("small", "low") in seen
+    assert ("small", "off") in seen
 
     seen.clear()
     await _run(

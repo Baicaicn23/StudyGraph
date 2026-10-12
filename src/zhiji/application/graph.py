@@ -34,7 +34,7 @@ from langchain_core.messages import (
 from langgraph.errors import GraphInterrupt
 from langgraph.graph import END, START, StateGraph
 
-from ..domain.model_routing import model_tier, reasoning_effort
+from ..domain.model_routing import model_tier, thinking_level
 from ..domain.note_style import NOTE_STYLE_GUIDE
 from ..domain.note_style import applies_to as note_style_applies
 from ..domain.planning import is_complex
@@ -183,14 +183,16 @@ def build_graph(
 
         text = _last_human_text(state["messages"])
         tier = model_tier(state.get("intent", ""), text)
-        effort = reasoning_effort(state.get("intent", ""), text)
-        active_model = model_router(tier, effort) if model_router else model
-        # 用户在界面上自选的模型优先于自动路由——覆盖实例在接口层构建时已把
-        # 思考强度烘进 extra_body，这里只换模型对象（每轮读取一次设置）
+        # 界面上自选的思考强度优先于按意图自动分档；自选模型优先于档位路由
+        override_model, override_effort = (None, None)
         if model_override_provider is not None:
-            override_model, _override_effort = model_override_provider()
-            if override_model is not None:
-                active_model = override_model
+            override_model, override_effort = model_override_provider()
+        effort = override_effort or thinking_level(state.get("intent", ""), text)
+        active_model = (
+            override_model
+            if override_model is not None
+            else (model_router(tier, effort) if model_router else model)
+        )
 
         # 成本控制：当日预算用尽时阻止真实调用（block）。读库放到线程里，避免
         # 阻塞事件循环导致检查点连接无法释放锁。

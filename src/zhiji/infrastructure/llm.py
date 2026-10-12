@@ -144,15 +144,34 @@ class MockChatModel(BaseChatModel):
         )
 
 
-# 支持 reasoning_effort 参数的 provider 白名单（按 base_url 判定）——
-# 不在名单内的服务商会拒绝这个未知参数，宁可附加失败也不冒 400 的险。
-_EFFORT_PROVIDERS = ("deepseek", "bigmodel", "glm")
+# 支持 thinking / reasoning_effort 参数的 provider 白名单（按 base_url 判定）——
+# 不在名单内的服务商会拒绝这些未知参数，宁可附加失败也不冒 400 的险。
+_THINKING_PROVIDERS = ("deepseek", "bigmodel", "glm")
+
+
+def _thinking_extra_body(level: str, base_url: str) -> dict[str, Any] | None:
+    """把思考档位翻译成 provider 特定参数。
+
+    实测（DeepSeek V4.1-Flash）：reasoning_effort 分档无效果，有效的是
+    thinking 开关（disabled 后思考 token 归零）；GLM 系文档明确支持
+    thinking 开关 + reasoning_effort 分档。其余 provider 不附加。
+    """
+
+    lowered = base_url.lower()
+    if not any(host in lowered for host in _THINKING_PROVIDERS):
+        return None
+    if level == "off":
+        return {"thinking": {"type": "disabled"}}
+    extra: dict[str, Any] = {"thinking": {"type": "enabled"}}
+    if "deepseek" not in lowered:  # GLM 系支持 effort 分档
+        extra["reasoning_effort"] = level
+    return extra
 
 
 def build_chat_model(
     settings: Settings,
     *,
-    reasoning_effort: str | None = None,
+    thinking: str | None = None,
     base_url_override: str | None = None,
     api_key_override: str | None = None,
     model_name_override: str | None = None,
@@ -168,10 +187,9 @@ def build_chat_model(
                 "接入真实模型需要 langchain-openai：请执行 `uv sync --extra openai`"
             ) from exc
         extra_body: dict[str, Any] | None = None
-        if reasoning_effort:
-            base_url = (base_url_override or settings.openai_base_url or "").lower()
-            if any(host in base_url for host in _EFFORT_PROVIDERS):
-                extra_body = {"reasoning_effort": reasoning_effort}
+        if thinking:
+            base_url = base_url_override or settings.openai_base_url or ""
+            extra_body = _thinking_extra_body(thinking, base_url)
         return ChatOpenAI(
             model=model_name_override or settings.model,
             base_url=base_url_override or settings.openai_base_url or None,

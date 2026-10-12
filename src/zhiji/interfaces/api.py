@@ -521,20 +521,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             }.get(tier, "")
             # 轮级推理力度：仅在显式开启（ZHIJI_REASONING_EFFORT=auto）且 provider
             # 在白名单内时附加——普通 deepseek-chat 等非推理模型不认这个参数。
-            attach_effort = effort if resolved.reasoning_effort_mode == "auto" else None
+            attach_thinking = effort if resolved.reasoning_effort_mode == "auto" else None
             if not name:
-                if not attach_effort:
+                if not attach_thinking:
                     return model
-                key = f"effort:{attach_effort}"
+                key = f"thinking:{attach_thinking}"
                 if key not in tier_models:
-                    tier_models[key] = build_chat_model(
-                        resolved, reasoning_effort=attach_effort
-                    )
+                    tier_models[key] = build_chat_model(resolved, thinking=attach_thinking)
                 return tier_models[key]
-            cache_key = f"{tier}:{attach_effort or ''}"
+            cache_key = f"{tier}:{attach_thinking or ''}"
             if cache_key not in tier_models:
                 tier_models[cache_key] = build_chat_model(
-                    replace(resolved, model=name), reasoning_effort=attach_effort
+                    replace(resolved, model=name), thinking=attach_thinking
                 )
             return tier_models[cache_key]
 

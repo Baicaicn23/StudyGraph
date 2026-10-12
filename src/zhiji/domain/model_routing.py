@@ -21,17 +21,18 @@ def model_tier(intent: str, text: str) -> str:
     return "standard"
 
 
-def reasoning_effort(intent: str, text: str) -> str | None:
-    """轮级推理力度（推理模型的 reasoning_effort 架构位）→ "low" / "max" / None。
+def thinking_level(intent: str, text: str) -> str | None:
+    """轮级思考档位（架构位）→ "off" / "low" / "high" / "max" / None。
 
-    参考 GLM reasoning_effort 的分级思路：讲解/出题这类重思考意图拉满（max），
-    计算/闲聊压到 low（快且省），中间档返回 None 交给模型自动判断。是否真正
-    把该参数附到请求里，由基础设施层按 provider 白名单决定（非推理模型/不支持
-    的服务商会拒绝该参数）。
+    实测（DeepSeek V4.1-Flash）：有效控制轴是 thinking 开/关（disabled 后
+    思考 token 归零），reasoning_effort 分档对该模型无效。因此自动策略取
+    两端：轻意图（计算/闲聊）关思考省时省钱，重思考意图（讲解/出题/长文本）
+    开思考保质量，中间档 None 交给模型默认。是否真正附加由 llm 层按
+    provider 决定（DeepSeek 用 thinking 开关，GLM 用开关 + effort 分档）。
     """
 
     if intent in _SMALL_INTENTS:
-        return "low"
+        return "off"
     if intent in _THINKING_INTENTS or len((text or "").strip()) > _LARGE_LENGTH:
         return "max"
     return None

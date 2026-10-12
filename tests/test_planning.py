@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from zhiji.domain.model_routing import model_tier, reasoning_effort
+from zhiji.domain.model_routing import model_tier, thinking_level
 from zhiji.domain.planning import fallback_plan, is_complex, parse_plan
 
 
@@ -30,14 +30,15 @@ def test_model_tier_by_intent_and_length() -> None:
     assert model_tier("concept_explain", "x" * 80) == "large"
 
 
-def test_reasoning_effort_by_intent() -> None:
-    """重思考意图拉满、轻意图压 low、中间档交模型自动判断（None）。"""
+def test_thinking_level_by_intent() -> None:
+    """重思考意图开思考（max）、轻意图关思考（off，实测 DeepSeek 唯一有效轴）、
+    中间档交模型默认（None）。"""
 
-    assert reasoning_effort("concept_explain", "讲解导数") == "max"
-    assert reasoning_effort("practice", "出几道题") == "max"
-    assert reasoning_effort("calculation", "7 * 9") == "low"
-    assert reasoning_effort("smalltalk", "你好") == "low"
-    assert reasoning_effort("retrieval", "帮我查一下资料") is None
-    # 轻意图优先：闲聊即使很长也压 low（长文本只在非轻意图时升级 max）
-    assert reasoning_effort("smalltalk", "x" * 80) == "low"
-    assert reasoning_effort("retrieval", "x" * 80) == "max"
+    assert thinking_level("concept_explain", "讲解导数") == "max"
+    assert thinking_level("practice", "出几道题") == "max"
+    assert thinking_level("calculation", "7 * 9") == "off"
+    assert thinking_level("smalltalk", "你好") == "off"
+    assert thinking_level("retrieval", "帮我查一下资料") is None
+    # 轻意图优先：闲聊即使很长也关（长文本只在非轻意图时开）
+    assert thinking_level("smalltalk", "x" * 80) == "off"
+    assert thinking_level("retrieval", "x" * 80) == "max"

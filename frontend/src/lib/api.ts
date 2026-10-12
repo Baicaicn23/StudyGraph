@@ -424,7 +424,7 @@ export function usage(days = 1): Promise<UsageSummary> {
 
 /* ---------- 模型选择与自定义模型 ---------- */
 
-export type ThinkingIntensity = "auto" | "low" | "high" | "max";
+export type ThinkingIntensity = "auto" | "off" | "low" | "high" | "max";
 
 export interface ModelOption {
   key: string; // "builtin" | "builtin:<model>" | "custom:<id>"
