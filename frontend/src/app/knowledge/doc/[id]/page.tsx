@@ -165,8 +165,8 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
   // AI 问答栏宽度（可拖拽调节，本地记忆；与知识库页的问答栏互相独立）
   const [qaWidth, setQaWidth] = useState(384);
   const [isDragging, setIsDragging] = useState(false);
-  // 右侧边栏：AI 助手 / 文内目录 两个 tab，再点当前 tab 收起整个面板
-  const [panelTab, setPanelTab] = useState<"ai" | "outline" | null>("ai");
+  // 右侧边栏：AI 助手 / 文内目录 两个 tab，再点当前 tab 收起整个面板（默认收起，阅读优先）
+  const [panelTab, setPanelTab] = useState<"ai" | "outline" | null>(null);
   const [collapsedHeadings, setCollapsedHeadings] = useState<number[]>([]);
 
   const contentRef = useRef<HTMLDivElement>(null);
