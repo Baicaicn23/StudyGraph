@@ -9,7 +9,7 @@
 - **学习周报**：「今日复习」页新增「本周概览」——提问 / 练习作答（含自评良好率）/ 新增错题 / 日程完成四张指标卡（带较上周升降徽章）+ 每日提问七柱图 + 掌握度升降横条；全部为 SQL 确定性聚合，**零模型调用**；新增 `mastery_snapshots` 周快照表支持掌握度升降对比
 - **DeepSeek 原生联网搜索**：主模型是 DeepSeek 时 `web_search` 自动走其服务端搜索（`web_search_20250305`）——服务端搜索、抓网页全文、解密并基于全文整理答案，一次调用覆盖全部查询角度；复用主模型 Key，`ZHIJI_DEEPSEEK_SEARCH=1/0` 可强制开关
 - **博查（Bocha）可选搜索后端**：`ZHIJI_BOCHA_API_KEY`，中文质量最好的付费 API
-- **轮级推理力度**：`ZHIJI_REASONING_EFFORT=auto` 时按意图自动附加 `reasoning_effort`（讲解/出题 max、计算/闲聊 low、其余交模型），参考 GLM 分级设计；provider 白名单决定是否附加，非推理模型零影响
+- **思考模式控制（实测修正）**：真机发现 DeepSeek V4.1-Flash 对 `reasoning_effort` 分档无响应，有效控制轴是 `thinking` 开关（disabled 后思考 token 归零）——思考默认固定最大档，自动分档取消；界面强度选择做后撤下（用户拍板不做）
 - **上下文缓存利用与记账**：系统提示词重排为"稳定前缀在前、动态内容在后"（命中上游隐式缓存，命中 token 半价）；token 记账新增 `cached_tokens`（LangChain `input_token_details.cache_read`），用量卡片显示"缓存命中 N"
 - **结构化输出 JSON 模式**：出题 / 规划 / 智能选库三处统一走 `response_format=json_object`（`application/json_mode.py`），provider 不支持自动回落普通调用——解析失败率大幅下降
 - **检索质量四连修**：jieba 词级 FTS 查询（消灭跨词 3-gram 噪声）；Markdown **标题结构切块**（标题做块前缀出处）；fetch_url 换 **trafilatura** 正文抽取（导航/广告自动剔除，正则兜底）；**Embedding 服务独立可配**（`ZHIJI_EMBEDDING_BASE_URL/KEY`，支持智谱 / 硅基流动 bge-m3），向量服务故障自动降级纯关键词检索
@@ -17,6 +17,9 @@
 
 ### 修复
 - 必应中国对部分中文查询整页跑偏且排在 DDG 之前挡住好结果——零配置时改为**必应 + DuckDuckGo 双路并发召回合并**，互相兜底
+
+### 新增
+- **Radix Popover 迁移**：＋功能菜单 / 学科范围选择 / 空间选择 / 模型弹层四个弹层迁移（ESC 关闭、点外关闭、焦点管理）；**lucide-react** 图标库引入（线性风格与手写 SVG 同源）
 
 ### 改进
 - 笔记阅读页右栏（AI 助手/目录）默认收起，阅读优先
