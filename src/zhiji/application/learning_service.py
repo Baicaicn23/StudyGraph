@@ -351,6 +351,11 @@ class LearningService:
 
         return self.repository.activity_series(user_id, days=days)
 
+    def weekly_report(self, user_id: str) -> dict[str, Any]:
+        """学习周报（本周 vs 上周，确定性聚合），供「本周概览」区块使用。"""
+
+        return self.repository.weekly_report(user_id)
+
     # -- 长期记忆 -------------------------------------------------------------
 
     def delete_feedback(self, user_id: str, feedback_id: int) -> bool:

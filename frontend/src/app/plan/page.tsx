@@ -7,11 +7,13 @@ import {
   listMemories,
   studyActivity,
   studyPlan,
+  studyWeekly,
   usage,
   type ActivityDay,
   type MemoryItem,
   type StudyPlan,
   type UsageSummary,
+  type WeeklyReport,
 } from "@/lib/api";
 import { Card, Loading, Notice, Page } from "@/components/ui";
 
@@ -94,6 +96,175 @@ function relativeDay(timestamp: number): string {
 function dayLabel(date: string): string {
   const [, month, day] = date.split("-");
   return `${Number(month)}月${Number(day)}日`;
+}
+
+/** 升降小徽章：value 为本周 − 上周；positiveIsGood 决定升降的配色。 */
+function DeltaBadge({
+  value,
+  positiveIsGood,
+}: {
+  value: number | null;
+  positiveIsGood: boolean;
+}) {
+  if (value === null || value === 0) {
+    return <span className="text-[11px] text-zinc-300">与上周持平</span>;
+  }
+  const up = value > 0;
+  const good = positiveIsGood ? up : !up;
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 text-[11px] tabular-nums ${
+        good ? "text-teal-600" : "text-red-400"
+      }`}
+    >
+      <svg
+        width="8"
+        height="8"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden
+        className={up ? "" : "rotate-180"}
+      >
+        <path d="M12 4l8 14H4z" />
+      </svg>
+      {Math.abs(value)}
+    </span>
+  );
+}
+
+/** 学习周报：本周概览（确定性聚合，零模型调用）。 */
+function WeeklyCard({ weekly }: { weekly: WeeklyReport | null }) {
+  if (!weekly) return null;
+  const { questions, attempts, mistakes, schedule, mastery } = weekly;
+  const goodPct =
+    attempts.good_rate === null ? null : Math.round(attempts.good_rate * 100);
+  const maxDaily = Math.max(1, ...questions.daily);
+  const donePct = schedule.total
+    ? Math.round((schedule.done / schedule.total) * 100)
+    : 0;
+  const masteryRows = mastery.filter((row) => row.delta !== null);
+
+  const tiles = [
+    {
+      label: "提问",
+      value: String(questions.total),
+      delta: questions.total - questions.last_week,
+      deltaGood: true,
+      sub: `上周 ${questions.last_week}`,
+    },
+    {
+      label: "练习作答",
+      value: String(attempts.total),
+      delta: null,
+      deltaGood: true,
+      sub:
+        goodPct === null
+          ? "本周暂无作答"
+          : `自评良好 ${goodPct}%`,
+    },
+    {
+      label: "新增错题",
+      value: String(mistakes.total),
+      delta: mistakes.total - mistakes.last_week,
+      deltaGood: false,
+      sub: `上周 ${mistakes.last_week}`,
+    },
+    {
+      label: "日程完成",
+      value: `${schedule.done}/${schedule.total}`,
+      delta: null,
+      deltaGood: true,
+      sub: `完成率 ${donePct}%`,
+    },
+  ];
+
+  return (
+    <section>
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 className="text-sm font-medium text-zinc-800">本周概览</h2>
+        <span className="text-[11px] tabular-nums text-zinc-400">
+          {dayLabel(weekly.week_start)} – {dayLabel(weekly.week_end)}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {tiles.map((tile) => (
+          <div
+            key={tile.label}
+            className="rounded-xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_2px_8px_rgba(0,0,0,0.04)]"
+          >
+            <div className="text-xs font-medium text-zinc-500">{tile.label}</div>
+            <div className="mt-1.5 text-3xl font-bold tracking-tight tabular-nums">
+              {tile.value}
+            </div>
+            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-zinc-400">
+              {tile.delta !== null && (
+                <DeltaBadge value={tile.delta} positiveIsGood={tile.deltaGood} />
+              )}
+              {tile.sub}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-5">
+        <Card title="每日提问" action={<span className="text-[11px] tabular-nums text-zinc-400">上周 {questions.last_week} 次</span>} className="lg:col-span-3">
+          <div className="flex h-20 items-end gap-2">
+            {questions.daily.map((count, index) => (
+              <div key={index} className="flex flex-1 flex-col items-center gap-1.5">
+                <div
+                  className={`w-full rounded-t-[4px] transition-all duration-500 ease-out ${
+                    count > 0 ? "bg-teal-500/80" : "bg-black/[0.05]"
+                  }`}
+                  style={{
+                    height: count > 0 ? `${Math.max(10, (count / maxDaily) * 100)}%` : "3px",
+                  }}
+                />
+                <span className="text-[10px] text-zinc-400">
+                  {"一二三四五六日"[index]}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] text-zinc-400">
+            合计 {questions.total} 次
+          </p>
+        </Card>
+
+        <Card title="掌握度变化" className="lg:col-span-2">
+          {masteryRows.length === 0 ? (
+            <p className="text-[12px] text-zinc-400">
+              本周暂无掌握度变化——完成练习后这里会显示各学科的升降。
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {masteryRows.map((row) => (
+                <li key={row.library}>
+                  <div className="flex items-baseline justify-between">
+                    <span className="truncate text-[12px] text-zinc-700">
+                      {row.library}
+                    </span>
+                    <DeltaBadge
+                      value={row.delta}
+                      positiveIsGood={true}
+                    />
+                  </div>
+                  <div className="mt-1 h-[5px] overflow-hidden rounded-full bg-black/[0.05]">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ease-out ${
+                        (row.delta ?? 0) >= 0 ? "bg-teal-500" : "bg-zinc-400"
+                      }`}
+                      style={{ width: `${row.mastery}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+    </section>
+  );
 }
 
 /** 学习活跃度热力图：颜色深浅=练习量，角标红点=新增误区。 */
@@ -283,6 +454,7 @@ export default function PlanPage() {
   const [tokens, setTokens] = useState<UsageSummary | null>(null);
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [activity, setActivity] = useState<ActivityDay[]>([]);
+  const [weekly, setWeekly] = useState<WeeklyReport | null>(null);
   const [error, setError] = useState("");
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -292,17 +464,19 @@ export default function PlanPage() {
 
   const refresh = useCallback(async () => {
     try {
-      const [nextPlan, nextUsage, nextMemories, nextActivity] =
+      const [nextPlan, nextUsage, nextMemories, nextActivity, nextWeekly] =
         await Promise.all([
           studyPlan(),
           usage(1),
           listMemories(),
           studyActivity(30),
+          studyWeekly(),
         ]);
       setPlan(nextPlan);
       setTokens(nextUsage);
       setMemories(nextMemories);
       setActivity(nextActivity);
+      setWeekly(nextWeekly);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -414,7 +588,12 @@ export default function PlanPage() {
         ))}
       </div>
 
-      {/* 第二块：学习活跃度热力图 */}
+      {/* 第二行：学习周报（本周概览） */}
+      <div className="animate-fade-up" style={{ animationDelay: "70ms" }}>
+        <WeeklyCard weekly={weekly} />
+      </div>
+
+      {/* 第三块：学习活跃度热力图 */}
       <div className="animate-fade-up" style={{ animationDelay: "140ms" }}>
         <Heatmap series={activity} onPickMistakeDay={addTaskFromHeatmap} />
       </div>

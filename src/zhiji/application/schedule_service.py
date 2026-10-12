@@ -99,6 +99,15 @@ class ScheduleService:
             cursor += datetime.timedelta(days=1)
         return {"start": start, "end": end, "days": days}
 
+    def week_stats(
+        self, user_id: str, *, start_date: str, end_date: str
+    ) -> dict[str, int]:
+        """某日期区间（含两端）的日程完成统计（学习周报用），透传仓储。"""
+
+        return self.repository.week_stats(
+            user_id, start_date=start_date, end_date=end_date
+        )
+
     # -- 写 -------------------------------------------------------------------
 
     def create(

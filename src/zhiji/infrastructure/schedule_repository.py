@@ -198,3 +198,18 @@ class SqliteScheduleRepository:
                 (task_id, user_id),
             )
             return cursor.rowcount > 0
+
+    def week_stats(self, user_id: str, *, start_date: str, end_date: str) -> dict[str, int]:
+        """某日期区间（含两端，YYYY-MM-DD）已排期任务的完成统计：{done, total}。
+
+        学习周报用——收件箱任务（date 为空）不计入。
+        """
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT COUNT(*) AS total, COALESCE(SUM(done), 0) AS done "
+                "FROM schedule_tasks WHERE user_id = ? AND date IS NOT NULL "
+                "AND date >= ? AND date <= ?",
+                (user_id, start_date, end_date),
+            ).fetchone()
+        return {"total": int(row["total"]), "done": int(row["done"])}

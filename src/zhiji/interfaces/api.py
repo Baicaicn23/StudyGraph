@@ -1066,6 +1066,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> dict:
         return {"days": request.app.state.learning.activity_series(user_id, days=days)}
 
+    @app.get("/api/study/weekly")
+    async def study_weekly(request: Request, user_id: str = "local") -> dict:
+        """学习周报：本周 vs 上周的确定性聚合（零模型调用），日程完成度一并返回。"""
+
+        report = request.app.state.learning.weekly_report(user_id)
+        report["schedule"] = request.app.state.schedule.week_stats(
+            user_id, start_date=report["week_start"], end_date=report["week_end"]
+        )
+        return report
+
     # -- 日程（时间轴 + 收件箱） ------------------------------------------------
 
     @app.get("/api/schedule")

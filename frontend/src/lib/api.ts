@@ -387,6 +387,21 @@ export async function studyActivity(days = 30): Promise<ActivityDay[]> {
   return data.days;
 }
 
+/** 学习周报（/api/study/weekly）：本周 vs 上周的确定性聚合。 */
+export interface WeeklyReport {
+  week_start: string;
+  week_end: string;
+  questions: { total: number; last_week: number; daily: number[] };
+  attempts: { total: number; good_rate: number | null; last_week: number };
+  mistakes: { total: number; last_week: number };
+  schedule: { total: number; done: number };
+  mastery: { library: string; mastery: number; delta: number | null }[];
+}
+
+export async function studyWeekly(): Promise<WeeklyReport> {
+  return requestJson<WeeklyReport>("/api/study/weekly");
+}
+
 export interface MemoryItem {
   id: number;
   content: string;

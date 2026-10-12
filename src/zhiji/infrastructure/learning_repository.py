@@ -64,6 +64,13 @@ CREATE TABLE IF NOT EXISTS memories (
     created_at REAL NOT NULL,
     UNIQUE (user_id, project_id, content)
 );
+CREATE TABLE IF NOT EXISTS mastery_snapshots (
+    user_id TEXT NOT NULL,
+    library TEXT NOT NULL,
+    week_start TEXT NOT NULL,
+    mastery INTEGER NOT NULL,
+    PRIMARY KEY (user_id, library, week_start)
+);
 """
 
 
@@ -465,3 +472,146 @@ class SqliteLearningRepository:
                 counts[key]["mistakes"] += 1
 
         return [{"date": day, **counts[day]} for day in dates]
+
+    @staticmethod
+    def _monday(day: datetime.datetime) -> datetime.datetime:
+        """本周一 00:00（weekday(): 周一=0）——周报的一周起点。"""
+
+        return (day - datetime.timedelta(days=day.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+
+    def weekly_report(self, user_id: str) -> dict[str, Any]:
+        """学习周报：本周（周一起算）vs 上周的确定性聚合，零模型调用。
+
+        - 提问：经会话归属用户（chat_messages ⋈ chat_sessions），按天给 7 根柱；
+        - 作答：练习作答数 + 自评 good/easy 占比（practice_attempts）；
+        - 误区：本周新增条数（feedback）；
+        - 掌握度：现值 vs 上周快照的差值（mastery_snapshots）；本周快照在
+          首次请求时落一份当前值（近似周初，确定性、可重复）。
+
+        日程完成度在接口层由 schedule 仓储补充（week_stats）。
+        """
+
+        now = datetime.datetime.now()
+        monday = self._monday(now)
+        last_monday = monday - datetime.timedelta(days=7)
+        week_since = monday.timestamp()
+        last_since = last_monday.timestamp()
+        week_start_str = monday.strftime("%Y-%m-%d")
+        week_end_str = (monday + datetime.timedelta(days=6)).strftime("%Y-%m-%d")
+
+        with self._connect() as connection:
+            # 提问：本周每日 + 上周合计
+            daily = [0] * 7
+            message_rows = connection.execute(
+                "SELECT m.created_at AS created_at FROM chat_messages m "
+                "JOIN chat_sessions s ON s.id = m.session_id "
+                "WHERE s.user_id = ? AND m.role = 'user' AND m.created_at >= ?",
+                (user_id, week_since),
+            ).fetchall()
+            for row in message_rows:
+                offset = (
+                    datetime.datetime.fromtimestamp(row["created_at"]) - monday
+                ).days
+                if 0 <= offset < 7:
+                    daily[offset] += 1
+            questions_last = connection.execute(
+                "SELECT COUNT(*) FROM chat_messages m "
+                "JOIN chat_sessions s ON s.id = m.session_id "
+                "WHERE s.user_id = ? AND m.role = 'user' "
+                "AND m.created_at >= ? AND m.created_at < ?",
+                (user_id, last_since, week_since),
+            ).fetchone()[0]
+
+            # 作答：本周条数 + 自评良好率；上周条数
+            attempt_rows = connection.execute(
+                "SELECT a.rating AS rating, a.created_at AS created_at "
+                "FROM practice_attempts a "
+                "JOIN practice_questions q ON q.id = a.question_id "
+                "WHERE q.user_id = ? AND a.created_at >= ?",
+                (user_id, week_since),
+            ).fetchall()
+            good = sum(
+                1 for row in attempt_rows if row["rating"] in ("good", "easy")
+            )
+            attempts_last = connection.execute(
+                "SELECT COUNT(*) FROM practice_attempts a "
+                "JOIN practice_questions q ON q.id = a.question_id "
+                "WHERE q.user_id = ? AND a.created_at >= ? AND a.created_at < ?",
+                (user_id, last_since, week_since),
+            ).fetchone()[0]
+
+            # 误区：两周新增
+            mistakes_this = connection.execute(
+                "SELECT COUNT(*) FROM feedback "
+                "WHERE user_id = ? AND created_at >= ?",
+                (user_id, week_since),
+            ).fetchone()[0]
+            mistakes_last = connection.execute(
+                "SELECT COUNT(*) FROM feedback "
+                "WHERE user_id = ? AND created_at >= ? AND created_at < ?",
+                (user_id, last_since, week_since),
+            ).fetchone()[0]
+
+            # 掌握度：现值 + 本周快照（无则落当前值）+ 上周快照差值
+            current = {
+                str(row["library"]): int(row["mastery"])
+                for row in connection.execute(
+                    "SELECT library, mastery FROM practice_progress "
+                    "WHERE user_id = ?",
+                    (user_id,),
+                ).fetchall()
+            }
+            existing = {
+                str(row["library"]): int(row["mastery"])
+                for row in connection.execute(
+                    "SELECT library, mastery FROM mastery_snapshots "
+                    "WHERE user_id = ? AND week_start = ?",
+                    (user_id, week_start_str),
+                ).fetchall()
+            }
+            for library, mastery in current.items():
+                if library not in existing:
+                    connection.execute(
+                        "INSERT OR REPLACE INTO mastery_snapshots "
+                        "(user_id, library, week_start, mastery) VALUES (?, ?, ?, ?)",
+                        (user_id, library, week_start_str, mastery),
+                    )
+            previous = {
+                str(row["library"]): int(row["mastery"])
+                for row in connection.execute(
+                    "SELECT library, mastery FROM mastery_snapshots "
+                    "WHERE user_id = ? AND week_start = ?",
+                    (user_id, last_monday.strftime("%Y-%m-%d")),
+                ).fetchall()
+            }
+
+        mastery = [
+            {
+                "library": library,
+                "mastery": value,
+                "delta": value - previous[library] if library in previous else None,
+            }
+            for library, value in current.items()
+        ]
+        mastery.sort(key=lambda item: -item["mastery"])
+
+        return {
+            "week_start": week_start_str,
+            "week_end": week_end_str,
+            "questions": {
+                "total": sum(daily),
+                "last_week": int(questions_last),
+                "daily": daily,
+            },
+            "attempts": {
+                "total": len(attempt_rows),
+                "good_rate": round(good / len(attempt_rows), 2)
+                if attempt_rows
+                else None,
+                "last_week": int(attempts_last),
+            },
+            "mistakes": {"total": int(mistakes_this), "last_week": int(mistakes_last)},
+            "mastery": mastery,
+        }

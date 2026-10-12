@@ -105,6 +105,10 @@ class ScheduleRepositoryPort(Protocol):
         self, user_id: str, *, start: str, end: str
     ) -> list[dict[str, Any]]: ...
 
+    def week_stats(
+        self, user_id: str, *, start_date: str, end_date: str
+    ) -> dict[str, int]: ...
+
     def create_task(
         self,
         *,
