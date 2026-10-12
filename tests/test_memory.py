@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from studygraph.domain.memory import extract_facts
+from zhiji.domain.memory import extract_facts
 
 
 def test_extract_explicit_remember_command() -> None:

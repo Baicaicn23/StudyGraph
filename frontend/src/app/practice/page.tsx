@@ -73,7 +73,7 @@ const KIND_LABELS: Record<string, string> = Object.fromEntries(
   MISTAKE_KINDS.map((item) => [item.value, item.label]),
 );
 
-const STAR_KEY = "studygraph-starred-questions";
+const STAR_KEY = "zhiji-starred-questions";
 const MISTAKE_MARKER = "【你当时记下的误区】";
 
 function relativeDay(timestamp: number): string {

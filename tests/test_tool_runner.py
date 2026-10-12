@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from studygraph.application.tool_runner import ToolTimeoutError, run_tool
+from zhiji.application.tool_runner import ToolTimeoutError, run_tool
 
 
 async def test_run_tool_returns_result() -> None:

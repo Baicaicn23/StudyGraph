@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from studygraph.application.guardrails import screen_input, screen_output
-from studygraph.domain.guardrails import check_input, check_output
+from zhiji.application.guardrails import screen_input, screen_output
+from zhiji.domain.guardrails import check_input, check_output
 
 
 def test_check_input_blocks_empty_long_and_injection() -> None:
@@ -17,7 +17,7 @@ def test_check_input_allows_normal_study_request() -> None:
 
 def test_check_output_blocks_empty_and_system_prompt_leak() -> None:
     assert check_output("").allowed is False
-    assert check_output("你是 StudyGraph，一个面向大学生的学习助理").allowed is False
+    assert check_output("你是 知迹，一个面向大学生的学习助理").allowed is False
     assert check_output("导数是瞬时变化率。").allowed is True
 
 

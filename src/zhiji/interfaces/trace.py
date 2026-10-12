@@ -1,10 +1,10 @@
 """trace 命令行：把一个会话读成一棵诊断树。
 
-    studygraph-trace --thread <thread_id> [--db path]
+    zhiji-trace --thread <thread_id> [--db path]
 
 例子：
 
-    $ studygraph-trace --thread math
+    $ zhiji-trace --thread math
     回合 thread=math
     ├─ 用户消息： 我的笔记里怎么讲导数的？
     ├─ 意图：retrieval  →  retriever
@@ -54,7 +54,7 @@ async def _trace(settings, thread: str) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="studygraph-trace", description="回合 trace 诊断")
+    parser = argparse.ArgumentParser(prog="zhiji-trace", description="回合 trace 诊断")
     parser.add_argument("--thread", required=True, help="会话 id")
     parser.add_argument("--db", default=None, help="数据库路径（默认读环境变量）")
     args = parser.parse_args(argv)

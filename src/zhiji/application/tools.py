@@ -32,10 +32,10 @@ from .ports import KnowledgePort, LearningRepositoryPort
 _knowledge: KnowledgePort | None = None
 _learning: LearningRepositoryPort | None = None
 _current_libraries: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
-    "studygraph_current_libraries", default=None
+    "zhiji_current_libraries", default=None
 )
 _current_user: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "studygraph_current_user", default="local"
+    "zhiji_current_user", default="local"
 )
 
 _BIN_OPS = {
@@ -284,7 +284,7 @@ def _ddg_text(query: str, max_results: int) -> list[dict[str, Any]]:
 
 
 def _tavily_text(query: str, max_results: int) -> list[dict[str, Any]]:
-    """Tavily 搜索（配置了 STUDYGRAPH_TAVILY_API_KEY 时优先使用，更稳定）。"""
+    """Tavily 搜索（配置了 ZHIJI_TAVILY_API_KEY 时优先使用，更稳定）。"""
 
     import httpx
 

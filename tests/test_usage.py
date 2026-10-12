@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from studygraph.infrastructure.usage_repository import SqliteUsageRepository
+from zhiji.infrastructure.usage_repository import SqliteUsageRepository
 
 
 def test_record_and_query_usage(tmp_path: Path) -> None:

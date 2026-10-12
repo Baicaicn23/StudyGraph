@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from studygraph.application import evaluation as evals
-from studygraph.domain.evaluation import hit_at_k, mean, reciprocal_rank
-from studygraph.infrastructure.knowledge import KnowledgeStore
+from zhiji.application import evaluation as evals
+from zhiji.domain.evaluation import hit_at_k, mean, reciprocal_rank
+from zhiji.infrastructure.knowledge import KnowledgeStore
 
 
 def test_retrieval_metric_functions() -> None:
@@ -39,7 +39,7 @@ def test_run_retrieval_eval_scores_perfect_on_matching_corpus(tmp_path: Path) ->
 
 
 def test_run_intent_eval_reports_accuracy_and_errors() -> None:
-    from studygraph.application.routing import CALCULATION
+    from zhiji.application.routing import CALCULATION
 
     cases = [
         evals.IntentCase(text="帮我算一下 37 * 43", intent=CALCULATION),

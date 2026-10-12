@@ -1,8 +1,8 @@
-# StudyGraph
+# 知迹
 
 **用 [LangGraph](https://langchain-ai.github.io/langgraph/) 编排的个人学习助理**——把聊天、学科知识库、检索、错题沉淀、出题复习和日程排期，串成一条可以断点续跑的闭环。
 
-StudyGraph 面向大学生：平时把资料分学科存进去、聊天随手沉淀笔记；期末让助手检索资料讲解、从错题和知识库自动出题、按掌握度安排复习。它把 LangGraph 的**状态机、检查点、Human-in-the-Loop 与流式输出**用在真实的学习流程上。
+知迹 面向大学生：平时把资料分学科存进去、聊天随手沉淀笔记；期末让助手检索资料讲解、从错题和知识库自动出题、按掌握度安排复习。它把 LangGraph 的**状态机、检查点、Human-in-the-Loop 与流式输出**用在真实的学习流程上。
 
 ## 核心能力
 
@@ -55,7 +55,7 @@ StudyGraph 面向大学生：平时把资料分学科存进去、聊天随手沉
 | 🗺️ 规划 Plan-and-Execute | 复杂请求先出计划再执行；简单请求跳过（省延迟与成本） |
 | 🎚️ 模型路由 | 按意图 / 复杂度选 small / standard / large 档位（可配不同模型） |
 | 💰 成本控制 | token 记账（按次 / 按模型）+ 当日预算，超限阻止真实调用 |
-| 🌐 联网能力 | `web_search`（DuckDuckGo 零配置；配置 `STUDYGRAPH_TAVILY_API_KEY` 走 Tavily 更稳）+ `fetch_url`（读网页正文，SSRF 防护只允许公网地址）；引用注明来源 URL |
+| 🌐 联网能力 | `web_search`（DuckDuckGo 零配置；配置 `ZHIJI_TAVILY_API_KEY` 走 Tavily 更稳）+ `fetch_url`（读网页正文，SSRF 防护只允许公网地址）；引用注明来源 URL |
 | 📁 文件工作区 | `write_file` / `read_file` / `list_files`：学生专属沙箱目录 `data/workspace/<user>/`，路径穿越/绝对路径全拒绝；写不出去沙箱，不做 HITL |
 | 🔗 MCP 客户端 | 自写 stdio JSON-RPC：启动 server、发现并注册外部工具（前缀 `mcp_`） |
 | 💾 断点持久化 | `AsyncSqliteSaver` 检查点：会话可续、HITL 可恢复；**检查点也是数据恢复的救命稻草** |
@@ -121,7 +121,7 @@ START ─▶│  route   │──────────────▶ │  a
 
 ```bash
 uv sync
-uv run studygraph "帮我算一下 7 * 9"
+uv run zhiji "帮我算一下 7 * 9"
 ```
 
 预期输出：
@@ -133,8 +133,8 @@ uv run studygraph "帮我算一下 7 * 9"
 沉淀一条笔记（写操作会请求确认，`--yes` 自动同意）：
 
 ```bash
-uv run studygraph "记住：我在准备月底的微积分测验" --yes
-uv run studygraph "我的笔记里怎么讲微积分测验的？"
+uv run zhiji "记住：我在准备月底的微积分测验" --yes
+uv run zhiji "我的笔记里怎么讲微积分测验的？"
 ```
 
 ### 启动 Web 界面（推荐）
@@ -148,7 +148,7 @@ cd frontend && npm install && cd ..   # 首次
 
 > **想要有内容可演示**：先播种演示数据（5 个学科知识库、15 份自编复习笔记、3 条典型误区）：
 > ```bash
-> uv run studygraph-demo --reset
+> uv run zhiji-demo --reset
 > ```
 > 注意：`--reset` 会**清空并重建**数据库，真在使用前先备份（见下）。
 
@@ -156,7 +156,7 @@ cd frontend && npm install && cd ..   # 首次
 
 | 路径 | 内容 |
 | --- | --- |
-| `data/studygraph.db` | 知识库、学习数据、会话、日程、LangGraph 检查点（全部数据都在这个文件里） |
+| `data/zhiji.db` | 知识库、学习数据、会话、日程、LangGraph 检查点（全部数据都在这个文件里） |
 | `data/attachments/` | 聊天附件里的图片原文件（`/api/chat/attachments/{id}/raw` 提供预览） |
 | `data/backups/` | 手动备份（`sqlite3` 在线备份 API 生成，含 `-wal` 内容，可直接还原） |
 
@@ -164,13 +164,13 @@ cd frontend && npm install && cd ..   # 首次
 
 ```bash
 # 在线一致性备份（WAL 模式下安全）
-uv run python -c "import sqlite3,time;s=sqlite3.connect('data/studygraph.db');d=sqlite3.connect(f'data/backups/studygraph-{time.strftime(\"%Y%m%d-%H%M%S\")}.db');s.backup(d);d.close();s.close()"
+uv run python -c "import sqlite3,time;s=sqlite3.connect('data/zhiji.db');d=sqlite3.connect(f'data/backups/zhiji-{time.strftime(\"%Y%m%d-%H%M%S\")}.db');s.backup(d);d.close();s.close()"
 
 # 清空：删掉主库即可（重启后自动重建空库）；-wal/-shm 一起删更干净
-rm -f data/studygraph.db data/studygraph.db-wal data/studygraph.db-shm
+rm -f data/zhiji.db data/zhiji.db-wal data/zhiji.db-shm
 ```
 
-数据库路径可用 `STUDYGRAPH_DATABASE_PATH` 覆盖。
+数据库路径可用 `ZHIJI_DATABASE_PATH` 覆盖。
 
 ## 接入真实模型
 
@@ -179,16 +179,16 @@ rm -f data/studygraph.db data/studygraph.db-wal data/studygraph.db-shm
 ```bash
 uv sync --extra openai
 # .env 示例（DeepSeek-V4.1-Flash）
-# STUDYGRAPH_LLM_PROVIDER=openai
-# STUDYGRAPH_MODEL=deepseek-flash
-# STUDYGRAPH_OPENAI_BASE_URL=https://api.deepseek.com/v1
-# STUDYGRAPH_OPENAI_API_KEY=你的密钥
-# STUDYGRAPH_MAX_OUTPUT_TOKENS=4096
-# STUDYGRAPH_TOOL_TIMEOUT=60
+# ZHIJI_LLM_PROVIDER=openai
+# ZHIJI_MODEL=deepseek-flash
+# ZHIJI_OPENAI_BASE_URL=https://api.deepseek.com/v1
+# ZHIJI_OPENAI_API_KEY=你的密钥
+# ZHIJI_MAX_OUTPUT_TOKENS=4096
+# ZHIJI_TOOL_TIMEOUT=60
 ```
 
 环境变量清单见 [.env.example](.env.example)。注意：推理型模型务必设
-`STUDYGRAPH_MAX_OUTPUT_TOKENS=4096`，避免输出被"思考"吃光导致空回答。
+`ZHIJI_MAX_OUTPUT_TOKENS=4096`，避免输出被"思考"吃光导致空回答。
 
 ## 测试、评测与诊断
 
@@ -197,13 +197,13 @@ uv run pytest -q --basetemp=/tmp/sg-pytest   # 211 passed（本机沙箱须指�
 uv run ruff check src tests scripts
 
 # 评测门禁（有基线时掉超过容差 → 退出码 1）
-uv run studygraph-eval retrieval --dataset evals/datasets/retrieval.json \
+uv run zhiji-eval retrieval --dataset evals/datasets/retrieval.json \
   --baseline evals/baselines/retrieval.json
-uv run studygraph-eval intent --dataset evals/datasets/intent.json \
+uv run zhiji-eval intent --dataset evals/datasets/intent.json \
   --baseline evals/baselines/intent.json
 
 # 回合诊断（把一次会话读成诊断树，归因到 检索/工具/模型 层）
-uv run studygraph-trace --thread <thread_id>
+uv run zhiji-trace --thread <thread_id>
 ```
 
 当前基线：检索 **Hit@3 = 1.0 / MRR = 1.0**、意图 **准确率 = 1.0**。全部自动测试与评测
@@ -218,8 +218,8 @@ cd frontend && npx tsc --noEmit && npx eslint src
 ## 项目结构
 
 ```text
-studygraph/
-├── src/studygraph/
+zhiji/
+├── src/zhiji/
 │   ├── domain/            纯领域逻辑（不依赖框架 / DB）
 │   │   ├── scheduling.py     间隔重复 + 掌握度
 │   │   ├── memory.py         长期记忆抽取

@@ -13,8 +13,8 @@ import datetime
 
 from fastapi.testclient import TestClient
 
-from studygraph.config import Settings
-from studygraph.interfaces.api import create_app
+from zhiji.config import Settings
+from zhiji.interfaces.api import create_app
 
 
 def _client(tmp_path) -> TestClient:

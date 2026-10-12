@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import pytest
 
-from studygraph.application import tools
-from studygraph.application.routing import allowed_tools, profile_for_agent
-from studygraph.config import Settings
-from studygraph.interfaces.api import create_app
+from zhiji.application import tools
+from zhiji.application.routing import allowed_tools, profile_for_agent
+from zhiji.config import Settings
+from zhiji.interfaces.api import create_app
 
 
 @pytest.fixture()
@@ -158,13 +158,13 @@ def test_app_wires_workspace(tmp_path) -> None:
 def test_tavily_takes_priority_and_formats(monkeypatch) -> None:
     """配置了 Tavily Key → 走 Tavily；没配 / 失败 → 回落 DuckDuckGo。"""
 
-    from studygraph.config import Settings
+    from zhiji.config import Settings
 
     monkeypatch.setattr(
         tools, "_workspace_dir", lambda: __import__("pathlib").Path("/tmp/ignore")
     )
     monkeypatch.setattr(
-        "studygraph.config.get_settings",
+        "zhiji.config.get_settings",
         lambda: Settings(tavily_api_key="tvly-test"),
     )
     calls = {"tavily": 0, "ddg": 0}
@@ -196,7 +196,7 @@ def test_tavily_takes_priority_and_formats(monkeypatch) -> None:
 
     # 没配 Key → 直接 DDG
     monkeypatch.setattr(
-        "studygraph.config.get_settings", lambda: Settings(tavily_api_key="")
+        "zhiji.config.get_settings", lambda: Settings(tavily_api_key="")
     )
     out = tools.web_search.invoke({"queries": ["六级作文"]})
     assert calls["ddg"] == 2

@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 from langchain_core.messages import AIMessage
 
-from studygraph.application.note_distiller import NoteDistillError, distill_note
+from zhiji.application.note_distiller import NoteDistillError, distill_note
 
 
 class FakeModel:
@@ -49,7 +49,7 @@ async def test_distill_extracts_title_and_strips_duplicate_h1() -> None:
 async def test_distill_raises_when_reply_has_no_knowledge() -> None:
     model = FakeModel("NONE")
     with pytest.raises(NoteDistillError, match="还没有可以沉淀"):
-        await distill_note(model, question="你好", reply="你好呀，我是 StudyGraph。")
+        await distill_note(model, question="你好", reply="你好呀，我是 知迹。")
 
     short = FakeModel("标题：x\n\n太短")
     with pytest.raises(NoteDistillError, match="知识密度太低"):

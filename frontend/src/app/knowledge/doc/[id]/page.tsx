@@ -30,7 +30,7 @@ interface QaMessage {
 }
 
 const QUICK_ASKS = ["总结这篇笔记", "这篇笔记的重点是什么", "出 3 道相关练习题"];
-const DOC_QA_WIDTH_KEY = "studygraph-doc-qa-width";
+const DOC_QA_WIDTH_KEY = "zhiji-doc-qa-width";
 
 /** 从 Markdown 正文提取标题，生成目录（按出现顺序编号，供滚动定位）。 */
 function extractHeadings(content: string): Heading[] {

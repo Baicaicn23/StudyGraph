@@ -4,8 +4,8 @@ import json
 
 from fastapi.testclient import TestClient
 
-from studygraph.config import Settings
-from studygraph.interfaces.api import create_app
+from zhiji.config import Settings
+from zhiji.interfaces.api import create_app
 
 
 def _client(tmp_path) -> TestClient:
@@ -131,8 +131,8 @@ def test_upload_image_rejected_in_mock_mode(tmp_path) -> None:
 def test_upload_image_transcribes_to_markdown(tmp_path, monkeypatch) -> None:
     from langchain_core.messages import AIMessage
 
-    from studygraph.config import Settings as _Settings
-    from studygraph.interfaces.api import create_app as _create_app
+    from zhiji.config import Settings as _Settings
+    from zhiji.interfaces.api import create_app as _create_app
 
     settings = _Settings(database_path=str(tmp_path / "vision.db"))
     app = _create_app(settings)

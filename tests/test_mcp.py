@@ -3,8 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from studygraph.infrastructure.mcp_bridge import connect_and_register
-from studygraph.infrastructure.mcp_client import McpStdioClient
+from zhiji.infrastructure.mcp_bridge import connect_and_register
+from zhiji.infrastructure.mcp_client import McpStdioClient
 
 _SERVER = Path(__file__).parent / "fake_mcp_server.py"
 

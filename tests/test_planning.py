@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from studygraph.domain.model_routing import model_tier
-from studygraph.domain.planning import fallback_plan, is_complex, parse_plan
+from zhiji.domain.model_routing import model_tier
+from zhiji.domain.planning import fallback_plan, is_complex, parse_plan
 
 
 def test_is_complex_heuristics() -> None:

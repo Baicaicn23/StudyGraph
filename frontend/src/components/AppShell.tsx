@@ -9,7 +9,7 @@ import { getHealth } from "@/lib/api";
 import ChatsSection from "./ChatsSection";
 import useMediaQuery, { useMounted } from "./useMediaQuery";
 
-const SIDEBAR_WIDTH_KEY = "studygraph-sidebar-width";
+const SIDEBAR_WIDTH_KEY = "zhiji-sidebar-width";
 const SIDEBAR_MIN_WIDTH = 180;
 const SIDEBAR_MAX_WIDTH = 340;
 const SIDEBAR_DEFAULT_WIDTH = 224;
@@ -266,7 +266,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
         <div className="flex items-start justify-center gap-2 px-2 pt-5 pb-4 lg:justify-between lg:px-4">
           <div className="hidden lg:block">
             <div className="text-[15px] font-bold leading-tight tracking-tight">
-              StudyGraph
+              知迹
             </div>
             <div className="text-[11px] leading-tight text-zinc-400">
               学习助理 · 0.2.0

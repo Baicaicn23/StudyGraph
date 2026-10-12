@@ -1,4 +1,4 @@
-// 与 StudyGraph 后端（FastAPI + SSE）通信的客户端。
+// 与 知迹 后端（FastAPI + SSE）通信的客户端。
 // SSE 事件协议见 docs/参考/API一览.md：token / interrupt / guard / done / error。
 
 export const API_BASE =

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from studygraph.config import Settings
-from studygraph.infrastructure.knowledge import KnowledgeStore
-from studygraph.infrastructure.learning_repository import SqliteLearningRepository
-from studygraph.interfaces.demo import DEMO_MISTAKES, DEMO_NOTES, seed
+from zhiji.config import Settings
+from zhiji.infrastructure.knowledge import KnowledgeStore
+from zhiji.infrastructure.learning_repository import SqliteLearningRepository
+from zhiji.interfaces.demo import DEMO_MISTAKES, DEMO_NOTES, seed
 
 
 def test_seed_populates_libraries_notes_and_mistakes(tmp_path: Path) -> None:

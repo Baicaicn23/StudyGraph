@@ -1,8 +1,8 @@
 """评测命令行（门禁）。
 
-    studygraph-eval retrieval --dataset evals/datasets/retrieval.json \
+    zhiji-eval retrieval --dataset evals/datasets/retrieval.json \
         --baseline evals/baselines/retrieval.json [--update]
-    studygraph-eval intent --dataset evals/datasets/intent.json \
+    zhiji-eval intent --dataset evals/datasets/intent.json \
         --baseline evals/baselines/intent.json [--update]
 
 有基线且指标掉超过容差时**退出码为 1**（可直接进 CI）。`--update` 覆盖基线。
@@ -73,7 +73,7 @@ def _report(kind: str, metrics: dict, args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="studygraph-eval", description="StudyGraph 评测")
+    parser = argparse.ArgumentParser(prog="zhiji-eval", description="知迹 评测")
     sub = parser.add_subparsers(dest="command", required=True)
 
     retrieval = sub.add_parser("retrieval", help="检索 Hit@K / MRR 评测")

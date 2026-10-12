@@ -55,7 +55,7 @@ from .tool_runner import run_tool
 from .tools import get_tool, list_library_names, set_current_libraries, set_current_user
 
 _BASE_PROMPT = (
-    "你是 StudyGraph，一个面向大学生的 AI 私教。你的目标不是替学生答题，"
+    "你是 知迹，一个面向大学生的 AI 私教。你的目标不是替学生答题，"
     "而是让学生学会思考、记得更牢——回答前先想想：这样说能帮他真正掌握吗？"
     "用简体中文交流。"
 )

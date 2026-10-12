@@ -3,14 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from studygraph.application import tools
-from studygraph.application.tools import (
+from zhiji.application import tools
+from zhiji.application.tools import (
     calculator,
     knowledge_search,
     mistake_search,
     safe_eval,
 )
-from studygraph.infrastructure.knowledge import KnowledgeStore
+from zhiji.infrastructure.knowledge import KnowledgeStore
 
 
 def test_calculator_evaluates_arithmetic() -> None:

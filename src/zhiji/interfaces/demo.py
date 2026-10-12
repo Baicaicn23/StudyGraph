@@ -1,8 +1,8 @@
 """演示数据播种：预置课程空间、学科知识库、复习笔记、典型误区与一条日程。
 
-    uv run studygraph-demo                # 写入默认数据库
-    uv run studygraph-demo --db demo.db   # 写到指定数据库
-    uv run studygraph-demo --reset        # 先清空演示库再写入
+    uv run zhiji-demo                # 写入默认数据库
+    uv run zhiji-demo --db demo.db   # 写到指定数据库
+    uv run zhiji-demo --reset        # 先清空演示库再写入
 
 内容全部为**自编教学材料**（定义 / 公式 / 例子 / 易错点 / 口语说法对照），
 不涉及任何教材版权。让演示一开始就有「真材实料」，而不是空库。
@@ -227,7 +227,7 @@ def _reset_database(path: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="studygraph-demo", description="播种演示数据")
+    parser = argparse.ArgumentParser(prog="zhiji-demo", description="播种演示数据")
     parser.add_argument("--db", default=None, help="数据库路径（默认读环境变量）")
     parser.add_argument("--user", default="local", help="错题归属的用户标识")
     parser.add_argument("--reset", action="store_true", help="先删除数据库再播种")

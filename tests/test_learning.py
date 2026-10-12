@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from studygraph.application.learning_service import LearningService
-from studygraph.domain.errors import LearningError
-from studygraph.infrastructure.knowledge import KnowledgeStore
-from studygraph.infrastructure.learning_repository import SqliteLearningRepository
+from zhiji.application.learning_service import LearningService
+from zhiji.domain.errors import LearningError
+from zhiji.infrastructure.knowledge import KnowledgeStore
+from zhiji.infrastructure.learning_repository import SqliteLearningRepository
 
 
 def _services(tmp_path: Path) -> tuple[KnowledgeStore, LearningService]:
@@ -159,7 +159,7 @@ async def test_repository_migrates_legacy_db_without_difficulty(
 ) -> None:
     import sqlite3
 
-    from studygraph.infrastructure.learning_repository import SqliteLearningRepository
+    from zhiji.infrastructure.learning_repository import SqliteLearningRepository
 
     db = tmp_path / "legacy.db"
     # 手工造一个"旧版"practice_questions（没有 difficulty 列）。

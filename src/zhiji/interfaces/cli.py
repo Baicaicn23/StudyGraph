@@ -2,9 +2,9 @@
 
 用法：
 
-    uv run python -m studygraph.interfaces.cli "计算 7 * 9"
-    uv run python -m studygraph.interfaces.cli "记住：我在准备月底的微积分测验" --yes
-    uv run python -m studygraph.interfaces.cli "我的笔记里怎么讲导数的？" --thread math
+    uv run python -m zhiji.interfaces.cli "计算 7 * 9"
+    uv run python -m zhiji.interfaces.cli "记住：我在准备月底的微积分测验" --yes
+    uv run python -m zhiji.interfaces.cli "我的笔记里怎么讲导数的？" --thread math
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from ..infrastructure.usage_repository import SqliteUsageRepository
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="studygraph", description="StudyGraph CLI")
+    parser = argparse.ArgumentParser(prog="zhiji", description="知迹 CLI")
     parser.add_argument("message", nargs="*", help="本轮要说的话")
     parser.add_argument("--thread", default="local", help="会话 id（断点持久化用）")
     parser.add_argument("--user", default=None, help="用户标识")
@@ -139,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     if not text:
         print(
             '请输入要发送的内容，例如：'
-            'uv run python -m studygraph.interfaces.cli "计算 7 * 9"'
+            'uv run python -m zhiji.interfaces.cli "计算 7 * 9"'
         )
         return 2
     settings = get_settings()

@@ -538,7 +538,7 @@ export default function Chat() {
     // 记住用户的选择（localStorage）
     try {
       fullAccessRef.current =
-        localStorage.getItem("studygraph-full-access") === "1";
+        localStorage.getItem("zhiji-full-access") === "1";
       setFullAccess(fullAccessRef.current);
     } catch {
       /* ignore */
@@ -549,7 +549,7 @@ export default function Chat() {
       const next = !prev;
       fullAccessRef.current = next;
       try {
-        localStorage.setItem("studygraph-full-access", next ? "1" : "0");
+        localStorage.setItem("zhiji-full-access", next ? "1" : "0");
       } catch {
         /* ignore */
       }
@@ -820,14 +820,14 @@ export default function Chat() {
       | { type: string; sessionId?: number; projectId?: number }
       | null = null;
     try {
-      const raw = sessionStorage.getItem("sg-chat-action");
+      const raw = sessionStorage.getItem("zhiji-chat-action");
       if (raw) {
         action = JSON.parse(raw) as {
           type: string;
           sessionId?: number;
           projectId?: number;
         };
-        sessionStorage.removeItem("sg-chat-action");
+        sessionStorage.removeItem("zhiji-chat-action");
       }
     } catch {
       /* ignore */
@@ -1158,7 +1158,7 @@ export default function Chat() {
                 <path d="M7.2 19h9.6" />
               </svg>
               <h2 className="mt-5 text-2xl font-bold tracking-tight">
-                你好，我是 StudyGraph
+                你好，我是 知迹
               </h2>
 
               {/* 轻量学习数据概览：数字为核心，标签弱化 */}
@@ -2245,7 +2245,7 @@ function MessageRow({
           {/* 头部：名称 + 耗时（有过程时，耗时旁的箭头控制过程面板开合） */}
           <div className="flex items-center gap-2 px-4 pt-3">
             <span className="text-[13px] font-semibold text-zinc-900">
-              StudyGraph 智能体
+              知迹 智能体
             </span>
             {steps.length > 0 ? (
               <button

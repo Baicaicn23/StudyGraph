@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
-from studygraph.application.context import compact_messages
+from zhiji.application.context import compact_messages
 
 
 def test_compact_keeps_short_history_unchanged() -> None:

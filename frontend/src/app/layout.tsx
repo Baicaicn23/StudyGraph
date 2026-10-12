@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StudyGraph",
+  title: "知迹",
   description: "用 LangGraph 编排的个人学习助理",
 };
 

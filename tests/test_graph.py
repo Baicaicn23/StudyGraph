@@ -6,10 +6,10 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
-from studygraph.application import tools
-from studygraph.application.graph import build_graph
-from studygraph.infrastructure.knowledge import KnowledgeStore
-from studygraph.infrastructure.llm import MockChatModel
+from zhiji.application import tools
+from zhiji.application.graph import build_graph
+from zhiji.infrastructure.knowledge import KnowledgeStore
+from zhiji.infrastructure.llm import MockChatModel
 
 
 def _build(tmp_path: Path):

@@ -42,7 +42,7 @@ class McpStdioClient:
             {
                 "protocolVersion": _PROTOCOL_VERSION,
                 "capabilities": {},
-                "clientInfo": {"name": "studygraph", "version": "0.1.0"},
+                "clientInfo": {"name": "zhiji", "version": "0.1.0"},
             },
         )
         await self._notify("notifications/initialized", {})

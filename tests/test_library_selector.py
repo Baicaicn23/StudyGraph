@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from langchain_core.messages import AIMessage
 
-from studygraph.application.library_selector import select_libraries
+from zhiji.application.library_selector import select_libraries
 
 
 class FakeModel:

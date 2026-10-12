@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from langchain_core.messages import AIMessage
 
-from studygraph.application.pdf_formatter import (
+from zhiji.application.pdf_formatter import (
     _chunk_text,
     format_pdf_markdown,
 )
@@ -65,7 +65,7 @@ def test_chunking_never_splits_lines() -> None:
 
 
 def test_sample_pdf_fixture_extracts() -> None:
-    from studygraph.infrastructure.extract import extract_text
+    from zhiji.infrastructure.extract import extract_text
 
     text = extract_text("sample.pdf", (FIXTURES / "sample.pdf").read_bytes())
     assert "人机交互" in text or "绪论" in text

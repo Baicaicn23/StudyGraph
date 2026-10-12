@@ -364,7 +364,7 @@ export default function KnowledgePage() {
       .catch(() => setProvider(""));
     // 恢复上次调整的问答栏宽度
     try {
-      const saved = Number(localStorage.getItem("studygraph-qa-width"));
+      const saved = Number(localStorage.getItem("zhiji-qa-width"));
       if (saved >= 320 && saved <= 720) setQaWidth(saved);
     } catch {
       /* ignore */
@@ -396,7 +396,7 @@ export default function KnowledgePage() {
       document.body.style.cursor = "";
       setIsDragging(false);
       try {
-        localStorage.setItem("studygraph-qa-width", String(latest));
+        localStorage.setItem("zhiji-qa-width", String(latest));
       } catch {
         /* ignore */
       }

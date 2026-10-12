@@ -1,4 +1,4 @@
-# StudyGraph 文档导航
+# 知迹 文档导航
 
 > 项目是什么、怎么跑起来，先看[根 README](../README.md)。
 

@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from studygraph.application.question_writer import write_question
-from studygraph.domain.quiz import (
+from zhiji.application.question_writer import write_question
+from zhiji.domain.quiz import (
     build_mistake_instruction,
     parse_question,
     template_mistake_question,

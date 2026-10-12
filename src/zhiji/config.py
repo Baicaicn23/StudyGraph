@@ -1,6 +1,6 @@
 """运行配置：全部来自环境变量，默认零成本（Mock 模型）。
 
-设计原则：默认值必须让 `uv run python -m studygraph.cli ...` 开箱即用、不消耗
+设计原则：默认值必须让 `uv run python -m zhiji.cli ...` 开箱即用、不消耗
 任何 API 额度。接真实模型只需设置环境变量（或项目根目录 `.env`，已被 Git
 忽略），不改代码。
 """
@@ -20,7 +20,7 @@ def _load_dotenv() -> None:
         from dotenv import load_dotenv
     except ImportError:
         return
-    # config.py 位于 <root>/src/studygraph/，向上两级是项目根。
+    # config.py 位于 <root>/src/zhiji/，向上两级是项目根。
     env_path = Path(__file__).resolve().parents[2] / ".env"
     if env_path.is_file():
         load_dotenv(env_path, override=False)
@@ -43,7 +43,7 @@ class Settings:
     embedding_provider: str = "mock"
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 256
-    database_path: str = "data/studygraph.db"
+    database_path: str = "data/zhiji.db"
     knowledge_root: str = "data/knowledge"
     user_id: str = "local"
     max_tool_rounds: int = 6
@@ -58,41 +58,41 @@ class Settings:
 
 def get_settings() -> Settings:
     return Settings(
-        llm_provider=os.environ.get("STUDYGRAPH_LLM_PROVIDER", "mock").strip().lower(),
-        model=os.environ.get("STUDYGRAPH_MODEL", "study-mock"),
-        model_small=os.environ.get("STUDYGRAPH_MODEL_SMALL", ""),
-        model_large=os.environ.get("STUDYGRAPH_MODEL_LARGE", ""),
-        openai_base_url=os.environ.get("STUDYGRAPH_OPENAI_BASE_URL", ""),
-        openai_api_key=os.environ.get("STUDYGRAPH_OPENAI_API_KEY", ""),
-        max_output_tokens=int(os.environ.get("STUDYGRAPH_MAX_OUTPUT_TOKENS", "2048")),
-        daily_token_budget=int(os.environ.get("STUDYGRAPH_DAILY_TOKEN_BUDGET", "0")),
+        llm_provider=os.environ.get("ZHIJI_LLM_PROVIDER", "mock").strip().lower(),
+        model=os.environ.get("ZHIJI_MODEL", "study-mock"),
+        model_small=os.environ.get("ZHIJI_MODEL_SMALL", ""),
+        model_large=os.environ.get("ZHIJI_MODEL_LARGE", ""),
+        openai_base_url=os.environ.get("ZHIJI_OPENAI_BASE_URL", ""),
+        openai_api_key=os.environ.get("ZHIJI_OPENAI_API_KEY", ""),
+        max_output_tokens=int(os.environ.get("ZHIJI_MAX_OUTPUT_TOKENS", "2048")),
+        daily_token_budget=int(os.environ.get("ZHIJI_DAILY_TOKEN_BUDGET", "0")),
         budget_exceeded_action=os.environ.get(
-            "STUDYGRAPH_BUDGET_EXCEEDED_ACTION", "block"
+            "ZHIJI_BUDGET_EXCEEDED_ACTION", "block"
         ),
-        embedding_provider=os.environ.get("STUDYGRAPH_EMBEDDING_PROVIDER", "mock")
+        embedding_provider=os.environ.get("ZHIJI_EMBEDDING_PROVIDER", "mock")
         .strip()
         .lower(),
         embedding_model=os.environ.get(
-            "STUDYGRAPH_EMBEDDING_MODEL", "text-embedding-3-small"
+            "ZHIJI_EMBEDDING_MODEL", "text-embedding-3-small"
         ),
-        embedding_dim=int(os.environ.get("STUDYGRAPH_EMBEDDING_DIM", "256")),
-        database_path=os.environ.get("STUDYGRAPH_DATABASE_PATH", "data/studygraph.db"),
-        knowledge_root=os.environ.get("STUDYGRAPH_KNOWLEDGE_ROOT", "data/knowledge"),
-        user_id=os.environ.get("STUDYGRAPH_USER", "local"),
-        max_tool_rounds=int(os.environ.get("STUDYGRAPH_MAX_TOOL_ROUNDS", "6")),
+        embedding_dim=int(os.environ.get("ZHIJI_EMBEDDING_DIM", "256")),
+        database_path=os.environ.get("ZHIJI_DATABASE_PATH", "data/zhiji.db"),
+        knowledge_root=os.environ.get("ZHIJI_KNOWLEDGE_ROOT", "data/knowledge"),
+        user_id=os.environ.get("ZHIJI_USER", "local"),
+        max_tool_rounds=int(os.environ.get("ZHIJI_MAX_TOOL_ROUNDS", "6")),
         tool_timeout_seconds=float(
-            os.environ.get("STUDYGRAPH_TOOL_TIMEOUT_SECONDS", "10")
+            os.environ.get("ZHIJI_TOOL_TIMEOUT_SECONDS", "10")
         ),
-        tool_max_retries=int(os.environ.get("STUDYGRAPH_TOOL_MAX_RETRIES", "2")),
+        tool_max_retries=int(os.environ.get("ZHIJI_TOOL_MAX_RETRIES", "2")),
         max_history_messages=int(
-            os.environ.get("STUDYGRAPH_MAX_HISTORY_MESSAGES", "24")
+            os.environ.get("ZHIJI_MAX_HISTORY_MESSAGES", "24")
         ),
         max_upload_bytes=int(
-            os.environ.get("STUDYGRAPH_MAX_UPLOAD_BYTES", "5000000")
+            os.environ.get("ZHIJI_MAX_UPLOAD_BYTES", "5000000")
         ),
-        mcp_servers=os.environ.get("STUDYGRAPH_MCP_SERVERS", ""),
+        mcp_servers=os.environ.get("ZHIJI_MCP_SERVERS", ""),
         tavily_api_key=os.environ.get(
-            "STUDYGRAPH_TAVILY_API_KEY", ""
+            "ZHIJI_TAVILY_API_KEY", ""
         ).strip(),
     )
 

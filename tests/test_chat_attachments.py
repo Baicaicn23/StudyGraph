@@ -7,9 +7,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from studygraph.config import Settings
-from studygraph.infrastructure.chat_repository import SqliteChatRepository
-from studygraph.interfaces.api import create_app
+from zhiji.config import Settings
+from zhiji.infrastructure.chat_repository import SqliteChatRepository
+from zhiji.interfaces.api import create_app
 
 
 def _client(tmp_path) -> TestClient:
@@ -126,7 +126,7 @@ def test_deleting_project_removes_its_attachments_from_disk(
         return "（一张纯色小图）"
 
     monkeypatch.setattr(
-        "studygraph.interfaces.api.image_to_markdown", fake_vision
+        "zhiji.interfaces.api.image_to_markdown", fake_vision
     )
     settings = Settings(
         database_path=str(tmp_path / "proj.db"),
@@ -172,7 +172,7 @@ def test_image_preview_raw_endpoint_with_ownership(tmp_path, monkeypatch) -> Non
         return "（一张纯色小图）"
 
     monkeypatch.setattr(
-        "studygraph.interfaces.api.image_to_markdown", fake_vision
+        "zhiji.interfaces.api.image_to_markdown", fake_vision
     )
     settings = Settings(
         database_path=str(tmp_path / "preview.db"),

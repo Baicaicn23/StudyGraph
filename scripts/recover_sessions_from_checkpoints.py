@@ -16,8 +16,8 @@ import argparse
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langgraph.checkpoint.sqlite import SqliteSaver
 
-from studygraph.config import get_settings
-from studygraph.infrastructure.chat_repository import SqliteChatRepository
+from zhiji.config import get_settings
+from zhiji.infrastructure.chat_repository import SqliteChatRepository
 
 # 只有这些前缀是真人对话（web-* = 聊天页新建；doc-* = 资料页发起）。
 # ds-* / e2e-* / smoke-* / t-* / iso-* / kb-* / trace-* 是演示脚本与测试留下的。

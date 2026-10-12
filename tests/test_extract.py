@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from studygraph.infrastructure.extract import (
+from zhiji.infrastructure.extract import (
     ExtractError,
     extract_pages,
     extract_text,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from studygraph.application.routing import (
+from zhiji.application.routing import (
     CALCULATION,
     CONCEPT_EXPLAIN,
     PRACTICE,
@@ -66,8 +66,8 @@ def test_mistake_questions_route_to_tutor() -> None:
 
 
 def test_mcp_tools_only_for_authorized_profiles(monkeypatch: pytest.MonkeyPatch) -> None:
-    from studygraph.application import routing
-    from studygraph.application import tools as tools_module
+    from zhiji.application import routing
+    from zhiji.application import tools as tools_module
 
     monkeypatch.setattr(
         tools_module, "_mcp_names", {"mcp_filesystem_write", "mcp_fake_echo"}
@@ -89,7 +89,7 @@ def test_mcp_tools_only_for_authorized_profiles(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_mistake_search_granted_to_teaching_agents_only() -> None:
-    from studygraph.application import routing
+    from zhiji.application import routing
 
     assert "mistake_search" in allowed_tools(routing.profile_for_agent("tutor"))
     assert "mistake_search" in allowed_tools(routing.profile_for_agent("practice"))

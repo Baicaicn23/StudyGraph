@@ -32,7 +32,7 @@ function relativeTime(timestamp: number): string {
 }
 
 export const CHATS_CHANGED_EVENT = "sg:chats-changed";
-export const CHAT_ACTION_EVENT = "sg:chat-action";
+export const CHAT_ACTION_EVENT = "zhiji:chat-action";
 
 export function notifyChatsChanged() {
   if (typeof window !== "undefined") {
@@ -47,7 +47,7 @@ export function stashChatAction(
     | { type: "open"; sessionId: number },
 ) {
   try {
-    sessionStorage.setItem("sg-chat-action", JSON.stringify(action));
+    sessionStorage.setItem("zhiji-chat-action", JSON.stringify(action));
   } catch {
     /* ignore */
   }

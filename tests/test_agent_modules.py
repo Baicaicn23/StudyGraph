@@ -6,11 +6,11 @@ from pathlib import Path
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
-from studygraph.application import tools
-from studygraph.application.graph import build_graph
-from studygraph.infrastructure.knowledge import KnowledgeStore
-from studygraph.infrastructure.llm import MockChatModel
-from studygraph.infrastructure.usage_repository import SqliteUsageRepository
+from zhiji.application import tools
+from zhiji.application.graph import build_graph
+from zhiji.infrastructure.knowledge import KnowledgeStore
+from zhiji.infrastructure.llm import MockChatModel
+from zhiji.infrastructure.usage_repository import SqliteUsageRepository
 
 
 async def _run(graph, payload, config):
@@ -132,7 +132,7 @@ async def test_budget_blocks_real_calls(tmp_path: Path) -> None:
 
 
 def test_system_prompt_contains_teaching_charter_and_progress() -> None:
-    from studygraph.application.graph import build_system_prompt
+    from zhiji.application.graph import build_system_prompt
 
     state = {
         "messages": [],
@@ -156,7 +156,7 @@ def test_system_prompt_contains_teaching_charter_and_progress() -> None:
 
 
 def test_system_prompt_omits_progress_when_empty() -> None:
-    from studygraph.application.graph import build_system_prompt
+    from zhiji.application.graph import build_system_prompt
 
     prompt = build_system_prompt("tutor", {"messages": [], "agent": "tutor"})
 
@@ -164,7 +164,7 @@ def test_system_prompt_omits_progress_when_empty() -> None:
 
 
 def test_note_style_guide_only_for_note_writing_agents() -> None:
-    from studygraph.application.graph import build_system_prompt
+    from zhiji.application.graph import build_system_prompt
 
     for agent in ("tutor", "chat", "retriever"):
         prompt = build_system_prompt(agent, {"messages": [], "agent": agent})
@@ -177,7 +177,7 @@ def test_note_style_guide_only_for_note_writing_agents() -> None:
 
 
 def test_save_note_tool_description_carries_style_requirement() -> None:
-    from studygraph.application.tools import save_note
+    from zhiji.application.tools import save_note
 
     description = save_note.description
     assert "Markdown 笔记写作规范" in description

@@ -1,6 +1,6 @@
 """接口层：HTTP。这里是**组合根**——把基础设施实现注入应用层服务与图。
 
-启动：`uv run uvicorn studygraph.interfaces.api:app --port 8011 --reload`
+启动：`uv run uvicorn zhiji.interfaces.api:app --port 8011 --reload`
 
 SSE 事件协议（每行一个事件，`data` 为 JSON）：
 
@@ -546,7 +546,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         for client in mcp_clients:
             await client.close()
 
-    app = FastAPI(title="StudyGraph API", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="知迹 API", version="0.2.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],

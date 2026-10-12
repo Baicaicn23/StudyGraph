@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from studygraph.application.trace import diagnose, render
+from zhiji.application.trace import diagnose, render
 
 
 def _tool_call(call_id: str = "c1"):

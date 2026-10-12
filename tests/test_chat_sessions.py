@@ -7,11 +7,11 @@ import json
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage
 
-from studygraph.application.title_writer import generate_title
-from studygraph.config import Settings
-from studygraph.infrastructure.chat_repository import SqliteChatRepository
-from studygraph.infrastructure.learning_repository import SqliteLearningRepository
-from studygraph.interfaces.api import _status_from_update, create_app
+from zhiji.application.title_writer import generate_title
+from zhiji.config import Settings
+from zhiji.infrastructure.chat_repository import SqliteChatRepository
+from zhiji.infrastructure.learning_repository import SqliteLearningRepository
+from zhiji.interfaces.api import _status_from_update, create_app
 
 # -- 仓储层：项目 / 会话 / 消息 -----------------------------------------------
 
@@ -499,7 +499,7 @@ def _parse_sse(text: str) -> list[tuple[str, dict]]:
 def test_tool_result_summary_is_one_line() -> None:
     """过程流里的工具结果压成一句话（可读，不倒原始长文）。"""
 
-    from studygraph.interfaces.api import _summarize_tool_result
+    from zhiji.interfaces.api import _summarize_tool_result
 
     hits = (
         "【算法 / 迪杰斯特拉算法】# 迪杰斯特拉算法\n## 定义\n……很长很长……\n\n"
