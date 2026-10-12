@@ -150,7 +150,12 @@ _EFFORT_PROVIDERS = ("deepseek", "bigmodel", "glm")
 
 
 def build_chat_model(
-    settings: Settings, *, reasoning_effort: str | None = None
+    settings: Settings,
+    *,
+    reasoning_effort: str | None = None,
+    base_url_override: str | None = None,
+    api_key_override: str | None = None,
+    model_name_override: str | None = None,
 ) -> BaseChatModel:
     provider = settings.llm_provider
     if provider in ("", "mock"):
@@ -164,13 +169,13 @@ def build_chat_model(
             ) from exc
         extra_body: dict[str, Any] | None = None
         if reasoning_effort:
-            base_url = (settings.openai_base_url or "").lower()
+            base_url = (base_url_override or settings.openai_base_url or "").lower()
             if any(host in base_url for host in _EFFORT_PROVIDERS):
                 extra_body = {"reasoning_effort": reasoning_effort}
         return ChatOpenAI(
-            model=settings.model,
-            base_url=settings.openai_base_url or None,
-            api_key=settings.openai_api_key or "not-needed",
+            model=model_name_override or settings.model,
+            base_url=base_url_override or settings.openai_base_url or None,
+            api_key=api_key_override or settings.openai_api_key or "not-needed",
             max_tokens=settings.max_output_tokens,
             temperature=0.3,
             extra_body=extra_body,

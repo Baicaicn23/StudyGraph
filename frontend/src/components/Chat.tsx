@@ -5,9 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ClipboardEvent, DragEvent, KeyboardEvent } from "react";
 
 import {
+  addCustomModel,
   addFeedback,
   createLibrary,
+  deleteCustomModel,
   distillNote,
+  fetchModelSettings,
   addNote,
   attachmentRawUrl,
   chatActivity,
@@ -30,7 +33,22 @@ import {
   type Library,
   type StudyPlan,
   type StreamEvent,
+  type ModelSettings,
+  type ThinkingIntensity,
+  updateModelSettings,
 } from "@/lib/api";
+import { INTENSITY_LABELS, ModelPickerPanel } from "./ModelPicker";
+
+function currentModelLabel(settings: ModelSettings): string {
+  const current = settings.models.find((m) => m.key === settings.current);
+  if (current) return current.label;
+  if (settings.current.startsWith("custom:")) return "自定义模型";
+  return settings.current.replace("builtin:", "") || "默认模型";
+}
+
+function intensityLabel(level: ModelSettings["thinking"]): string {
+  return INTENSITY_LABELS[level] ?? level;
+}
 import { CHAT_ACTION_EVENT, notifyChatsChanged } from "./ChatsSection";
 import Markdown from "./Markdown";
 
@@ -338,6 +356,9 @@ export default function Chat() {
   const [retrievalMode, setRetrievalMode] = useState<"auto" | "manual">("auto");
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [provider, setProvider] = useState("");
+  // 模型选择器：当前模型与思考强度（全局设置，服务端持久化）
+  const [modelPanelOpen, setModelPanelOpen] = useState(false);
+  const [modelSettings, setModelSettings] = useState<ModelSettings | null>(null);
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
   // 过程面板的「刚完成动作」摘要（✓ 短暂停留后渐隐，随事件流更新）
   const [settle, setSettle] = useState<{ key: string; summary: string } | null>(null);
@@ -598,7 +619,72 @@ export default function Chat() {
     getHealth()
       .then((h) => setProvider(h.provider))
       .catch(() => setProvider(""));
+    fetchModelSettings()
+      .then(setModelSettings)
+      .catch(() => setModelSettings(null));
   }, [refreshLibraries, refreshPlan, refreshAskActivity]);
+
+  // 模型选择器动作：改选模型 / 调强度 / 增删自定义模型（服务端持久化）
+  const handleModelChange = useCallback(async (key: string) => {
+    try {
+      const next = await updateModelSettings(
+        key,
+        modelSettings?.thinking ?? "auto",
+      );
+      setModelSettings((prev) => (prev ? { ...prev, ...next } : prev));
+    } catch {
+      /* 保存失败保持原状 */
+    }
+  }, [modelSettings]);
+
+  const handleThinkingChange = useCallback(
+    async (level: ThinkingIntensity) => {
+      try {
+        const next = await updateModelSettings(
+          modelSettings?.current ?? "builtin",
+          level,
+        );
+        setModelSettings((prev) => (prev ? { ...prev, ...next } : prev));
+      } catch {
+        /* 保存失败保持原状 */
+      }
+    },
+    [modelSettings],
+  );
+
+  const handleAddCustom = useCallback(
+    async (payload: {
+      name: string;
+      base_url: string;
+      api_key: string;
+      model_id: string;
+    }) => {
+      try {
+        const created = await addCustomModel(payload);
+        const fresh = await fetchModelSettings();
+        setModelSettings((prev) =>
+          prev ? { ...fresh, thinking: prev.thinking } : fresh,
+        );
+        return created.key;
+      } catch {
+        return null;
+      }
+    },
+    [],
+  );
+
+  const handleDeleteCustom = useCallback(
+    async (key: string) => {
+      try {
+        await deleteCustomModel(key);
+        const fresh = await fetchModelSettings();
+        setModelSettings(fresh);
+      } catch {
+        /* 删除失败保持原状 */
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const node = scrollRef.current;
@@ -1034,7 +1120,6 @@ export default function Chat() {
     }
   };
 
-  const modelLabel = provider === "mock" ? "Mock 模型" : provider;
   const totalDocs = libraries.reduce(
     (sum, item) => sum + item.document_count,
     0,
@@ -1640,16 +1725,50 @@ export default function Chat() {
                   ? `已选 ${selected.length} 个学科库`
                   : "全部学科库"}
             </button>
-            {modelLabel && (
-              <span className="hidden shrink-0 self-center items-center gap-1 rounded-full border border-black/[0.08] px-2.5 py-1 text-[11px] font-medium text-zinc-500 md:inline-flex">
+            <div className="relative hidden shrink-0 self-center md:block">
+              <button
+                type="button"
+                onClick={() => setModelPanelOpen((v) => !v)}
+                aria-expanded={modelPanelOpen}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                  modelPanelOpen
+                    ? "border-teal-600/40 text-teal-700"
+                    : "border-black/[0.08] text-zinc-500 hover:text-zinc-600"
+                } focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none`}
+              >
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
                     provider === "mock" ? "bg-zinc-300" : "bg-teal-600"
                   }`}
                 />
-                {modelLabel}
-              </span>
-            )}
+                {modelSettings
+                  ? `${currentModelLabel(modelSettings)} · ${intensityLabel(modelSettings.thinking)}`
+                  : "模型"}
+                <svg
+                  width="9"
+                  height="9"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                  className={`transition ${modelPanelOpen ? "rotate-180" : ""}`}
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              {modelPanelOpen && modelSettings && (
+                <ModelPickerPanel
+                  settings={modelSettings}
+                  onModelChange={handleModelChange}
+                  onThinkingChange={handleThinkingChange}
+                  onAddCustom={handleAddCustom}
+                  onDeleteCustom={handleDeleteCustom}
+                />
+              )}
+            </div>
             <button
               type="button"
               onClick={() => void send()}

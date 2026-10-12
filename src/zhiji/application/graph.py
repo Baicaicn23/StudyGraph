@@ -152,11 +152,17 @@ def build_graph(
     tool_retries: int = 2,
     max_history_messages: int = 24,
     model_router: Callable[[str], ChatModelPort] | None = None,
+    model_override_provider: Callable[[], tuple[Any, str | None]] | None = None,
     usage_repository: UsageRepositoryPort | None = None,
     daily_token_budget: int = 0,
     budget_exceeded_action: str = "block",
 ):
-    """编译状态图。`checkpointer` 负责持久化与断点恢复（含 HITL 中断）。"""
+    """编译状态图。`checkpointer` 负责持久化与断点恢复（含 HITL 中断）。
+
+    `model_override_provider`（可选）：每轮调用一次，返回 ``(model, effort)``
+    ——用户在界面上自选的模型与思考强度；模型覆盖路由档位，强度非空时覆盖
+    自动分档（None = 跟随自动）。接口层负责读设置并构建/缓存模型实例。
+    """
 
     def route_node(state: StudyState) -> dict[str, Any]:
         text = _last_human_text(state["messages"])
@@ -179,6 +185,12 @@ def build_graph(
         tier = model_tier(state.get("intent", ""), text)
         effort = reasoning_effort(state.get("intent", ""), text)
         active_model = model_router(tier, effort) if model_router else model
+        # 用户在界面上自选的模型优先于自动路由——覆盖实例在接口层构建时已把
+        # 思考强度烘进 extra_body，这里只换模型对象（每轮读取一次设置）
+        if model_override_provider is not None:
+            override_model, _override_effort = model_override_provider()
+            if override_model is not None:
+                active_model = override_model
 
         # 成本控制：当日预算用尽时阻止真实调用（block）。读库放到线程里，避免
         # 阻塞事件循环导致检查点连接无法释放锁。
