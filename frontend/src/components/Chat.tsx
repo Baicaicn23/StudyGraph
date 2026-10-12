@@ -1,5 +1,7 @@
 "use client";
 
+import * as Popover from "@radix-ui/react-popover";
+import { Check, Plus } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ClipboardEvent, DragEvent, KeyboardEvent } from "react";
@@ -1393,14 +1395,14 @@ export default function Chat() {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/90 to-transparent px-6 pb-4 pt-10">
         <div className="pointer-events-auto relative mx-auto max-w-3xl">
           {/* + 功能菜单 */}
-          {plusMenuOpen && (
+          <Popover.Root open={plusMenuOpen} onOpenChange={setPlusMenuOpen}>
+            <Popover.Anchor className="absolute bottom-full left-0 mb-2 h-0 w-full" aria-hidden />
+            <Popover.Portal>
+            <Popover.Content side="top" align="start" sideOffset={8} className="z-50 animate-pop-in w-56 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
+            {plusMenuOpen && (
             <>
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setPlusMenuOpen(false)}
-                aria-hidden
-              />
-              <div className="animate-pop-in absolute bottom-full left-0 z-50 mb-2 w-56 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
+              
+              <>
                 <button
                   type="button"
                   onClick={() => {
@@ -1491,19 +1493,22 @@ export default function Chat() {
                     </span>
                   </button>
                 </div>
-              </div>
+              </>
             </>
           )}
+            </Popover.Content>
+            </Popover.Portal>
+            </Popover.Root>
 
           {/* 学科范围选择弹层 */}
-          {pickerOpen && (
+          <Popover.Root open={pickerOpen} onOpenChange={setPickerOpen}>
+            <Popover.Anchor className="absolute bottom-full left-0 mb-2 h-0 w-full" aria-hidden />
+            <Popover.Portal>
+            <Popover.Content side="top" align="start" sideOffset={8} className="z-50 animate-pop-in w-72 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
+            {pickerOpen && (
             <>
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setPickerOpen(false)}
-                aria-hidden
-              />
-              <div className="animate-pop-in absolute bottom-full left-0 z-50 mb-2 w-72 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
+              
+              <>
                 <div className="flex items-center gap-1.5 px-1 pb-1.5">
                   <button
                     type="button"
@@ -1589,9 +1594,12 @@ export default function Chat() {
                     清空选择（检索全部学科库）
                   </button>
                 )}
-              </div>
+              </>
             </>
           )}
+            </Popover.Content>
+            </Popover.Portal>
+            </Popover.Root>
 
           {/* 待发送附件条（上传中也有可见反馈） */}
           {(pendingFiles.length > 0 || uploadingCount > 0) && (
@@ -1670,6 +1678,7 @@ export default function Chat() {
             <button
               type="button"
               onClick={() => setPlusMenuOpen((v) => !v)}
+              onPointerDown={(e) => e.stopPropagation()}
               aria-expanded={plusMenuOpen}
               aria-label="更多功能"
               title={fullAccess ? "允许完全访问已开启" : undefined}
@@ -1717,6 +1726,7 @@ export default function Chat() {
             <button
               type="button"
               onClick={() => setPickerOpen((v) => !v)}
+              onPointerDown={(e) => e.stopPropagation()}
               className="hidden shrink-0 self-center rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition hover:text-zinc-600 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none sm:block"
             >
               {retrievalMode === "auto"
@@ -1729,6 +1739,7 @@ export default function Chat() {
               <button
                 type="button"
                 onClick={() => setModelPanelOpen((v) => !v)}
+                onPointerDown={(e) => e.stopPropagation()}
                 aria-expanded={modelPanelOpen}
                 className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
                   modelPanelOpen
@@ -1759,15 +1770,21 @@ export default function Chat() {
                   <path d="m6 9 6 6 6-6" />
                 </svg>
               </button>
-              {modelPanelOpen && modelSettings && (
-                <ModelPickerPanel
+              <Popover.Root open={modelPanelOpen} onOpenChange={setModelPanelOpen}>
+            <Popover.Portal>
+            <Popover.Content side="top" align="start" sideOffset={8} className="z-50">
+            {modelSettings ? (
+            <ModelPickerPanel
                   settings={modelSettings}
                   onModelChange={handleModelChange}
                   onThinkingChange={handleThinkingChange}
                   onAddCustom={handleAddCustom}
                   onDeleteCustom={handleDeleteCustom}
                 />
-              )}
+            ) : null}
+            </Popover.Content>
+            </Popover.Portal>
+            </Popover.Root>
             </div>
             <button
               type="button"
@@ -1808,6 +1825,7 @@ export default function Chat() {
                     return !v;
                   });
                 }}
+                onPointerDown={(e) => e.stopPropagation()}
                 aria-expanded={spaceOpen}
                 title="选择对话空间：新对话与本轮记忆会归属该空间"
                 className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-500 transition hover:bg-black/[0.04] hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
@@ -1821,14 +1839,14 @@ export default function Chat() {
                 </svg>
               </button>
 
-              {spaceOpen && (
+              <Popover.Root open={spaceOpen} onOpenChange={setSpaceOpen}>
+            <Popover.Anchor className="absolute bottom-full left-0 mb-2 h-0 w-full" aria-hidden />
+            <Popover.Portal>
+            <Popover.Content side="top" align="start" sideOffset={8} className="z-50 animate-pop-in w-52 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
+            {spaceOpen && (
                 <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setSpaceOpen(false)}
-                    aria-hidden
-                  />
-                  <div className="animate-pop-in absolute bottom-full left-0 z-50 mb-2 w-52 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-black/10">
+                  
+                  <>
                     <div className="px-2.5 py-1.5 text-[11px] font-medium text-zinc-400">
                       选择课程空间
                     </div>
@@ -1898,9 +1916,12 @@ export default function Chat() {
                         </button>
                       )}
                     </div>
-                  </div>
+                  </>
                 </>
               )}
+            </Popover.Content>
+            </Popover.Portal>
+            </Popover.Root>
             </div>
 
           </div>
