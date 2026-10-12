@@ -55,7 +55,6 @@ from ..infrastructure.learning_repository import SqliteLearningRepository
 from ..infrastructure.llm import build_chat_model
 from ..infrastructure.mcp_bridge import connect_and_register
 from ..infrastructure.schedule_repository import SqliteScheduleRepository
-from ..infrastructure.settings_repository import SqliteAppSettingsRepository
 from ..infrastructure.usage_repository import SqliteUsageRepository
 
 
@@ -511,9 +510,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         model = build_chat_model(resolved)
         tier_models: dict[str, object] = {}
-        custom_models_cache: dict[str, object] = {}
-        app_settings = SqliteAppSettingsRepository(resolved.database_path)
-
         def model_router(tier: str, effort: str | None = None):
             name = {
                 "small": resolved.model_small,
@@ -521,7 +517,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             }.get(tier, "")
             # 轮级推理力度：仅在显式开启（ZHIJI_REASONING_EFFORT=auto）且 provider
             # 在白名单内时附加——普通 deepseek-chat 等非推理模型不认这个参数。
-            attach_thinking = effort if resolved.reasoning_effort_mode == "auto" else None
+            attach_thinking = "max"  # 思考强度默认固定为最大档
             if not name:
                 if not attach_thinking:
                     return model
@@ -536,30 +532,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 )
             return tier_models[cache_key]
 
-        def model_override_provider():
-            """每轮读取用户在界面上自选的模型与思考强度（无选择则跟随自动路由）。"""
-
-            key = app_settings.get_setting("current_model_key", "builtin")
-            intensity = app_settings.get_setting("thinking_intensity", "auto")
-            override_model = None
-            if key.startswith("custom:"):
-                custom = app_settings.get_custom_model(int(key.split(":", 1)[1]))
-                if custom:
-                    cache_key = f"custom:{custom['id']}"
-                    if cache_key not in custom_models_cache:
-                        custom_models_cache[cache_key] = build_chat_model(
-                            resolved,
-                            base_url_override=custom["base_url"],
-                            api_key_override=custom["api_key"],
-                            model_name_override=custom["model_id"],
-                        )
-                    override_model = custom_models_cache[cache_key]
-            effort_override = None if intensity == "auto" else intensity
-            return override_model, effort_override
-
         async with AsyncSqliteSaver.from_conn_string(resolved.database_path) as checkpointer:
             app.state.settings = resolved
-            app.state.app_settings = app_settings
             app.state.store = knowledge
             app.state.learning = learning
             app.state.schedule = schedule
@@ -574,7 +548,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 tool_retries=resolved.tool_max_retries,
                 max_history_messages=resolved.max_history_messages,
                 model_router=model_router,
-                model_override_provider=model_override_provider,
                 usage_repository=usage_repository,
                 daily_token_budget=resolved.daily_token_budget,
                 budget_exceeded_action=resolved.budget_exceeded_action,
@@ -1369,95 +1342,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "by_day": repository.daily_series(user_id=user_id, days=7),
             "daily_token_budget": request.app.state.settings.daily_token_budget,
         }
-
-    # -- 模型选择与自定义模型（界面全局设置） ---------------------------------
-
-    _THINKING_LEVELS = ("auto", "low", "high", "max")
-
-    @app.get("/api/models")
-    async def list_models(request: Request) -> dict:
-        """模型列表 + 当前选择（界面模型选择器的数据源）。"""
-
-        repo: SqliteAppSettingsRepository = request.app.state.app_settings
-        settings = request.app.state.settings
-        builtin = [{"key": "builtin", "label": settings.model, "source": "builtin"}]
-        seen_labels = {settings.model}
-        for name in dict.fromkeys([settings.model_small, settings.model_large]):
-            # 与主模型同名的不重复展示；主模型 key="builtin"（覆盖所有档位的兜底）
-            if name and name not in seen_labels:
-                seen_labels.add(name)
-                builtin.append(
-                    {"key": f"builtin:{name}", "label": name, "source": "builtin"}
-                )
-        customs = [
-            {
-                "key": f"custom:{item['id']}",
-                "label": item["name"],
-                "source": "custom",
-                "model_id": item["model_id"],
-                "base_url": item["base_url"],
-            }
-            for item in repo.list_custom_models()
-        ]
-        return {
-            "current": repo.get_setting("current_model_key", "builtin"),
-            "thinking": repo.get_setting("thinking_intensity", "auto"),
-            "models": builtin + customs,
-        }
-
-    @app.put("/api/settings/model")
-    async def update_model_settings(request: Request) -> dict:
-        """保存当前模型选择与思考强度（全局生效，会话间保持）。"""
-
-        repo: SqliteAppSettingsRepository = request.app.state.app_settings
-        body = await request.json()
-        key = str(body.get("model_key") or "builtin")
-        thinking = str(body.get("thinking") or "auto")
-        if thinking not in _THINKING_LEVELS:
-            raise HTTPException(status_code=400, detail="思考强度不合法")
-        if key.startswith("custom:"):
-            try:
-                custom_id = int(key.split(":", 1)[1])
-            except ValueError as exc:
-                raise HTTPException(status_code=400, detail="模型标识不合法") from exc
-            if repo.get_custom_model(custom_id) is None:
-                raise HTTPException(status_code=404, detail="自定义模型不存在")
-        elif key != "builtin" and not key.startswith("builtin:"):
-            raise HTTPException(status_code=400, detail="模型标识不合法")
-        repo.set_setting("current_model_key", key)
-        repo.set_setting("thinking_intensity", thinking)
-        return {"current": key, "thinking": thinking}
-
-    @app.post("/api/models/custom")
-    async def add_custom_model(request: Request) -> dict:
-        """添加自定义模型（名称 / 接口地址 / API Key / 模型 ID 均必填）。"""
-
-        repo: SqliteAppSettingsRepository = request.app.state.app_settings
-        body = await request.json()
-        name = str(body.get("name") or "").strip()
-        base_url = str(body.get("base_url") or "").strip().rstrip("/")
-        api_key = str(body.get("api_key") or "").strip()
-        model_id = str(body.get("model_id") or "").strip()
-        if not (name and base_url and api_key and model_id):
-            raise HTTPException(
-                status_code=400, detail="名称 / 接口地址 / API Key / 模型 ID 均必填"
-            )
-        if not base_url.startswith(("http://", "https://")):
-            raise HTTPException(status_code=400, detail="接口地址必须以 http(s) 开头")
-        custom_id = repo.add_custom_model(
-            name=name, base_url=base_url, api_key=api_key, model_id=model_id
-        )
-        return {"id": custom_id, "name": name, "key": f"custom:{custom_id}"}
-
-    @app.delete("/api/models/custom/{custom_id}")
-    async def remove_custom_model(custom_id: int, request: Request) -> dict:
-        repo: SqliteAppSettingsRepository = request.app.state.app_settings
-        if not repo.delete_custom_model(custom_id):
-            raise HTTPException(status_code=404, detail="自定义模型不存在")
-        # 当前选中项被删 → 回落内置模型
-        if repo.get_setting("current_model_key") == f"custom:{custom_id}":
-            repo.set_setting("current_model_key", "builtin")
-        return {"deleted": custom_id}
 
     return app
 

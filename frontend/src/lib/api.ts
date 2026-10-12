@@ -422,65 +422,6 @@ export function usage(days = 1): Promise<UsageSummary> {
   return requestJson<UsageSummary>(`/api/usage?days=${days}`);
 }
 
-/* ---------- 模型选择与自定义模型 ---------- */
-
-export type ThinkingIntensity = "auto" | "off" | "low" | "high" | "max";
-
-export interface ModelOption {
-  key: string; // "builtin" | "builtin:<model>" | "custom:<id>"
-  label: string;
-  source: "builtin" | "custom";
-  model_id?: string;
-  base_url?: string;
-}
-
-export interface ModelSettings {
-  current: string;
-  thinking: ThinkingIntensity;
-  models: ModelOption[];
-}
-
-export function fetchModelSettings(): Promise<ModelSettings> {
-  return requestJson<ModelSettings>("/api/models");
-}
-
-export function updateModelSettings(
-  modelKey: string,
-  thinking: ThinkingIntensity,
-): Promise<{ current: string; thinking: ThinkingIntensity }> {
-  return requestJson<{ current: string; thinking: ThinkingIntensity }>(
-    "/api/settings/model",
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model_key: modelKey, thinking }),
-    },
-  );
-}
-
-export function addCustomModel(payload: {
-  name: string;
-  base_url: string;
-  api_key: string;
-  model_id: string;
-}): Promise<{ id: number; name: string; key: string }> {
-  return requestJson<{ id: number; name: string; key: string }>(
-    "/api/models/custom",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    },
-  );
-}
-
-export function deleteCustomModel(key: string): Promise<{ deleted: number }> {
-  const id = Number(key.replace("custom:", "")) || 0;
-  return requestJson<{ deleted: number }>(`/api/models/custom/${id}`, {
-    method: "DELETE",
-  });
-}
-
 // --- 日程（时间轴 + 收件箱）--------------------------------------------------
 
 export interface ScheduleTask {

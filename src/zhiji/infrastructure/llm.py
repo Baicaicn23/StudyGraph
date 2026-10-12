@@ -172,9 +172,6 @@ def build_chat_model(
     settings: Settings,
     *,
     thinking: str | None = None,
-    base_url_override: str | None = None,
-    api_key_override: str | None = None,
-    model_name_override: str | None = None,
 ) -> BaseChatModel:
     provider = settings.llm_provider
     if provider in ("", "mock"):
@@ -188,12 +185,12 @@ def build_chat_model(
             ) from exc
         extra_body: dict[str, Any] | None = None
         if thinking:
-            base_url = base_url_override or settings.openai_base_url or ""
+            base_url = settings.openai_base_url or ""
             extra_body = _thinking_extra_body(thinking, base_url)
         return ChatOpenAI(
-            model=model_name_override or settings.model,
-            base_url=base_url_override or settings.openai_base_url or None,
-            api_key=api_key_override or settings.openai_api_key or "not-needed",
+            model=settings.model,
+            base_url=settings.openai_base_url or None,
+            api_key=settings.openai_api_key or "not-needed",
             max_tokens=settings.max_output_tokens,
             temperature=0.3,
             extra_body=extra_body,
