@@ -26,11 +26,33 @@ def test_similar_text_scores_higher_than_unrelated() -> None:
     assert cosine(base, similar) > cosine(base, other)
 
 
-def test_build_match_query_expands_cjk_into_trigrams() -> None:
+def test_build_match_query_uses_jieba_word_terms() -> None:
+    """jieba 词级查询：≥3 字词做短语；不再产生跨词 3-gram（"征值描"这类噪声）。"""
+
     query = build_match_query("特征值描述")
     assert '"特征值"' in query
-    assert '"征值描"' in query
-    assert " OR " in query
+    assert '"征值描"' not in query
+    assert '"值描述"' not in query
+
+
+def test_build_match_query_falls_back_to_trigrams_without_words() -> None:
+    """jieba 可用 → 词级短语；切不出 ≥3 字词或不可用 → 回落旧 3-gram 策略。"""
+
+    # jieba 把 ≥3 字的词做成短语（无跨词垃圾 gram）
+    query = build_match_query("求解定积分的计算方法")
+    assert '"计算方法"' in query
+    assert '"算的计"' not in query  # 旧 3-gram 的跨词噪声不再出现
+
+    # 无 jieba 时的旧路径仍能构造
+    from zhiji.infrastructure import knowledge
+
+    saved = knowledge.jieba
+    knowledge.jieba = None
+    try:
+        query = build_match_query("特征值描述")
+        assert '"特征值"' in query and '"征值描"' in query
+    finally:
+        knowledge.jieba = saved
 
 
 def test_rrf_fuse_merges_two_rankings() -> None:

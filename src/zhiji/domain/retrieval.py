@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 
 from .models import SearchHit
@@ -48,6 +49,50 @@ def chunk_pages(
         for piece in chunk_text(cleaned, max_chars=max_chars, overlap=overlap):
             chunks.append(f"{prefix}{piece}" if prefix else piece)
     return chunks
+
+
+_MD_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*$")
+
+
+def chunk_markdown(
+    content: str, *, max_chars: int = 480, overlap: int = 80
+) -> list[str]:
+    """按 Markdown 标题结构切块：标题做块前缀出处（如「【三、方法】」）。
+
+    资料自带结构（# 标题）时按结构切比盲切贴合语义——标题和它的内容不分离，
+    长小节再按字数细切。无标题的纯文本回落 `chunk_text` 盲切。
+    """
+
+    text = (content or "").strip()
+    if not text:
+        return []
+    sections: list[tuple[str | None, list[str]]] = []
+    current_title: str | None = None
+    body_lines: list[str] = []
+    for line in text.splitlines():
+        heading = _MD_HEADING_RE.match(line)
+        if heading:
+            if current_title is not None or body_lines:
+                sections.append((current_title, body_lines))
+            current_title = heading.group(2).strip()
+            body_lines = []
+        else:
+            body_lines.append(line)
+    sections.append((current_title, body_lines))
+
+    # 没有任何标题 → 纯文本，盲切
+    if len(sections) == 1 and sections[0][0] is None:
+        return chunk_text(text, max_chars=max_chars, overlap=overlap)
+
+    chunks: list[str] = []
+    for title, lines in sections:
+        body = "\n".join(lines).strip()
+        if not body:
+            continue
+        prefix = f"【{title}】" if title else ""
+        for piece in chunk_text(body, max_chars=max_chars, overlap=overlap):
+            chunks.append(f"{prefix}{piece}" if prefix else piece)
+    return chunks or chunk_text(text, max_chars=max_chars, overlap=overlap)
 
 
 def rrf_fuse(rankings: list[list[SearchHit]], *, k: int = 60) -> list[SearchHit]:

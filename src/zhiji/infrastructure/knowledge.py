@@ -13,8 +13,15 @@ from array import array
 from pathlib import Path
 
 from ..domain.models import Chunk, SearchHit
-from ..domain.retrieval import chunk_pages, chunk_text, rrf_fuse
+from ..domain.retrieval import chunk_markdown, chunk_pages, rrf_fuse
 from .embeddings import cosine
+
+try:  # 词级分词（可选依赖）：查询切词比滑窗 3-gram 噪声小
+    import jieba
+except ImportError:  # pragma: no cover
+    jieba = None
+
+_HAS_WORD_RE = re.compile(r"[\u4e00-\u9fffA-Za-z0-9]")
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 _TOKEN_SPLIT_RE = re.compile(r"[\s,，。！？!?、；;：:（）()\[\]「」《》\"'“”‘’]+")
@@ -61,21 +68,29 @@ def _escape_like(value: str) -> str:
 
 
 def build_match_query(query: str) -> str:
-    """把自然语言查询转成 FTS5 的 OR 查询串（中文拆 3-gram 词项）。
+    """把自然语言查询转成 FTS5 的 OR 查询串。
 
-    整句当短语要求查询是资料的连续子串，几乎永不命中；拆成 3-gram 做 OR 才能
-    命中。返回空串表示无法构造查询（交由 LIKE 兜底）。
+    优先 jieba **词级**查询：≥3 字的词直接做短语——比滑窗 3-gram 噪声小
+    （3-gram 会切出"态规""划适"这类跨词垃圾）。两字词进不了 trigram 索引，
+    由 `_search_like` 兜底。jieba 不可用或切不出 ≥3 字词时，回落旧的
+    3-gram 策略。返回空串表示无法构造查询（交由 LIKE 兜底）。
     """
 
     terms: list[str] = []
-    for token in _TOKEN_SPLIT_RE.split(query or ""):
-        token = token.strip()
-        if not token:
-            continue
-        if _CJK_RE.search(token) and len(token) > 3:
-            terms.extend(token[i : i + 3] for i in range(len(token) - 2))
-        else:
-            terms.append(token)
+    if jieba is not None:
+        for word in jieba.cut_for_search(query or ""):
+            word = word.strip()
+            if len(word) >= 3 and _HAS_WORD_RE.search(word) and word not in terms:
+                terms.append(word)
+    if not terms:
+        for token in _TOKEN_SPLIT_RE.split(query or ""):
+            token = token.strip()
+            if not token:
+                continue
+            if _CJK_RE.search(token) and len(token) > 3:
+                terms.extend(token[i : i + 3] for i in range(len(token) - 2))
+            else:
+                terms.append(token)
 
     unique: list[str] = []
     for term in terms:
@@ -282,8 +297,14 @@ class KnowledgeStore:
         ``pages`` 给了就走按页切块（块带页码出处），否则整篇盲切。
         """
 
-        chunks = chunk_pages(pages) if pages else chunk_text(content)
-        vectors = self.embedder.embed(chunks) if self.embedder and chunks else []
+        chunks = chunk_pages(pages) if pages else chunk_markdown(content)
+        vectors: list[list[float]] = []
+        if self.embedder and chunks:
+            # 向量服务故障不能拦 FTS 路——入库与检索照常，只是少了语义这一路
+            try:
+                vectors = self.embedder.embed(chunks)
+            except Exception:  # noqa: BLE001 — 降级为纯关键词检索
+                vectors = []
         for index, chunk in enumerate(chunks):
             chunk_cursor = connection.execute(
                 "INSERT INTO chunks(library, title, document_id, content) VALUES (?, ?, ?, ?)",
@@ -552,7 +573,10 @@ class KnowledgeStore:
     ) -> list[SearchHit]:
         if self.embedder is None:
             return []
-        query_vector = self.embedder.embed([query])[0]
+        try:
+            query_vector = self.embedder.embed([query])[0]
+        except Exception:  # noqa: BLE001 — 查询向量化失败 → 语义路返回空
+            return []
         if not query_vector:
             return []
         clause, params = self._library_filter(libraries)

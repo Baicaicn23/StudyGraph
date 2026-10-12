@@ -818,10 +818,30 @@ _BROWSER_HEADERS = {
 }
 
 
-def _fetch_attempt(url: str, *, use_env_proxy: bool) -> str:
-    """按一种网络策略抓取网页（trust_env 决定是否走系统代理）。"""
+def _html_to_text(html: str) -> str:
+    """HTML → 正文文本：优先 trafilatura（正文/噪声分离，导航广告全去），
+    抽取失败回落旧的正则管线（去 script/style、块级标签换行、去标签）。"""
+
+    try:
+        import trafilatura
+
+        extracted = trafilatura.extract(html, include_comments=False, favor_recall=True)
+        if extracted and extracted.strip():
+            return extracted.strip()
+    except Exception:  # noqa: BLE001 — trafilatura 不可用/解析失败 → 正则兜底
+        pass
 
     import html as html_lib
+
+    html = re.sub(r"<(script|style)[\s\S]*?</\1>", " ", html, flags=re.I)
+    html = re.sub(r"<(br|/p|/div|/h[1-6]|/li|/tr)[^>]*>", "\n", html, flags=re.I)
+    text = html_lib.unescape(re.sub(r"<[^>]+>", " ", html))
+    lines = [re.sub(r"\s+", " ", line).strip() for line in text.splitlines()]
+    return "\n".join(line for line in lines if line)
+
+
+def _fetch_attempt(url: str, *, use_env_proxy: bool) -> str:
+    """按一种网络策略抓取网页（trust_env 决定是否走系统代理）。"""
 
     import httpx
 
@@ -840,11 +860,7 @@ def _fetch_attempt(url: str, *, use_env_proxy: bool) -> str:
             raise ValueError(f"不支持的内容类型：{content_type.split(';')[0]}")
         html = response.text
 
-    html = re.sub(r"<(script|style)[\s\S]*?</\1>", " ", html, flags=re.I)
-    html = re.sub(r"<(br|/p|/div|/h[1-6]|/li|/tr)[^>]*>", "\n", html, flags=re.I)
-    text = html_lib.unescape(re.sub(r"<[^>]+>", " ", html))
-    lines = [re.sub(r"\s+", " ", line).strip() for line in text.splitlines()]
-    return "\n".join(line for line in lines if line)
+    return _html_to_text(html)
 
 
 def _fetch_page_text(url: str) -> str:

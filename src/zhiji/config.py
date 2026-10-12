@@ -43,6 +43,10 @@ class Settings:
     embedding_provider: str = "mock"
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 256
+    # 向量服务的独立地址/Key（空 = 回落 openai_base_url / openai_api_key）——
+    # 主模型是 DeepSeek 时它没有 /embeddings 接口，需单独配（如硅基流动 bge-m3）
+    embedding_base_url: str = ""
+    embedding_api_key: str = ""
     database_path: str = "data/zhiji.db"
     knowledge_root: str = "data/knowledge"
     user_id: str = "local"
@@ -78,6 +82,8 @@ def get_settings() -> Settings:
             "ZHIJI_EMBEDDING_MODEL", "text-embedding-3-small"
         ),
         embedding_dim=int(os.environ.get("ZHIJI_EMBEDDING_DIM", "256")),
+        embedding_base_url=os.environ.get("ZHIJI_EMBEDDING_BASE_URL", "").strip(),
+        embedding_api_key=os.environ.get("ZHIJI_EMBEDDING_API_KEY", "").strip(),
         database_path=os.environ.get("ZHIJI_DATABASE_PATH", "data/zhiji.db"),
         knowledge_root=os.environ.get("ZHIJI_KNOWLEDGE_ROOT", "data/knowledge"),
         user_id=os.environ.get("ZHIJI_USER", "local"),

@@ -93,9 +93,13 @@ def get_embedder(settings) -> MockHashEmbedding | OpenAIEmbedding:
     if provider in ("", "mock"):
         return MockHashEmbedding(getattr(settings, "embedding_dim", 256))
     if provider in ("openai", "openai-compatible"):
+        # 向量服务地址/Key 独立可配（主模型是 DeepSeek 时它没有 /embeddings，
+        # 通常指向硅基流动等专门的 embedding 服务）；空则回落主模型配置
         return OpenAIEmbedding(
-            base_url=getattr(settings, "openai_base_url", ""),
-            api_key=getattr(settings, "openai_api_key", ""),
+            base_url=getattr(settings, "embedding_base_url", "")
+            or getattr(settings, "openai_base_url", ""),
+            api_key=getattr(settings, "embedding_api_key", "")
+            or getattr(settings, "openai_api_key", ""),
             model=getattr(settings, "embedding_model", "text-embedding-3-small"),
         )
     raise ValueError(f"未知的 Embedding Provider：{provider}")
