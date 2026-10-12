@@ -311,3 +311,69 @@ def test_fetch_url_focus_extracts_relevant_paragraphs(monkeypatch) -> None:
     )
     assert "状态转移方程" in out and "记忆化搜索" in out
     assert "Cookie" not in out and "网站导航" not in out
+
+
+def test_parse_deepseek_blocks_extracts_results_and_answer() -> None:
+    content = [
+        {
+            "type": "web_search_tool_result",
+            "content": [
+                {
+                    "type": "web_search_result",
+                    "title": "新东方四级模板",
+                    "url": "https://xdf.cn/a",
+                    "page_age": "2 days ago",
+                },
+                {"type": "web_search_result", "title": "沪江句型", "url": ""},
+            ],
+        },
+        {"type": "text", "text": "三段式骨架 + 功能句型。"},
+        {"type": "text", "text": "按题型给模板。"},
+    ]
+    results, answer = tools._parse_deepseek_blocks(content)
+    assert [r["title"] for r in results] == ["新东方四级模板", "沪江句型"]
+    assert results[0]["url"] == "https://xdf.cn/a"
+    assert answer == "三段式骨架 + 功能句型。\n\n按题型给模板。"
+
+
+def test_deepseek_search_enabled_follows_base_url(monkeypatch) -> None:
+    from zhiji.config import Settings
+
+    monkeypatch.delenv("ZHIJI_DEEPSEEK_SEARCH", raising=False)
+    base = "https://api.deepseek.com/v1"
+
+    # base_url 指向 deepseek + provider=openai + 有 key → 自动启用
+    monkeypatch.setattr(
+        "zhiji.config.get_settings",
+        lambda: Settings(
+            llm_provider="openai",
+            openai_base_url=base,
+            openai_api_key="sk-x",
+        ),
+    )
+    assert tools._deepseek_search_enabled() is True
+
+    # 非 deepseek base_url → 不启用
+    monkeypatch.setattr(
+        "zhiji.config.get_settings",
+        lambda: Settings(
+            llm_provider="openai",
+            openai_base_url="https://api.other.com/v1",
+            openai_api_key="sk-x",
+        ),
+    )
+    assert tools._deepseek_search_enabled() is False
+
+    # 环境变量强制开关优先
+    monkeypatch.setenv("ZHIJI_DEEPSEEK_SEARCH", "0")
+    monkeypatch.setattr(
+        "zhiji.config.get_settings",
+        lambda: Settings(
+            llm_provider="openai",
+            openai_base_url=base,
+            openai_api_key="sk-x",
+        ),
+    )
+    assert tools._deepseek_search_enabled() is False
+    monkeypatch.setenv("ZHIJI_DEEPSEEK_SEARCH", "1")
+    assert tools._deepseek_search_enabled() is True

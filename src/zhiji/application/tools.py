@@ -18,6 +18,7 @@ from __future__ import annotations
 import ast
 import contextvars
 import operator
+import os
 import re
 import time
 import urllib.parse
@@ -392,6 +393,117 @@ def _bocha_text(query: str, max_results: int) -> list[dict[str, Any]]:
     return results
 
 
+def _deepseek_search_enabled() -> bool:
+    """是否启用 DeepSeek 原生联网搜索后端。
+
+    默认跟随配置：provider=openai 且 base_url 指向 deepseek 时自动启用
+    （复用同一把 Key，零新增配置）；ZHIJI_DEEPSEEK_SEARCH=1/0 可强制开关。
+    """
+
+    explicit = (os.environ.get("ZHIJI_DEEPSEEK_SEARCH") or "").strip().lower()
+    if explicit in ("1", "true", "on", "yes"):
+        return True
+    if explicit in ("0", "false", "off", "no"):
+        return False
+    from ..config import get_settings
+
+    settings = get_settings()
+    return (
+        settings.llm_provider == "openai"
+        and "deepseek" in (settings.openai_base_url or "").lower()
+        and bool(settings.openai_api_key)
+    )
+
+
+def _parse_deepseek_blocks(content: list[dict[str, Any]]) -> tuple[list[dict[str, str]], str]:
+    """解析 Anthropic 兼容响应：web_search_tool_result → 条目，text → 整理答案。"""
+
+    results: list[dict[str, str]] = []
+    text_parts: list[str] = []
+    for block in content:
+        block_type = str(block.get("type") or "")
+        if block_type == "web_search_tool_result":
+            for item in block.get("content") or []:
+                if item.get("type") == "web_search_result":
+                    results.append(
+                        {
+                            "title": str(item.get("title") or "Untitled"),
+                            "url": str(item.get("url") or ""),
+                            "page_age": str(item.get("page_age") or ""),
+                        }
+                    )
+        elif block_type == "text":
+            text = str(block.get("text") or "").strip()
+            if text:
+                text_parts.append(text)
+    return results, "\n\n".join(text_parts)
+
+
+def _deepseek_web_search(queries: list[str], max_results: int) -> str:
+    """DeepSeek 原生联网搜索（Anthropic 兼容端点的服务端 web_search 工具）。
+
+    DeepSeek 服务端自己执行"搜索 → 抓网页 → 解密 → 基于全文整理"，一次调用
+    覆盖全部查询角度，返回整理答案 + 来源链接——中文质量最好的路径，且直接
+    复用项目已配置的 DeepSeek Key。失败抛异常，由上层回落通用搜索管线。
+    """
+
+    import httpx
+
+    from ..config import get_settings
+
+    settings = get_settings()
+    response = httpx.post(
+        "https://api.deepseek.com/anthropic/v1/messages",
+        headers={"content-type": "application/json", "x-api-key": settings.openai_api_key},
+        json={
+            "model": "deepseek-v4-flash",
+            "max_tokens": 4096,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a web search assistant. Use web_search to find "
+                        "relevant, up-to-date information, then write a detailed, "
+                        "well-structured answer in the same language as the query. "
+                        "Include specific facts and citations. Your response must be "
+                        "the final answer, not another search request."
+                    ),
+                },
+                {"role": "user", "content": "；".join(queries)},
+            ],
+            "tools": [{"type": "web_search_20250305", "name": "web_search"}],
+            "tool_choice": {"type": "auto"},
+        },
+        timeout=120,
+    )
+    response.raise_for_status()
+    results, text_answer = _parse_deepseek_blocks(response.json().get("content", []))
+    if not results and not text_answer:
+        raise RuntimeError("DeepSeek 联网搜索未返回内容")
+
+    lines: list[str] = []
+    if text_answer:
+        lines.append(
+            "以下内容由 DeepSeek 联网检索多轮并基于网页全文整理，可直接引用："
+        )
+        lines.append(text_answer)
+    if results:
+        if text_answer:
+            lines.append("")
+            lines.append(f"来源链接（{len(results)} 条）：")
+        seen: set[str] = set()
+        for item in results:
+            url = item["url"]
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            age = f"（{item['page_age']}）" if item["page_age"] else ""
+            lines.append(f"- 【{item['title']}】{age}{url}")
+            if len(seen) >= max_results * 2:
+                break
+    return "\n".join(lines)
+
+
 def _search_web(query: str, max_results: int) -> list[dict[str, Any]]:
     """搜索调度：配 Key 走 API（博查 → Tavily）；零配置时必应中国与 DuckDuckGo
     **双路并发召回、结果合并**（去重交给上层）。
@@ -629,6 +741,14 @@ def web_search(queries: list[str], max_results: int = 8) -> str:
     if not queries:
         return "联网搜索失败：查询词为空。"
     max_results = max(3, min(int(max_results or 8), 12))
+
+    # DeepSeek 原生联网搜索：服务端自己多轮搜索并基于网页全文整理，一次调用
+    # 覆盖全部查询角度，成功即返回；失败回落通用搜索管线（博查/Tavily/双引擎）
+    if _deepseek_search_enabled():
+        try:
+            return _deepseek_web_search(queries, max_results)
+        except Exception:  # noqa: BLE001 — 回落通用管线
+            pass
 
     per_query: list[list[dict[str, Any]]] = []
     errors: list[str] = []

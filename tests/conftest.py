@@ -13,6 +13,13 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _isolate_working_directory(tmp_path, monkeypatch):
-    """每个测试都在自己的临时目录里跑，杜绝误写真实数据库/知识库目录。"""
+    """每个测试都在自己的临时目录里跑，杜绝误写真实数据库/知识库目录。
+
+    同时隔离本机 `.env` 的模型/搜索配置：测试里 web_search 若因本机配了
+    DeepSeek 而触发真实联网搜索，会消耗 API 且结果不可测——统一禁用，
+    需要测 DeepSeek 路径的测试自行 monkeypatch。
+    """
 
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ZHIJI_DEEPSEEK_SEARCH", "0")
+    monkeypatch.delenv("ZHIJI_OPENAI_API_KEY", raising=False)
