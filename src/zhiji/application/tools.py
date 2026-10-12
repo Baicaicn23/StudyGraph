@@ -354,28 +354,83 @@ def _bing_cn_text(query: str, max_results: int) -> list[dict[str, Any]]:
     return results
 
 
+def _bocha_text(query: str, max_results: int) -> list[dict[str, Any]]:
+    """博查 Web Search（配置 ZHIJI_BOCHA_API_KEY 时可选）。
+
+    业界对中文 LLM 检索质量的对比里博查最稳（国内源、摘要完整、响应兼容
+    Bing Search API 格式）；付费，所以只在配了 Key 时启用。
+    """
+
+    import httpx
+
+    from ..config import get_settings
+
+    api_key = get_settings().bocha_api_key
+    if not api_key:
+        raise RuntimeError("未配置博查 API Key")
+    response = httpx.post(
+        "https://api.bocha.cn/v1/web-search",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={"query": query, "count": max_results, "summary": True},
+        timeout=15,
+    )
+    response.raise_for_status()
+    pages = (response.json().get("data") or {}).get("webPages") or {}
+    results = [
+        {
+            "title": str(item.get("name") or "").strip(),
+            "body": str(item.get("summary") or item.get("snippet") or "").strip()[:200],
+            "href": str(item.get("url") or "").strip(),
+        }
+        for item in pages.get("value", [])
+    ]
+    if not results:
+        raise RuntimeError("博查未返回结果")
+    return results
+
+
 def _search_web(query: str, max_results: int) -> list[dict[str, Any]]:
-    """搜索调度：Tavily（配了 Key）→ 必应中国（国内直连最稳）→ DuckDuckGo。"""
+    """搜索调度：配 Key 走 API（博查 → Tavily）；零配置时必应中国与 DuckDuckGo
+    **双路并发召回、结果合并**（去重交给上层）。
 
+    实测教训：必应中国对部分中文查询（尤其爬虫请求）会整页跑偏——"四级作文
+    模板"返回的全是报名官网；DDG 走代理后中文质量反而最好。谁先成功用谁的
+    旧调度会被单路跑偏拖死，所以零配置时两路都打、合并后靠概念覆盖过滤兜底。
+    """
+
+    import concurrent.futures
+
+    from ..config import get_settings
+
+    settings = get_settings()
     errors: list[str] = []
-    try:
-        from ..config import get_settings
-
-        if get_settings().tavily_api_key:
+    for key_name, backend, name in (
+        ("bocha_api_key", _bocha_text, "bocha"),
+        ("tavily_api_key", _tavily_text, "tavily"),
+    ):
+        if getattr(settings, key_name, ""):
             try:
-                return _tavily_text(query, max_results)
+                return backend(query, max_results)
             except Exception as exc:  # noqa: BLE001 — 换下一个后端
-                errors.append(f"tavily: {exc}")
-    except Exception:  # noqa: BLE001 — 读配置失败忽略
-        pass
-    try:
-        return _bing_cn_text(query, max_results)
-    except Exception as exc:  # noqa: BLE001 — 换下一个后端
-        errors.append(f"bing: {exc}")
-    try:
-        return _ddg_text(query, max_results)
-    except Exception as exc:  # noqa: BLE001 — 最后一个后端
-        errors.append(f"ddg: {exc}")
+                errors.append(f"{name}: {exc}")
+
+    merged: list[dict[str, Any]] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        futures = {
+            pool.submit(_bing_cn_text, query, max_results): "bing",
+            pool.submit(_ddg_text, query, max_results): "ddg",
+        }
+        for future in concurrent.futures.as_completed(futures):
+            name = futures[future]
+            try:
+                merged.extend(future.result())
+            except Exception as exc:  # noqa: BLE001 — 单路失败不拖垮另一路
+                errors.append(f"{name}: {type(exc).__name__}")
+    if merged:
+        return merged
     raise RuntimeError("；".join(errors) or "没有可用搜索后端")
 
 
@@ -423,22 +478,71 @@ def _text_tokens(text: str) -> set[str]:
     return tokens
 
 
+# 查询里的指令词（"搜索一篇四级作文模板"里的"搜索/一篇"）：与内容无关，
+# 留着只会让相关性匹配沾边放行——匹配前剥掉。
+_QUERY_STOPWORDS = (
+    "帮我", "请问", "给我", "搜索", "搜一下", "查找", "找一找", "找一下",
+    "一下", "一篇", "一个", "一些", "相关", "优秀的", "最好的",
+)
+
+
+def _clean_query(query: str) -> str:
+    text = (query or "").strip()
+    for word in _QUERY_STOPWORDS:
+        text = text.replace(word, " ")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _query_segments(queries: list[str] | None) -> list[list[str]]:
+    """每个查询拆成概念段（空格分隔，去停用词）——相关性按段覆盖判定。
+
+    "四级作文 模板" = ["四级作文", "模板"] 两段：只含"四级"的报名通知页
+    盖不住"模板"段，会被整个过滤（旧版按任意二元组计数就放行了）。
+    """
+
+    segments: list[list[str]] = []
+    for query in queries or []:
+        cleaned = _clean_query(query)
+        segs: list[str] = []
+        for seg in cleaned.split(" "):
+            seg = seg.strip()
+            if seg and seg not in segs:
+                segs.append(seg)
+        if segs:
+            segments.append(segs)
+    return segments
+
+
+def _segment_cover(
+    title_tokens: set[str], body_tokens: set[str], segs: list[str]
+) -> tuple[int, int]:
+    """返回 (盖住的段数, 标题命中的段数)。段被盖住 = 段的任一 token 出现在标题或正文。"""
+
+    covered = 0
+    title_hits = 0
+    for seg in segs:
+        seg_tokens = _text_tokens(seg)
+        if seg_tokens & (title_tokens | body_tokens):
+            covered += 1
+        if seg_tokens & title_tokens:
+            title_hits += 1
+    return covered, title_hits
+
+
 def _merge_and_rank(
     per_query: list[list[dict[str, Any]]],
     limit: int,
     queries: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """多路召回合并：相关性过滤 → URL/标题去重 → 权威度降序 → 同域限量。
+    """多路召回合并：概念覆盖过滤 → URL/标题去重 → 覆盖度/权威度排序 → 同域限量。
 
-    相关性 = 查询词与（标题+摘要）的词/二元组重叠数。搜索引擎经常混入
-    「单个汉字的词典释义」「相关搜索」之类的垃圾结果——只要整批结果里
-    存在相关项，就把零相关的全部丢掉。
+    相关性按**概念覆盖**判定（调研 RAG 查询优化的共识做法）：查询先清掉
+    指令词再按空格拆概念段，一条结果只有盖住某个查询的**全部段**才算完全
+    相关（标题命中数做次级排序）。盖不全的只有当没有任何全盖结果时才按
+    "差一段"放宽保留——搜索引擎混入的报名页/词典页只沾一个概念，会被丢掉。
     """
 
-    query_tokens = _text_tokens(" ".join(queries or []))
-    # 相关性阈值自适应：查询信息量够（≥4 个词/二元组）时要求至少命中 2 处，
-    # 且标题命中按 2 倍计——只沾一个词的结果（常见于 SEO 垃圾）会被丢掉。
-    needed = 2 if len(query_tokens) >= 4 else 1
+    query_segments = _query_segments(queries)
     seen_urls: set[str] = set()
     seen_titles: set[str] = set()
     merged: list[dict[str, Any]] = []
@@ -455,25 +559,44 @@ def _merge_and_rank(
                 seen_titles.add(title)
             title_tokens = _text_tokens(title)
             body_tokens = _text_tokens(body)
-            relevance = (
-                len(title_tokens & query_tokens) * 2
-                + len(body_tokens & query_tokens)
-                if query_tokens
-                else 1
-            )
+            best_cover, best_total, best_title_hits = 0, 0, 0
+            for segs in query_segments:
+                covered, title_hits = _segment_cover(
+                    title_tokens, body_tokens, segs
+                )
+                if covered * len(segs) > best_cover * best_total or best_total == 0:
+                    best_cover, best_total, best_title_hits = (
+                        covered,
+                        len(segs),
+                        title_hits,
+                    )
             merged.append(
-                {**item, "href": url, "_relevance": relevance, "_needed": needed}
+                {
+                    **item,
+                    "href": url,
+                    "_cover": best_cover,
+                    "_total": best_total,
+                    "_title_hits": best_title_hits,
+                }
             )
 
-    has_relevant = any(item["_relevance"] >= item["_needed"] for item in merged)
-    merged = [
-        item
-        for item in merged
-        if item["_relevance"] >= item["_needed"] or not has_relevant
-    ]
+    if query_segments and merged:
+        # 先取"完全覆盖某个查询"的结果；一个都没有时保留覆盖率 ≥50% 的
+        # （盖不住一半概念的结果基本是沾边噪声；全 0 说明全军覆没，保留
+        # 原始结果让上层诚实报"没搜到"）
+        full = [item for item in merged if item["_total"] and item["_cover"] == item["_total"]]
+        if full:
+            merged = full
+        else:
+            merged = [
+                item
+                for item in merged
+                if item["_total"] and item["_cover"] / item["_total"] >= 0.5
+            ]
     merged.sort(
         key=lambda item: (
-            -item["_relevance"],
+            -(item["_cover"] / item["_total"]) if item["_total"] else 0,
+            -item["_title_hits"],
             -_domain_weight(str(item.get("href") or "")),
         )
     )
@@ -494,13 +617,15 @@ def _merge_and_rank(
 @tool
 def web_search(queries: list[str], max_results: int = 8) -> str:
     """联网搜索：一次给 2-4 个**不同角度**的查询词（多路召回），结果会自动
-    去重、按来源权威度排序，返回标题、摘要和链接。当需要最新信息、通用知识、
-    范文模板或知识库里没有相关内容时使用。查询词要具体：
-    比如 ["2026 六级作文 议论文 模板", "site:blog.csdn.net 六级作文 模板"]。
+    去重、按概念覆盖度与来源权威度排序，返回标题、摘要和链接。当需要最新信息、
+    通用知识、范文模板或知识库里没有相关内容时使用。查询词用**空格分隔的
+    关键词**、别带"搜索/帮我/一篇"这类指令词（会被剥掉）：
+    比如 ["四级作文 议论文 模板", "英语四级 范文 万能句型"]。
     读完结果若仍不相关，换角度再搜（最多 3 轮）；引用结果注明来源 URL。"""
     if isinstance(queries, str):
         queries = [queries]
-    queries = [str(q).strip() for q in (queries or []) if str(q).strip()][:5]
+    queries = [_clean_query(str(q)) for q in (queries or [])]
+    queries = [q for q in queries if q][:5]
     if not queries:
         return "联网搜索失败：查询词为空。"
     max_results = max(3, min(int(max_results or 8), 12))

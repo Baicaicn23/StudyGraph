@@ -54,6 +54,8 @@ class Settings:
     mcp_servers: str = ""
     # 可选：Tavily 联网搜索的 API Key（配了就用 Tavily，稳定；不配则回落 DuckDuckGo）
     tavily_api_key: str = ""
+    # 可选：博查 Web Search API Key（中文搜索质量最好，付费；配了在 Tavily 之前优先用）
+    bocha_api_key: str = ""
 
 
 def get_settings() -> Settings:
@@ -93,6 +95,9 @@ def get_settings() -> Settings:
         mcp_servers=os.environ.get("ZHIJI_MCP_SERVERS", ""),
         tavily_api_key=os.environ.get(
             "ZHIJI_TAVILY_API_KEY", ""
+        ).strip(),
+        bocha_api_key=os.environ.get(
+            "ZHIJI_BOCHA_API_KEY", ""
         ).strip(),
     )
 

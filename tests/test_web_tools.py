@@ -171,11 +171,15 @@ def test_tavily_takes_priority_and_formats(monkeypatch) -> None:
 
     def fake_tavily(query, n):
         calls["tavily"] += 1
-        return [{"title": "T", "body": "B", "href": "https://t.example/a"}]
+        return [
+            {"title": "T", "body": "六级作文 范文", "href": "https://t.example/a"}
+        ]
 
     def fake_ddg(query, n):
         calls["ddg"] += 1
-        return [{"title": "D", "body": "B2", "href": "https://d.example/a"}]
+        return [
+            {"title": "D", "body": "六级作文 模板", "href": "https://d.example/a"}
+        ]
 
     monkeypatch.setattr(tools, "_tavily_text", fake_tavily)
     monkeypatch.setattr(tools, "_bing_cn_text", fake_tavily)
@@ -215,14 +219,14 @@ def test_multi_query_merge_dedupe_and_rerank(monkeypatch) -> None:
                 },
                 {
                     "title": "重复文章",
-                    "body": "动态规划 解法",
+                    "body": "动态规划 定义 教程 解法",
                     "href": "https://blog.csdn.net/a",
                 },
             ]
         return [
             {
                 "title": "重复文章",
-                "body": "动态规划 解法",
+                "body": "动态规划 定义 教程 解法",
                 "href": "https://blog.csdn.net/a",
             },
             {
@@ -256,6 +260,40 @@ def test_merge_and_rank_caps_per_domain() -> None:
     ]
     picked = tools._merge_and_rank([rows], 10, queries=["t0 相关"])
     assert len(picked) == tools._MAX_PER_DOMAIN
+
+
+def test_merge_and_rank_requires_concept_coverage() -> None:
+    """概念覆盖过滤：只沾"四级"的报名页盖不住"模板"段，必须被丢掉。"""
+
+    rows = [
+        # 查询「四级作文 模板」→ 段 ["四级作文", "模板"]
+        # 报名页：只有"四级"，无"作文/模板" → 过滤
+        {"title": "2026 四六级考试报名通知", "body": "上半年大学英语四六级考试报名入口", "href": "https://cet.example/report"},
+        # 百科词条：有"作文"无"模板" → 不全盖，有全盖结果时过滤
+        {"title": "四级作文_百度百科", "body": "四级作文是大学英语四级考试的写作部分", "href": "https://baike.example/cet"},
+        # 全盖：模板 + 四级作文 → 保留且排最前
+        {"title": "英语四级作文万能模板", "body": "四级作文模板 三段式 结构 句型", "href": "https://www.koolearn.com/tpl"},
+    ]
+    picked = tools._merge_and_rank([rows], 10, queries=["四级作文 模板"])
+    assert len(picked) == 1
+    assert "万能模板" in picked[0]["title"]
+
+
+def test_merge_and_rank_relaxes_when_no_full_coverage() -> None:
+    """没有任何全盖结果时放宽到"最多差一段"，避免整批清空。"""
+
+    rows = [
+        {"title": "四级作文范文", "body": "四级作文写作技巧", "href": "https://a.example/x"},
+        {"title": "教师资格考试官网", "body": "报名入口", "href": "https://b.example/x"},
+    ]
+    picked = tools._merge_and_rank([rows], 10, queries=["四级作文 模板"])
+    assert [item["href"] for item in picked] == ["https://a.example/x"]
+
+
+def test_clean_query_strips_instruction_words() -> None:
+    assert tools._clean_query("搜索一篇四级作文优秀模板") == "四级作文优秀模板"
+    assert tools._clean_query("帮我找一下 动态规划 教程") == "动态规划 教程"
+    assert tools._clean_query("搜索") == ""
 
 
 def test_fetch_url_focus_extracts_relevant_paragraphs(monkeypatch) -> None:
