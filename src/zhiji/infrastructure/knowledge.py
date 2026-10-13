@@ -312,12 +312,18 @@ class KnowledgeStore:
     def get_document_file(
         self, document_id: int
     ) -> dict[str, str] | None:
-        """取原样文件的落盘路径与文件名（下载/内联预览用）。"""
+        """取原样文件的落盘路径与文件名（下载/内联预览用）。
+
+        ⚠️ 这里必须同时接受 `kind='file'` 和 `kind='file_text'`：懒解析会把 kind
+        从 `file` 升级成 `file_text`（**原件仍然保留在盘上**），只认 `file` 会让
+        「解析过的资料」取不到原件——阅读页的「原件」tab 和「下载原文」直接 404。
+        """
 
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT id, title, file_path FROM documents "
-                "WHERE id = ? AND kind = 'file' AND file_path IS NOT NULL",
+                "WHERE id = ? AND kind IN ('file', 'file_text') "
+                "AND file_path IS NOT NULL",
                 (document_id,),
             ).fetchone()
         if row is None or not row["file_path"]:

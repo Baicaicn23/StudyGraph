@@ -168,6 +168,41 @@ def test_lazy_parse_pptx_chunks_carry_page_labels(client) -> None:
     assert any("第 1 页" not in hit.content for hit in hits)
 
 
+def test_parsed_file_still_served_inline(client) -> None:
+    """解析过的资料仍能取回原件（回归）。
+
+    现象：`attach_text_content` 把 kind 从 `file` 升级成 `file_text`（**原件仍留在盘上**），
+    但取原件的查询只认 `kind='file'` → 「解析入库」之后，阅读页的「**原件**」tab 与
+    「**下载原文**」统统 404。解析前正常、解析后反而坏了，从界面上很难联想到原因。
+    """
+
+    client.post("/api/knowledge/libraries", json={"name": "高等数学"})
+    payload = _fake_docx("牛顿第一定律说明物体有惯性。")
+    uploaded = client.post(
+        "/api/knowledge/upload",
+        data={"library": "高等数学"},
+        files={
+            "file": (
+                "力学笔记.docx",
+                payload,
+                "application/vnd.openxmlformats-officedocument."
+                "wordprocessingml.document",
+            )
+        },
+    ).json()
+    url = f"/api/knowledge/doc/{uploaded['id']}/file"
+
+    before = client.get(url)
+    assert before.status_code == 200
+    assert before.content == payload
+
+    assert client.post(f"/api/knowledge/doc/{uploaded['id']}/parse").status_code == 200
+
+    after = client.get(url)
+    assert after.status_code == 200
+    assert after.content == payload
+
+
 def test_file_doc_deleted_together_with_library(client) -> None:
     client.post("/api/knowledge/libraries", json={"name": "临时库"})
     uploaded = client.post(
