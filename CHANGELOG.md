@@ -3,6 +3,36 @@
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 的格式；
 里程碑（M1~M14）按功能批划分，未发布的小改动并入当前批次。
 
+## [M14.2] — 2026-10-13 · 全模块 CRUD 审计（约束冲突 / 级联删除 / 归属一致性）
+
+全量真实模型 UAT（90 项，模拟大学生走完每个模块）+ 静态审计一起做，查出并修掉
+**7 类 CRUD 基础错误**——共性都是「接口返回 2xx 或直接 500，但库里留下了不该留的东西」。
+
+### 修复
+- **「指定知识库」模式一直 500**（`ChatRequest` 缺 `retrieval_mode` 字段）：`chat_stream` 里读 `body.retrieval_mode`，但该字段**从未在模型上声明**——pydantic 直接丢弃入参，读属性就 `AttributeError`，于是**只要 `knowledge_bases` 非空就 500**。前端默认 `auto` 时同样受影响：`graph.py` 唯一的消费点因此从未运行，「智能选库」实际没生效过。已在 `ChatRequest` 声明该字段（缺省 `auto`）；AST 全项目扫描确认仅此一处读取未声明字段
+- **重命名课程空间撞名 → 500**：`PUT /api/projects/{id}` 不处理 `UNIQUE (user_id, name)`，撞名时 `sqlite3.IntegrityError` 冒到接口层。`POST` 建项目早就 409，重命名漏了——现在同样 409「同名项目已存在」，空名 400
+- **删误区留下悬挂变式题**：`DELETE /api/feedback/{id}` 只删误区本体，由它派生的练习题仍在（`practice_questions.source_feedback_id` 指向已不存在的行），还继续出现在「今日复习」里。现在删误区**联动删掉派生题及其作答记录**
+- **删资料/删库留下悬挂练习题**：`source_chunk_id` 同理。现在删资料（或整个学科库）前先取该资料的片段 id，删完联动清掉引用它们的题（跨用户，因为知识库没有用户维度）
+- **删项目留下孤儿记忆**：记忆按 `project_id` 隔离，项目删掉后这些记忆按项目查永远读不到、却又出现在「全部记忆」里。现在删项目联动清掉它的记忆
+- **删会话/删项目不清 LangGraph 检查点**：检查点（`checkpoints`/`writes` 表）与会话是**两套存储**——`chat_sessions` 删了，线程还在，**用户以为删掉的对话仍能从中还原出正文**；实测残留 33 线程 vs 7 会话。现在删会话（或会话所在项目）时按 `thread_id` 调 `adelete_thread` 一并清理（清理前确认没有别的会话共享该线程；清理失败不影响删除语义）
+- **跨用户读会话消息返回 200 空列表**：`GET /api/chats/{id}/messages` 对非归属会话返回空列表，而 `DELETE`/`PUT` 同一资源返回 404——调用方分不清"没消息"和"不是你的会话"。现在统一 404（**不泄露数据**的语义没变，只是状态码一致了）
+
+### 测试与门禁
+- 后端 251 → **258 passed**（+7，全部先验证判别力：`git stash` 回退实现后 7 项全红，其中重命名用例直接复现 `UNIQUE constraint failed`）：
+  - `test_project_rename_to_existing_name_is_409`（跨行撞名才触发；改回自己原名幂等 200）
+  - `test_cross_user_session_messages_is_404`
+  - `test_feedback_delete_cascades_derived_question` / `test_document_delete_cascades_derived_questions` / `test_library_delete_cascades_derived_questions`（直接查库断言那一行「到底还在不在」）
+  - `test_project_delete_cascades_memories`
+  - `test_delete_session_drops_checkpoint_thread`（对话后 `checkpoints` 有行 → 删会话后 `checkpoints`/`writes` 均归零）
+- 两个既有用例断言的正是**旧的错误行为**（"越权读取返回空列表（不报错）"），已改为断言 404
+- 检索基线 Hit@3 = 1.0 / MRR = 1.0 不变；意图准确率 1.0 不变；ruff / tsc / eslint 干净
+
+### 数据维护
+- 清理历史上由该 bug 累积的 **27 条孤儿检查点线程**（含之前审计中能还原正文的 `web-lj2qh4i7`），库内 `threads == sessions == 5`；清理前已备份到 `data/backups/zhiji-before-orphan-clean-*.db`
+
+### 未改动（设计边界，非缺陷）
+- `user_id` 仍是客户端可传、无鉴权；知识库表没有 `user_id` 列（多租户漏洞）——**用户已拍板「多用户登录基本不做」**，本轮不动
+
 ## [M14] — 2026-10-13 · 私教人格升级（输出规格 / 技术过程内隐 / 分场景骨架）
 
 ### 新增

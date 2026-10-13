@@ -13,7 +13,7 @@ LangGraph 显式状态图回合 + FastAPI + SQLite + Next.js 16（App Router + T
 
 ```bash
 ./scripts/dev.sh                             # 后端 8011 + 前端 3000（改后端代码必须重启，无 --reload）
-uv run pytest -q --basetemp=/tmp/sg-pytest   # 251 passed（Mock 零 API 消耗）
+uv run pytest -q --basetemp=/tmp/sg-pytest   # 258 passed（Mock 零 API 消耗）
 uv run ruff check src tests
 cd frontend && npx tsc --noEmit && npx eslint src && cd ..
 uv run zhiji-eval retrieval --dataset evals/datasets/retrieval.json --baseline evals/baselines/retrieval.json
@@ -36,6 +36,8 @@ uv run zhiji-eval intent --dataset evals/datasets/intent.json --baseline evals/b
 - **绝不碰** `data/` 与 `.env` 里的 Secret；破坏性操作前先备份到 `data/backups/`。
 - **测试全 Mock 零 API 消耗**；`tests/conftest.py` 的环境隔离与 chdir 勿动。
 - **前端设计/排版必须先画示意图经用户确认**，再写代码（用户拍板的铁律；用户用截图反馈）。
+- **删除类接口一律级联**（无外键，手写 SQL）：删误区→派生题、删资料/库→引用其片段的题、删项目→记忆+会话+附件+**检查点线程**、删会话→检查点线程。判据：**"它被删了，谁还指着它？"** 新增任何派生物时都要问一遍。
+- **约束冲突翻译成 4xx**（`projects` / `practice_questions` / `memories` 三处 UNIQUE → 409）；**同一资源的归属校验状态码要一致**（会话 GET messages / PUT / DELETE 统一 404）。
 - **用户已否决、别再做**：日程×学习闭环联动；思考强度选择 UI；自定义模型/模型切换接入（思考恒 max，不设选择）。
 
 ## 高频坑（每条都踩过；详版见 docs/交接文档.md 第六节）
@@ -55,6 +57,8 @@ uv run zhiji-eval intent --dataset evals/datasets/intent.json --baseline evals/b
 - **BSD grep 不支持 `\|` 交替**（macOS）——别用它做多词搜索，用 `rg`/Grep 工具。
 - **新增工具必须同步 `domain/guardrails.py` 的 `_TOOL_LEAK_MARKERS`**（拦回复正文里的内部工具名，属「技术过程内隐」执行层兜底）；漏挂由 `test_tool_leak_markers_cover_registry` 抓出来。
 - **工作区文件工具**：`_workspace_dir()` 必须返回 **resolve 过的绝对路径**——`_safe_resolve()` 返回绝对路径，两边不一致时 `path.relative_to(...)` 会在**写完文件之后**抛错，表现为"盘上有文件却报写入失败"。测试 fixture 传 `tmp_path`（绝对）测不出，改这里务必跑 `test_relative_workspace_root_matches_production`。`user_id` 是客户端可传的，必须经 `_safe_user_segment()` 压成单层目录名。
+- **`ChatRequest` 的字段声明与 `body.X` 读取必须同时改**：pydantic 对**未声明的入参静默丢弃**，读它才 `AttributeError` → 500。`retrieval_mode` 曾漏声明 → 只要 `knowledge_bases` 非空就 500（「指定知识库」模式长期不可用、智能选库从未生效）。加接口参数时两处一起动。
+- **LangGraph 检查点与会话是两套存储**：只删 `chat_sessions` 会留下能从正文还原的孤儿线程。删会话调 `graph.checkpointer.adelete_thread(thread_id)`，清理前用 `chat.count_sessions_with_thread()` 确认无其他会话共享该 thread_id。
 - **`agent-browser` 必须打开 `http://localhost:3000`，不要用 `127.0.0.1`**：Next 16 把后者当跨源拦截 `/_next/hmr` → 页面**不 hydrate** → 所有按钮点了没反应（HTML/JS 全 200，极易误判成业务 bug）。且 `agent-browser eval` 里的 `.click()` 合成事件不触发 React，必须用 `agent-browser click <sel>`。
 - git push 需代理隧道（代理不在时先 `nc -z 127.0.0.1 8086` 探测）。
 

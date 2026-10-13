@@ -195,7 +195,7 @@ uv sync --extra openai
 ## 测试、评测与诊断
 
 ```bash
-uv run pytest -q --basetemp=/tmp/sg-pytest   # 251 passed（本机沙箱须指定 basetemp）
+uv run pytest -q --basetemp=/tmp/sg-pytest   # 258 passed（本机沙箱须指定 basetemp）
 uv run ruff check src tests scripts
 
 # 评测门禁（有基线时掉超过容差 → 退出码 1）
@@ -260,7 +260,7 @@ zhiji/
 │       ├── app/           7 个路由（聊天 / 知识库 / 笔记 / 练习 / 错题 / 今日复习 / 日程）
 │       ├── components/    AppShell · Chat · ChatsSection · KnowledgeTree · SchedulePickers · Markdown · ui
 │       └── lib/api.ts     接口封装（含两个 SSE 解析器）
-├── tests/             251 个自动测试（Mock，零 API 消耗）
+├── tests/             258 个自动测试（Mock，零 API 消耗）
 ├── scripts/dev.sh     一键起前后端
 ├── CHANGELOG.md       版本更新日志
 ├── data/              SQLite 库 + 附件 + 备份（git 忽略）
