@@ -13,7 +13,7 @@ LangGraph 显式状态图回合 + FastAPI + SQLite + Next.js 16（App Router + T
 
 ```bash
 ./scripts/dev.sh                             # 后端 8011 + 前端 3000（改后端代码必须重启，无 --reload）
-uv run pytest -q --basetemp=/tmp/sg-pytest   # 249 passed（Mock 零 API 消耗）
+uv run pytest -q --basetemp=/tmp/sg-pytest   # 251 passed（Mock 零 API 消耗）
 uv run ruff check src tests
 cd frontend && npx tsc --noEmit && npx eslint src && cd ..
 uv run zhiji-eval retrieval --dataset evals/datasets/retrieval.json --baseline evals/baselines/retrieval.json
@@ -54,6 +54,7 @@ uv run zhiji-eval intent --dataset evals/datasets/intent.json --baseline evals/b
 - python 批量脚本用**绝对路径**：连续 cd 后相对路径会静默读写错文件。
 - **BSD grep 不支持 `\|` 交替**（macOS）——别用它做多词搜索，用 `rg`/Grep 工具。
 - **新增工具必须同步 `domain/guardrails.py` 的 `_TOOL_LEAK_MARKERS`**（拦回复正文里的内部工具名，属「技术过程内隐」执行层兜底）；漏挂由 `test_tool_leak_markers_cover_registry` 抓出来。
+- **工作区文件工具**：`_workspace_dir()` 必须返回 **resolve 过的绝对路径**——`_safe_resolve()` 返回绝对路径，两边不一致时 `path.relative_to(...)` 会在**写完文件之后**抛错，表现为"盘上有文件却报写入失败"。测试 fixture 传 `tmp_path`（绝对）测不出，改这里务必跑 `test_relative_workspace_root_matches_production`。`user_id` 是客户端可传的，必须经 `_safe_user_segment()` 压成单层目录名。
 - **`agent-browser` 必须打开 `http://localhost:3000`，不要用 `127.0.0.1`**：Next 16 把后者当跨源拦截 `/_next/hmr` → 页面**不 hydrate** → 所有按钮点了没反应（HTML/JS 全 200，极易误判成业务 bug）。且 `agent-browser eval` 里的 `.click()` 合成事件不触发 React，必须用 `agent-browser click <sel>`。
 - git push 需代理隧道（代理不在时先 `nc -z 127.0.0.1 8086` 探测）。
 

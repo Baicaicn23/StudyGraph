@@ -1,7 +1,7 @@
 # 更新日志
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 的格式；
-里程碑（M1~M13）按功能批划分，未发布的小改动并入当前批次。
+里程碑（M1~M14）按功能批划分，未发布的小改动并入当前批次。
 
 ## [M14] — 2026-10-13 · 私教人格升级（输出规格 / 技术过程内隐 / 分场景骨架）
 
@@ -18,6 +18,16 @@
 ### 测试与评测
 - 后端 244 → **249 passed**（+5：护栏执行细节泄漏 2、人格分场景骨架与输出契约 3）
 - 检索基线 Hit@3 = 1.0 / MRR = 1.0 不变；意图准确率 1.0 不变
+
+## [M14.1] — 2026-10-13 · 文件工作区修复（写入成功后误报失败 + user_id 目录穿越）
+
+### 修复
+- **`write_file` 写完文件却报「写入失败」**（用户实测反馈：模型说"文件写入暂时出了点问题"）：`_workspace_dir()` 返回的是**未 resolve 的相对路径**，而 `_safe_resolve()` 返回的是 `resolve()` 过的**绝对路径**，于是文件落盘后在 `path.relative_to(_workspace_dir())` 抛 `ValueError: ... is not in the subpath of ...`。生产默认 `data/zhiji.db` → `configure_workspace(Path("data/zhiji.db").parent / "workspace")` 正好是相对路径，所以线上必现；而旧测试传的是 `tmp_path`（绝对），**永远测不出来**。现在 `_workspace_dir()` 统一 resolve 成绝对路径，`write_file` / `read_file` / `list_files` 一并恢复正常（`read_file` 此前同样 100% 失败）
+- **`user_id` 目录穿越**：`user_id` 是客户端可传的（`Field(default="local", max_length=64)`，只限长度），直接拼进 `root / user_id` 时，`user_id="../../../../tmp/x"` 会让 `mkdir(parents=True)` 把目录建到**工作区之外**并可在其中写文件。新增 `_safe_user_segment()`：非白名单字符一律换成 `_`、去掉首尾点（`..` → 退回 `local`），保证 user_id 永远只是**单层**目录名
+
+### 测试
+- 后端 249 → **251 passed**（+2）：`test_relative_workspace_root_matches_production`（用**相对 root** 复现生产装配——旧实现下该测试失败，已验证有判别力）、`test_user_segment_traversal_stays_inside`
+- 检索 / 意图基线不变
 
 ## [M13] — 2026-10-13 · 检索召回扩写
 
