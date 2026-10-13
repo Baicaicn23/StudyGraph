@@ -195,7 +195,7 @@ uv sync --extra openai
 ## 测试、评测与诊断
 
 ```bash
-uv run pytest -q --basetemp=/tmp/sg-pytest   # 258 passed（本机沙箱须指定 basetemp）
+uv run pytest -q --basetemp=/tmp/sg-pytest   # 259 passed（本机沙箱须指定 basetemp）
 uv run ruff check src tests scripts
 
 # 评测门禁（有基线时掉超过容差 → 退出码 1）
@@ -255,13 +255,15 @@ zhiji/
 │   │   ├── cli.py / demo.py / evals.py / trace.py
 │   └── config.py
 ├── evals/             评测数据集与基线（datasets/ + baselines/）
+├── assets/demo_materials/  演示素材（自编 PDF/Word/PPT/图片，`zhiji-demo` 会把它播进知识库）
 ├── frontend/          Next.js 16 界面（Tailwind + Markdown/KaTeX + 流式）
 │   └── src/
 │       ├── app/           7 个路由（聊天 / 知识库 / 笔记 / 练习 / 错题 / 今日复习 / 日程）
 │       ├── components/    AppShell · Chat · ChatsSection · KnowledgeTree · SchedulePickers · Markdown · ui
 │       └── lib/api.ts     接口封装（含两个 SSE 解析器）
-├── tests/             258 个自动测试（Mock，零 API 消耗）
+├── tests/             259 个自动测试（Mock，零 API 消耗）
 ├── scripts/dev.sh     一键起前后端
+├── scripts/build_demo_materials.py  生成演示素材（内容全部自编，不引用教材）
 ├── CHANGELOG.md       版本更新日志
 ├── data/              SQLite 库 + 附件 + 备份（git 忽略）
 └── docs/              架构设计 / 使用指南 / 交接文档 / 接口一览
