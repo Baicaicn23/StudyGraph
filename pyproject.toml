@@ -55,3 +55,8 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# 这个脚本的主体是**长篇中文教材内容**（演示素材的正文），属数据而非代码逻辑：
+# 把每段硬折到 100 列以内会让内容难以校对，故豁免行长限制。
+"scripts/build_demo_materials.py" = ["E501"]

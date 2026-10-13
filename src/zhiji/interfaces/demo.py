@@ -1,4 +1,4 @@
-"""演示数据播种：预置课程空间、学科知识库、复习笔记、典型误区与一条日程。
+"""演示数据播种：预置课程空间、学科知识库、复习笔记、多格式资料、典型误区与日程。
 
     uv run zhiji-demo                # 写入默认数据库
     uv run zhiji-demo --db demo.db   # 写到指定数据库
@@ -6,6 +6,15 @@
 
 内容全部为**自编教学材料**（定义 / 公式 / 例子 / 易错点 / 口语说法对照），
 不涉及任何教材版权。让演示一开始就有「真材实料」，而不是空库。
+
+资料分两路进知识库：
+
+1. **文本笔记**（`DEMO_NOTES`，写在代码里）→ 直接切块建索引；
+2. **多格式素材**（`assets/demo_materials/`，由 `scripts/build_demo_materials.py` 生成）
+   → 走和网页上传**完全相同**的入库路径：二进制文件先 `save_file_document` 原样落盘，
+   再（除 `UNPARSED_MATERIALS` 之外）调 `extract_pages` + `attach_text_content` 建索引。
+   PDF / PPTX 按页切块带页码出处，Word 整篇切块——这样演示里的「带页号引用」
+   和「解析入库（建立检索索引）」两个动作都有真实数据可依。
 """
 
 from __future__ import annotations
@@ -20,12 +29,22 @@ from ..application.learning_service import LearningService
 from ..config import Settings, get_settings
 from ..infrastructure.chat_repository import SqliteChatRepository
 from ..infrastructure.embeddings import get_embedder
+from ..infrastructure.extract import ExtractError, extract_pages, is_parseable_document
 from ..infrastructure.knowledge import KnowledgeStore
 from ..infrastructure.learning_repository import SqliteLearningRepository
 from ..infrastructure.schedule_repository import SqliteScheduleRepository
 
 # 演示用的课程空间（会话与记忆按课程隔离，先给几个常见科目）
-DEMO_COURSES = ("高等数学", "线性代数", "数据结构")
+DEMO_COURSES = ("高等数学", "线性代数", "数据结构", "概率论与数理统计", "计算机网络")
+
+# 多格式素材根目录（受版本控制；由 scripts/build_demo_materials.py 生成）
+DEMO_MATERIALS_ROOT = Path(__file__).resolve().parents[3] / "assets" / "demo_materials"
+
+# 故意**不解析**的素材：演示阅读器里「解析入库（建立检索索引）」时拿它当例子。
+# 其余素材都预先建好索引，这样一打开就能问答、检索也有内容可召回。
+UNPARSED_MATERIALS: frozenset[str] = frozenset(
+    {"计算机网络/TCP连接管理·课堂讲义.pptx"}
+)
 
 # 学科 -> [(标题, 正文)]。正文含：定义、要点、例子、易错点、口语说法对照。
 DEMO_NOTES: dict[str, list[tuple[str, str]]] = {
@@ -160,7 +179,87 @@ DEMO_MISTAKES: list[dict[str, str]] = [
         "note": "我以为最坏情况也是 O(log n)，忘了退化成链的情况。",
         "kind": "condition",
     },
+    {
+        "library": "概率论与数理统计",
+        "question": "两个随机变量和的方差等于方差的和吗？",
+        "note": "我直接写了 D(X+Y)=D(X)+D(Y)，忘了要先确认相互独立。",
+        "kind": "concept",
+    },
+    {
+        "library": "计算机网络",
+        "question": "TCP 挥手为什么是四次？",
+        "note": "步骤记住了，但说不清为什么被动方的 ACK 和 FIN 不能合并，答题时漏了「半关闭」。",
+        "kind": "step",
+    },
+    {
+        "library": "大学物理",
+        "question": "静摩擦力等于 μsN 吗？",
+        "note": "我把静摩擦力当成了恒等于最大值，其实它是「需要多少给多少」。",
+        "kind": "condition",
+    },
+    {
+        "library": "大学英语四级",
+        "question": "四级作文怎么把 however 用对？",
+        "note": "我写成 however, but ... 两个转折词连用了，属于表述重复。",
+        "kind": "wording",
+    },
 ]
+
+
+def _seed_materials(knowledge: KnowledgeStore) -> dict[str, object]:
+    """把 `assets/demo_materials/` 里的多格式素材走**真实入库路径**播种。
+
+    与网页上传一致：先 `save_file_document` 原样落盘（不解析），
+    再对 `UNPARSED_MATERIALS` 之外的文件调 `extract_pages` + `attach_text_content`
+    建检索索引（等价于在阅读器里点一次「解析入库」）。
+
+    图片（视觉转写需要真实多模态模型）**不在播种范围内**——它们留给演示时现场拖入，
+    更能说明「拍照课件也能入库」。返回统计信息供命令行打印。
+    """
+
+    stats: dict[str, object] = {
+        "files": 0,
+        "indexed": 0,
+        "unparsed": [],
+        "images": [],
+        "libraries": [],
+        "missing": False,
+    }
+    if not DEMO_MATERIALS_ROOT.is_dir():
+        stats["missing"] = True
+        return stats
+
+    for path in sorted(DEMO_MATERIALS_ROOT.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(DEMO_MATERIALS_ROOT).as_posix()
+        # 一级目录名就是学科库（素材按学科分目录存放）
+        library = relative.split("/", 1)[0]
+        if not is_parseable_document(path.name):
+            stats["images"].append(relative)  # type: ignore[union-attr]
+            continue
+        if library not in stats["libraries"]:  # type: ignore[operator]
+            stats["libraries"].append(library)  # type: ignore[union-attr]
+
+        data = path.read_bytes()
+        document_id = knowledge.save_file_document(
+            library=library, title=path.name, filename=path.name, data=data
+        )
+        stats["files"] = int(stats["files"]) + 1
+
+        if relative in UNPARSED_MATERIALS:
+            stats["unparsed"].append(relative)  # type: ignore[union-attr]
+            continue
+        try:
+            pages = extract_pages(path.name, data)
+        except ExtractError:
+            continue
+        text = "\n\n".join(page_text for _label, page_text in pages).strip()
+        if not text:
+            continue
+        knowledge.attach_text_content(document_id, text, pages=pages)
+        stats["indexed"] = int(stats["indexed"]) + 1
+    return stats
 
 
 def seed(settings: Settings, *, user_id: str = "local") -> dict[str, object]:
@@ -189,7 +288,10 @@ def seed(settings: Settings, *, user_id: str = "local") -> dict[str, object]:
         learning.add_feedback(user_id=user_id, **mistake)
         mistake_count += 1
 
-    # 一条日程：今天两件事（06:30 背单词 / 20:30 复习到期题）+ 收件箱一件
+    # 多格式素材（PDF / Word / PPT）：走真实上传入库路径，多数预先建好检索索引
+    material_stats = _seed_materials(knowledge)
+
+    # 三条日程：今天两件事（06:30 背单词 / 20:30 复习到期题）+ 收件箱一件
     today = time.strftime("%Y-%m-%d")
     schedule.create_task(
         user_id=user_id,
@@ -206,16 +308,24 @@ def seed(settings: Settings, *, user_id: str = "local") -> dict[str, object]:
         duration_minutes=45,
     )
     schedule.create_task(
-        user_id=user_id, title="整理本周错题（还没想好哪天）", duration_minutes=45
+        user_id=user_id,
+        title="整理本周错题（还没想好哪天）", duration_minutes=45
     )
 
+    # 学科库 = 代码里的文本笔记库 + 素材目录带来的库（去重保序）
+    libraries = list(DEMO_NOTES)
+    for name in material_stats["libraries"]:  # type: ignore[union-attr]
+        if name not in libraries:
+            libraries.append(name)
+
     return {
-        "libraries": list(DEMO_NOTES),
+        "libraries": libraries,
         "notes": note_count,
         "mistakes": mistake_count,
         "courses": courses,
         "schedule": 3,
         "database": settings.database_path,
+        "materials": material_stats,
     }
 
 
@@ -240,11 +350,29 @@ def main(argv: list[str] | None = None) -> int:
         _reset_database(settings.database_path)
 
     result = seed(settings, user_id=args.user)
+    materials = result["materials"]
+    assert isinstance(materials, dict)
     print("演示数据已写入：")
     print(f"  数据库：{result['database']}")
     print(f"  课程空间：{'、'.join(result['courses'])}")  # type: ignore[arg-type]
     print(f"  学科知识库：{'、'.join(result['libraries'])}")  # type: ignore[arg-type]
     print(f"  复习笔记：{result['notes']} 份")
+    if materials["missing"]:
+        print(
+            "  多格式素材：未找到 assets/demo_materials/"
+            "（可跑 scripts/build_demo_materials.py 生成）"
+        )
+    else:
+        print(
+            f"  多格式资料：{materials['files']} 份（其中 {materials['indexed']} 份已建检索索引）"
+        )
+        unparsed = materials["unparsed"]
+        if unparsed:
+            print(f"    故意留作未解析（演示「解析入库」）：{'、'.join(unparsed)}")  # type: ignore[arg-type]
+        images = materials["images"]
+        if images:
+            print(f"    图片 {len(images)} 张在 assets/demo_materials/演示用图片/，")
+            print("    演示时直接拖进对话输入框即可（视觉转写）")
     print(f"  典型误区：{result['mistakes']} 条")
     print(f"  日程任务：{result['schedule']} 条（2 条排今天 + 1 条在收件箱）")
     return 0
