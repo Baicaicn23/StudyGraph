@@ -27,6 +27,8 @@ uv run zhiji-demo --reset                    # 播种演示数据（含 assets/d
 
 - git 推送走代理隧道：`GIT_SSH_COMMAND="ssh -o ProxyCommand='/usr/bin/python3 ~/.ssh/gh-connect.py %h %p'" git push`
 - 后端联网（web_search）需带代理 env 启动：`HTTP(S)_PROXY=http://127.0.0.1:8086`
+- ⚠️ **`./scripts/dev.sh` 会静默进 Mock 模式**：脚本里 `export ZHIJI_LLM_PROVIDER="${ZHIJI_LLM_PROVIDER:-mock}"`，而 `config.py` 用 `load_dotenv(override=False)` —— **已存在的环境变量不会被 `.env` 覆盖**，所以 `.env` 里写了 `openai` 也会被顶掉。要用真实模型必须**显式前缀**：`ZHIJI_LLM_PROVIDER=openai ./scripts/dev.sh`。启动时脚本会打印生效模式；也可 `curl -s http://127.0.0.1:8011/api/health` 看 `provider`。
+- ⚠️ **后端没起时前端页面是空的**（不是 bug）：`next dev` 可以单独活着，但列表/知识库/课程空间全要后端数据。看到"页面啥都没有"先 `lsof -nP -iTCP:8011 -sTCP:LISTEN`。
 
 ## 架构边界（三句话）
 
