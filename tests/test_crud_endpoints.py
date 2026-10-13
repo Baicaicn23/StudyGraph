@@ -145,6 +145,35 @@ def test_practice_question_delete(tmp_path) -> None:
         assert missing.status_code == 404
 
 
+def test_explain_endpoint_asks_for_real_model_in_mock_mode(tmp_path) -> None:
+    """Mock 模式下点「看详解」→ 4xx + 可读提示。
+
+    详解**没有模板兜底**（答案对错由学科事实决定，拼不出来），所以这里必须诚实
+    报错让用户去配真实模型，而不是塞一段假解析。与「图片视觉转写需真实视觉模型」同款处理。
+    """
+
+    with _client(tmp_path) as client:
+        client.post(
+            "/api/feedback",
+            json={"user_id": "alice", "library": "高数", "question": "求极限", "note": "漏了约分"},
+        )
+        questions = client.post(
+            "/api/practice/generate",
+            json={"user_id": "alice", "source": "mistakes", "count": 1},
+        ).json()["questions"]
+        qid = questions[0]["id"]
+
+        response = client.post(f"/api/practice/{qid}/explain", params={"user_id": "alice"})
+        assert response.status_code == 400
+        assert "真实模型" in response.json()["detail"]
+
+        # 不存在的题也不该 500（Mock 模式在校验之前就返回，同样 400）
+        missing = client.post(
+            "/api/practice/999999/explain", params={"user_id": "alice"}
+        )
+        assert missing.status_code == 400
+
+
 def test_memory_delete(tmp_path) -> None:
     with _client(tmp_path) as client:
         _read_stream(client, "记住：我在准备月底的微积分测验")

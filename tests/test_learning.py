@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -250,3 +252,138 @@ def test_remember_and_list_memories(tmp_path: Path) -> None:
     # 去重
     learning.remember("u1", "记住：我在准备月底的微积分测验")
     assert len(learning.memories("u1")) == 1
+
+
+# -- 详解（懒生成 + 落库缓存） --------------------------------------------------
+
+class _ExplainModel:
+    """能给出合法详解的模型桩；`calls` 用来看缓存有没有真的生效。"""
+
+    _llm_type = "stub"
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def ainvoke(self, messages):  # noqa: ANN001
+        self.calls += 1
+        return SimpleNamespace(
+            content='{"answer": "极限存在且等于 4。", "steps": ["约分得 x+2", "代入得 4"]}'
+        )
+
+
+async def test_explain_question_generates_once_then_serves_cache(
+    tmp_path: Path,
+) -> None:
+    """第一次点「看详解」调模型并落库；第二次直接读缓存，不再烧 token。"""
+
+    knowledge, learning = _services(tmp_path)
+    knowledge.add_note("高等数学", "极限", "极限是自变量趋近某值时函数值趋近的数。")
+    [question] = await learning.generate(
+        user_id="u1", source="knowledge_base", library="高等数学", count=1, model=None
+    )
+    model = _ExplainModel()
+
+    first = await learning.explain_question(
+        user_id="u1", question_id=question["id"], model=model
+    )
+    assert first["cached"] is False
+    assert first["answer"] == "极限存在且等于 4。"
+    assert first["steps"] == ["约分得 x+2", "代入得 4"]
+    assert model.calls == 1
+
+    second = await learning.explain_question(
+        user_id="u1", question_id=question["id"], model=model
+    )
+    assert second["cached"] is True
+    assert second["answer"] == first["answer"]
+    assert model.calls == 1, "缓存命中时不该再调模型"
+
+
+async def test_explain_question_rejects_unknown_and_foreign(tmp_path: Path) -> None:
+    """不存在的题、别人的题都拿不到详解——而且**一次模型都不该调**。"""
+
+    knowledge, learning = _services(tmp_path)
+    knowledge.add_note("高等数学", "极限", "极限是自变量趋近某值时函数值趋近的数。")
+    [question] = await learning.generate(
+        user_id="u1", source="knowledge_base", library="高等数学", count=1, model=None
+    )
+    model = _ExplainModel()
+
+    with pytest.raises(LearningError):
+        await learning.explain_question(
+            user_id="u1", question_id=999999, model=model
+        )
+    with pytest.raises(LearningError):
+        await learning.explain_question(
+            user_id="u2", question_id=question["id"], model=model
+        )
+    assert model.calls == 0
+
+
+async def test_explain_question_without_model_gives_readable_error(
+    tmp_path: Path,
+) -> None:
+    """没有可用模型时抛可读错误，而不是编一段假解析。"""
+
+    knowledge, learning = _services(tmp_path)
+    knowledge.add_note("高等数学", "极限", "极限是自变量趋近某值时函数值趋近的数。")
+    [question] = await learning.generate(
+        user_id="u1", source="knowledge_base", library="高等数学", count=1, model=None
+    )
+
+    with pytest.raises(LearningError) as excinfo:
+        await learning.explain_question(
+            user_id="u1", question_id=question["id"], model=None
+        )
+    assert "真实模型" in str(excinfo.value)
+
+
+async def test_explain_question_tolerates_corrupt_cache(tmp_path: Path) -> None:
+    """缓存损坏（不是合法 JSON）时当成"没有缓存"重新生成，不报错。"""
+
+    knowledge, learning = _services(tmp_path)
+    knowledge.add_note("高等数学", "极限", "极限是自变量趋近某值时函数值趋近的数。")
+    [question] = await learning.generate(
+        user_id="u1", source="knowledge_base", library="高等数学", count=1, model=None
+    )
+    learning.repository.save_explanation(question["id"], "{不是一个合法 JSON")
+
+    model = _ExplainModel()
+    result = await learning.explain_question(
+        user_id="u1", question_id=question["id"], model=model
+    )
+    assert result["cached"] is False
+    assert model.calls == 1
+
+
+def test_explanation_column_is_added_to_old_database(tmp_path: Path) -> None:
+    """老库（`practice_questions` 没有 `explanation` 列）打开时要被自动补列，数据不丢。"""
+
+    db = tmp_path / "old.db"
+    connection = sqlite3.connect(db)
+    connection.execute(
+        "CREATE TABLE practice_questions ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, "
+        "library TEXT NOT NULL, prompt TEXT NOT NULL, source TEXT NOT NULL, "
+        "source_chunk_id INTEGER, source_feedback_id INTEGER, "
+        "created_at REAL NOT NULL, due_at REAL NOT NULL, "
+        "answered_count INTEGER NOT NULL DEFAULT 0, last_rating TEXT)"
+    )
+    connection.execute(
+        "INSERT INTO practice_questions "
+        "(user_id, library, prompt, source, created_at, due_at) "
+        "VALUES ('u1', '高数', '旧题面', 'knowledge_base', 1, 1)"
+    )
+    connection.commit()
+    connection.close()
+
+    SqliteLearningRepository(db)  # 构造即迁移
+
+    connection = sqlite3.connect(db)
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_questions)")}
+    assert "explanation" in columns
+    row = connection.execute(
+        "SELECT prompt, explanation FROM practice_questions"
+    ).fetchone()
+    connection.close()
+    assert row == ("旧题面", ""), "老数据要保留，新列默认空串"

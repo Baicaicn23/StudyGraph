@@ -343,6 +343,17 @@ export function answerQuestion(
   });
 }
 
+export interface QuestionExplanation {
+  question_id: number;
+  answer: string;
+  steps: string[];
+  cached: boolean;
+}
+
+export function explainQuestion(questionId: number): Promise<QuestionExplanation> {
+  return postJson(`/api/practice/${questionId}/explain`, {});
+}
+
 export async function listFeedback(): Promise<Feedback[]> {
   const data = await requestJson<{ feedback: Feedback[] }>("/api/feedback");
   return data.feedback;

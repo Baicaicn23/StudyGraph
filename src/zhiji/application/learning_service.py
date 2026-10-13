@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable
 from typing import Any
@@ -13,6 +14,7 @@ from ..domain.errors import LearningError
 from ..domain.memory import extract_facts
 from ..domain.quiz import (
     build_excerpt_instruction,
+    build_explanation_instruction,
     build_mistake_instruction,
     normalize_difficulty,
     template_excerpt_question,
@@ -20,7 +22,7 @@ from ..domain.quiz import (
 )
 from ..domain.scheduling import review
 from .ports import ChatModelPort, KnowledgePort, LearningRepositoryPort
-from .question_writer import write_question
+from .question_writer import write_explanation, write_question
 
 SOURCES = ("knowledge_base", "mistakes")
 # 误区错误类型（"为什么错"，与"哪个学科"正交）：概念混淆 / 步骤遗漏 / 条件误读 / 计算失误 / 表述不清
@@ -29,6 +31,34 @@ _WEEK_SECONDS = 7 * 24 * 60 * 60
 _WEAK_MASTERY = 60
 # auto 难度分档：按学科掌握度自动选档，贴合"最近发展区"。
 _DIFFICULTY_BY_MASTERY = ((40, "basic"), (80, "apply"))  # >=80 → transfer
+
+
+def _load_explanation(raw: str) -> dict[str, Any] | None:
+    """把缓存里的详解 JSON 读回来；缺失/损坏一律当"没有缓存"。
+
+    缓存是"加速"而不是"正确性来源"，所以解析失败不该报错——
+    直接当成没缓存重新生成一次即可。
+    """
+
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    answer = str(payload.get("answer") or "").strip()
+    if not answer:
+        return None
+    raw_steps = payload.get("steps")
+    steps = (
+        [str(item).strip() for item in raw_steps if str(item).strip()]
+        if isinstance(raw_steps, list)
+        else []
+    )
+    return {"answer": answer, "steps": steps}
 
 
 class LearningService:
@@ -343,9 +373,63 @@ class LearningService:
             "due_in_days": outcome.due_in_days,
         }
 
+    async def explain_question(
+        self, *, user_id: str, question_id: int, model: ChatModelPort | None
+    ) -> dict[str, Any]:
+        """取一道题的详解（参考答案 + 关键步骤）。
+
+        **懒生成 + 落库缓存**：第一次点「看详解」才让模型写，之后同一道题直接读缓存，
+        不再重复烧 token（与知识库「懒解析」同一套哲学）。
+
+        详解内容只放「参考答案 + 关键步骤」（用户拍板的范围）。**没有模板兜底**——
+        答案对错由学科事实决定，拼不出来；拿不到就抛 `LearningError`，由接口层
+        翻译成「需要真实模型」或「稍后重试」这类可读提示，而不是塞一段假解析。
+        """
+
+        question = self.repository.get_question(user_id, question_id)
+        if question is None:
+            raise LearningError("找不到这道题")
+
+        cached = _load_explanation(str(question.get("explanation") or ""))
+        if cached is not None:
+            return {"question_id": question_id, "cached": True, **cached}
+
+        written = await write_explanation(
+            model,
+            build_explanation_instruction(
+                str(question.get("prompt") or ""),
+                context=self._explanation_context(user_id, question),
+            ),
+        )
+        if written is None:
+            raise LearningError(
+                "没能生成详解：需要接入真实模型（当前是 Mock 模式），或稍后重试"
+            )
+        payload = {"answer": written.answer, "steps": list(written.steps)}
+        self.repository.save_explanation(
+            question_id, json.dumps(payload, ensure_ascii=False)
+        )
+        return {"question_id": question_id, "cached": False, **payload}
+
+    def _explanation_context(self, user_id: str, question: dict[str, Any]) -> str:
+        """给写详解的模型一点背景：学科，以及（若题目来自误区）当时记下的错因。
+
+        题面本身是"自成一体"的，所以这里只是锦上添花——不塞知识库全文，
+        省 token 也避免把无关材料带进来。
+        """
+
+        lines = [f"学科：{question.get('library') or '未标学科'}"]
+        feedback_id = question.get("source_feedback_id")
+        if feedback_id:
+            rows = self.repository.mistakes_by_ids(user_id, [int(feedback_id)])
+            if rows:
+                note = str(rows[0].get("note") or "").strip()
+                if note:
+                    lines.append(f"学习者当时记下的误区：{note}")
+        return "\n".join(lines)
+
     def progress(self, user_id: str) -> list[dict[str, Any]]:
         return self.repository.list_progress(user_id)
-
     def activity_series(self, user_id: str, *, days: int) -> list[dict[str, Any]]:
         """近 N 天学习活跃度（练习量 + 新增误区，按天聚合），供热力图使用。"""
 

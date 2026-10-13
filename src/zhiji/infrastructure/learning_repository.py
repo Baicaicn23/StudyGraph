@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS practice_questions (
     due_at REAL NOT NULL,
     answered_count INTEGER NOT NULL DEFAULT 0,
     last_rating TEXT,
-    difficulty TEXT NOT NULL DEFAULT 'basic'
+    difficulty TEXT NOT NULL DEFAULT 'basic',
+    explanation TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_pq_due ON practice_questions(user_id, due_at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pq_feedback
@@ -97,6 +98,13 @@ class SqliteLearningRepository:
             connection.execute(
                 "ALTER TABLE practice_questions "
                 "ADD COLUMN difficulty TEXT NOT NULL DEFAULT 'basic'"
+            )
+        if "explanation" not in existing:
+            # 详解（参考答案 + 关键步骤的 JSON）：懒生成，看过一次就落库缓存，
+            # 同一道题不再重复烧 token。老库补列时留空即可。
+            connection.execute(
+                "ALTER TABLE practice_questions "
+                "ADD COLUMN explanation TEXT NOT NULL DEFAULT ''"
             )
 
         memory_cols = {
@@ -269,6 +277,27 @@ class SqliteLearningRepository:
                 (question_id, user_id),
             ).fetchone()
         return str(row["library"]) if row else None
+
+    def get_question(self, user_id: str, question_id: int) -> dict[str, Any] | None:
+        """取单道练习题（校验归属）。详解懒生成要用到题面、学科与题源。"""
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id, library, prompt, source, source_chunk_id, "
+                "source_feedback_id, difficulty, explanation "
+                "FROM practice_questions WHERE id = ? AND user_id = ?",
+                (question_id, user_id),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def save_explanation(self, question_id: int, explanation: str) -> None:
+        """缓存详解（JSON 字符串）。缓存后同一道题不再重复调模型。"""
+
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE practice_questions SET explanation = ? WHERE id = ?",
+                (explanation, question_id),
+            )
 
     def delete_question(self, user_id: str, question_id: int) -> bool:
         """删除一道练习题及其作答记录（校验归属）。"""

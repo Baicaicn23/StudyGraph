@@ -15,6 +15,16 @@ MAX_INSTRUCTION_CHARS = 1200
 MIN_QUESTION_CHARS = 8
 MAX_QUESTION_CHARS = 600
 
+# 详解（参考答案 + 关键步骤）：只有模型能给——模板拼不出正确答案，
+# 所以这里没有 template_explanation_* 兜底，失败时由调用方给可读提示。
+#
+# 答案长度下限只拦"没答"（空串 / 单字敷衍如「略」「无」），**定得越严越危险**：
+# 判太宽最多显示一句很短的答案，判太紧会把合法答案误判成生成失败。
+MIN_EXPLANATION_ANSWER_CHARS = 2
+MAX_EXPLANATION_ANSWER_CHARS = 800
+MAX_EXPLANATION_STEP_CHARS = 300
+MAX_EXPLANATION_STEPS = 6
+
 # 出题难度三档：与"记忆 / 应用 / 迁移"的梯度主张一一对应。
 DIFFICULTIES = ("basic", "apply", "transfer")
 DIFFICULTY_LABELS = {
@@ -50,6 +60,19 @@ def difficulty_sentence(difficulty: str) -> str:
 class WrittenQuestion:
     prompt: str
     generator: str  # "model" | "template"
+
+
+@dataclass(frozen=True)
+class WrittenExplanation:
+    """一道题的详解：参考答案 + 关键步骤。
+
+    与 `WrittenQuestion` 不同，这里**没有模板兜底**——答案是对是错由学科事实决定，
+    拼不出来。拿不到模型就返回 None，让调用方诚实提示，而不是编一段看不懂的话。
+    """
+
+    answer: str
+    steps: tuple[str, ...]
+    generator: str  # "model"
 
 
 def template_excerpt_question(excerpt: str, difficulty: str = "apply") -> str:
@@ -115,8 +138,23 @@ def build_mistake_instruction(
     return "\n".join(lines)
 
 
-def parse_question(content: str) -> str | None:
-    """解析模型返回的 JSON 题面；格式/取值非法或明显敷衍时返回 None。"""
+def build_explanation_instruction(prompt: str, *, context: str = "") -> str:
+    """拼「求详解」的指令：题目 + 可选背景（学科 / 当时的错因）。"""
+
+    lines: list[str] = []
+    if str(context or "").strip():
+        lines.append(str(context).strip())
+    lines.append("题目：")
+    lines.append(str(prompt or "").strip())
+    lines.append(
+        "请给出这道题的参考答案与关键步骤。答案要结论先行、能直接对照判断对错；"
+        "步骤只写决定得分的关键依据，不要复述题目、不要写鼓励的话。"
+    )
+    return "\n".join(lines)
+
+
+def _load_json_object(content: str) -> dict | None:
+    """从模型输出里抠出第一个 JSON 对象（容忍 ``` 围栏与前后废话）。"""
 
     text = str(content or "").strip()
     if not text:
@@ -130,9 +168,45 @@ def parse_question(content: str) -> str | None:
         payload = json.loads(text[start : end + 1])
     except json.JSONDecodeError:
         return None
-    if not isinstance(payload, dict):
+    return payload if isinstance(payload, dict) else None
+
+
+def parse_question(content: str) -> str | None:
+    """解析模型返回的 JSON 题面；格式/取值非法或明显敷衍时返回 None。"""
+
+    payload = _load_json_object(content)
+    if payload is None:
         return None
     question = " ".join(str(payload.get("question") or "").split())
     if len(question) < MIN_QUESTION_CHARS:
         return None
     return question[:MAX_QUESTION_CHARS]
+
+
+def parse_explanation(content: str) -> WrittenExplanation | None:
+    """解析模型返回的 JSON 详解（`answer` + `steps`）；不合法返回 None。
+
+    容忍 steps 缺失或含空串——只要有可用的参考答案就算成功，
+    步骤能省则省，不因为格式小瑕疵把整次生成判失败。
+    """
+
+    payload = _load_json_object(content)
+    if payload is None:
+        return None
+    answer = " ".join(str(payload.get("answer") or "").split())
+    if len(answer) < MIN_EXPLANATION_ANSWER_CHARS:
+        return None
+    raw_steps = payload.get("steps")
+    steps: list[str] = []
+    if isinstance(raw_steps, list):
+        for item in raw_steps:
+            text = " ".join(str(item or "").split())
+            if len(text) >= 2:
+                steps.append(text[:MAX_EXPLANATION_STEP_CHARS])
+            if len(steps) >= MAX_EXPLANATION_STEPS:
+                break
+    return WrittenExplanation(
+        answer=answer[:MAX_EXPLANATION_ANSWER_CHARS],
+        steps=tuple(steps),
+        generator="model",
+    )

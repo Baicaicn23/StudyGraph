@@ -1099,6 +1099,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return result
 
+    @app.post("/api/practice/{question_id}/explain")
+    async def explain_practice(
+        request: Request, question_id: int, user_id: str = "local"
+    ) -> dict:
+        """取一道练习题的详解（参考答案 + 关键步骤）。
+
+        懒生成：第一次调用让模型写并落库缓存，之后直接读缓存。
+        Mock 模式给可读提示（详解编不出来，不能拿模板糊弄）。
+        """
+
+        model = request.app.state.model
+        if getattr(model, "_llm_type", "") == "study-mock":
+            raise HTTPException(
+                status_code=400,
+                detail="详解需要接入真实模型（当前是 Mock 模式，"
+                "请在 .env 里配置 provider=openai）",
+            )
+        try:
+            return await request.app.state.learning.explain_question(
+                user_id=user_id, question_id=question_id, model=model
+            )
+        except LearningError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @app.delete("/api/practice/{question_id}")
     async def delete_practice(
         request: Request, question_id: int, user_id: str = "local"

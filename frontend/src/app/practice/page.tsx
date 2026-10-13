@@ -14,6 +14,7 @@ import {
   deleteFeedback,
   deleteQuestion,
   dueQuestions,
+  explainQuestion,
   generatePracticeStream,
   listFeedback,
   listLibraries,
@@ -25,6 +26,7 @@ import {
   type PracticeDifficulty,
   type PracticeRating,
   type Question,
+  type QuestionExplanation,
   type WeakLibrary,
 } from "@/lib/api";
 import { Card, Notice, Page, selectClass } from "@/components/ui";
@@ -134,6 +136,28 @@ function QuestionBody({ question }: { question: Question }) {
         </div>
       )}
     </>
+  );
+}
+
+/** 详解区：参考答案 + 关键步骤。懒生成、落库缓存，展开后不再收起。 */
+function ExplanationBody({ explanation }: { explanation: QuestionExplanation }) {
+  return (
+    <div className="mt-3 rounded-xl bg-teal-600/[0.05] p-3.5">
+      <p className="text-xs font-semibold text-teal-800">参考答案</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm leading-[1.9] text-zinc-900">
+        {explanation.answer}
+      </p>
+      {explanation.steps.length > 0 && (
+        <>
+          <p className="mt-3 text-xs font-semibold text-teal-800">关键步骤</p>
+          <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-sm leading-[1.9] text-zinc-900">
+            {explanation.steps.map((step, index) => (
+              <li key={index}>{step}</li>
+            ))}
+          </ol>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -613,6 +637,11 @@ function PracticeTab({
   const [genProgress, setGenProgress] = useState<GenerateProgress | null>(null);
   const [starred, setStarred] = useState<number[]>([]);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
+  // 详解：看过就缓存（后端也落库），同一道题不再重复请求；生成中用它禁用按钮
+  const [explanations, setExplanations] = useState<
+    Record<number, QuestionExplanation>
+  >({});
+  const [explainingId, setExplainingId] = useState<number | null>(null);
   const [flying, setFlying] = useState<{
     question: Question;
     result: AnswerResult;
@@ -711,6 +740,20 @@ function PracticeTab({
       await refresh();
     } catch (err) {
       setError((err as Error).message);
+    }
+  };
+
+  const onExplain = async (questionId: number) => {
+    if (explanations[questionId] || explainingId === questionId) return;
+    setError("");
+    setExplainingId(questionId);
+    try {
+      const result = await explainQuestion(questionId);
+      setExplanations((prev) => ({ ...prev, [questionId]: result }));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setExplainingId(null);
     }
   };
 
@@ -1180,6 +1223,36 @@ function PracticeTab({
                           </span>
                         </div>
                       </div>
+
+                      {explanations[tasks[0].id] ? (
+                        <ExplanationBody explanation={explanations[tasks[0].id]} />
+                      ) : (
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => void onExplain(tasks[0].id)}
+                            disabled={explainingId === tasks[0].id}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.12] px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:border-teal-600/40 hover:text-teal-800 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none disabled:cursor-default disabled:opacity-60"
+                          >
+                            <svg
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden
+                            >
+                              <path d="M12 7v14" />
+                              <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+                            </svg>
+                            {explainingId === tasks[0].id ? "正在生成详解…" : "看详解"}
+                          </button>
+                        </div>
+                      )}
+
                       <div className="mt-3 grid grid-cols-4 gap-2">
                         {RATINGS.map((rating) => (
                           <button
