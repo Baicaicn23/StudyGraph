@@ -1,13 +1,17 @@
 """联网与文件工具的回归测试（全部离线：搜索与抓取都替换成桩）。
 
 锁死的规则：
-- 文件工具只能落在工作区内（绝对路径 / .. / 反斜杠穿越都拒绝）；
+- 文件工具只能落在工作区内（绝对路径 / .. / 反斜杠穿越都拒绝，user_id 也压成单层目录名）；
+- **工作区 root 是相对路径时（生产装配）读写也要正常**——见
+  `test_relative_workspace_root_matches_production`；
 - web_search 结果格式稳定，网络故障转成可读提示而不是抛异常；
 - fetch_url 只允许 http/https 公网地址（SSRF 防护），结果带元信息首行；
 - 权限：tutor / retriever / chat 拿到对应的新工具，practice / progress 拿不到。
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import pytest
 
@@ -59,6 +63,58 @@ def test_read_missing_file_is_readable_error(workspace) -> None:
     out = tools.read_file.invoke({"filename": "不存在.md"})
     assert out.startswith("读取失败")
     assert "list_files" in out  # 告诉模型下一步怎么办
+
+
+def test_relative_workspace_root_matches_production(tmp_path) -> None:
+    """**生产装配用的是相对 root**：`Path("data/zhiji.db").parent / "workspace"`。
+
+    旧实现 `_workspace_dir()` 直接返回未 resolve 的相对路径，而 `_safe_resolve`
+    返回的是 `resolve()` 过的绝对路径 → 文件**写完落盘之后**再做
+    `path.relative_to(_workspace_dir())` 就抛 `ValueError: ... is not in the subpath
+    of ...`。后果极隐蔽：**盘上确实有文件、工具却报「写入失败」**，模型于是告诉
+    学生"写入出了问题"。
+
+    上面的 fixture 传的是 `tmp_path`（绝对），天然测不出这个 —— 所以这里专门用
+    相对 root 复现生产装配。conftest 已把 cwd 切到 tmp_path，相对 root 落在临时目录里。
+    """
+
+    old_root = tools._workspace_root
+    token = tools._current_user.set("u")
+    try:
+        tools.configure_workspace(Path("data/workspace"))  # ← 相对路径，与 api.py 一致
+        assert tools._workspace_dir().is_absolute()  # 对外必须是绝对路径
+
+        written = tools.write_file.invoke({"filename": "题单.md", "content": "1+1"})
+        assert "已写入" in written, written
+        assert "读取成功" in tools.read_file.invoke({"filename": "题单.md"})
+        assert "题单.md" in tools.list_files.invoke({})
+    finally:
+        tools._current_user.reset(token)
+        tools._workspace_root = old_root
+
+
+def test_user_segment_traversal_stays_inside(tmp_path) -> None:
+    """`user_id` 是客户端可传的（只限长度）——不能借它把目录建到工作区之外。
+
+    `user_id="../../../../tmp/evil"` 若直接拼进 `root / user_id`，`mkdir(parents=True)`
+    会在工作区外建目录、后续写文件也落在外面。user_id 必须被压成**单层安全目录名**。
+    """
+
+    old_root = tools._workspace_root
+    token = tools._current_user.set("../../../../tmp/zhiji-escape")
+    try:
+        root = tmp_path / "workspace"
+        tools.configure_workspace(root)
+
+        directory = tools._workspace_dir()
+        assert directory.is_relative_to(root.resolve())  # 仍在工作区内
+        assert "/" not in directory.name  # 只能是单层名字
+        # 文件名解析也不能借 user_id 越界
+        assert tools._safe_resolve("x.md").is_relative_to(root.resolve())
+        assert "已写入" in tools.write_file.invoke({"filename": "x.md", "content": "y"})
+    finally:
+        tools._current_user.reset(token)
+        tools._workspace_root = old_root
 
 
 def test_web_search_formats_and_degrades(workspace, monkeypatch) -> None:

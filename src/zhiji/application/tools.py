@@ -231,9 +231,27 @@ def configure_workspace(root: Path | str) -> None:
     _workspace_root = Path(root)
 
 
+def _safe_user_segment(user: str) -> str:
+    """把 user_id 收敛成一个**安全的单层目录名**。
+
+    `user_id` 是客户端可传的（`Field(default="local", max_length=64)`），直接拼进
+    `root / user_id` 会出事：`"../../etc"` 能让 `mkdir(parents=True)` 把目录建到工作区
+    之外。这里非白名单字符一律换成 `_`，再去掉首尾的点（`..` → 空 → 退回 `local`），
+    保证它永远只是**一层**名字、不含路径分隔符。
+    """
+
+    cleaned = re.sub(r"[^0-9A-Za-z_\u4e00-\u9fa5-]", "_", user or "")
+    cleaned = cleaned.strip(".")
+    return cleaned or "local"
+
+
 def _workspace_dir() -> Path:
-    root = _workspace_root or Path("data/workspace")
-    directory = root / get_user()
+    # **必须 resolve 成绝对路径**：`_safe_resolve` 返回的是 resolve 过的绝对路径，
+    # 这里若还是相对路径，`path.relative_to(_workspace_dir())` 会抛
+    # `ValueError: ... is not in the subpath of ...`——写入其实已经落盘，却对外报
+    # "写入失败"（生产默认 `data/zhiji.db` → `data/workspace` 就是相对路径）。
+    root = (_workspace_root or Path("data/workspace")).resolve()
+    directory = root / _safe_user_segment(get_user())
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 
