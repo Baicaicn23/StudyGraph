@@ -13,7 +13,7 @@ LangGraph 显式状态图回合 + FastAPI + SQLite + Next.js 16（App Router + T
 
 ```bash
 ./scripts/dev.sh                             # 后端 8011 + 前端 3000（改后端代码必须重启，无 --reload）
-uv run pytest -q --basetemp=/tmp/sg-pytest   # 224 passed（Mock 零 API 消耗）
+uv run pytest -q --basetemp=/tmp/sg-pytest   # 244 passed（Mock 零 API 消耗）
 uv run ruff check src tests
 cd frontend && npx tsc --noEmit && npx eslint src && cd ..
 uv run zhiji-eval retrieval --dataset evals/datasets/retrieval.json --baseline evals/baselines/retrieval.json
@@ -26,7 +26,7 @@ uv run zhiji-eval intent --dataset evals/datasets/intent.json --baseline evals/b
 ## 架构边界（三句话）
 
 - `src/zhiji` 分层：interfaces（API/SSE）→ application（编排/服务/JSON 模式）→ domain（纯函数：路由/切块/RRF）→ infrastructure（SQLite/LLM/搜索/Embedding）；frontend/ 用 Next.js App Router + Tailwind，无组件库（Radix Primitives 做弹层基座 + lucide 图标）。
-- 知识库检索双路：FTS5 trigram（jieba 词级查询）+ 向量（智谱 embedding-3，独立 BASE_URL/KEY 配置）+ RRF 融合；文档入库走"原样秒传 + markitdown 懒解析"（PDF/PPT 逐页切块带页码出处）。
+- 知识库检索**四路**（原查询 FTS + 同义/中英扩写 FTS + 两字词 LIKE + 向量），RRF **加权**融合（扩写路 0.5 降权）——扩写词表在 `domain/synonyms.py`（`ZHIJI_SYNONYMS_FILE` 可追加），权重写死在 `KnowledgeStore.search()`。**加能力请加通道，别改 `_query_terms()`**（会动评测基线）。文档入库走"原样秒传 + markitdown 懒解析"（PDF/PPT 逐页切块带页码出处）。
 - LLM 调用一律经 `build_chat_model`：思考恒最大档（DeepSeek 用 `thinking` 开关、GLM 加 `reasoning_effort`，白名单 provider 才附加）；结构化输出走 `application/json_mode.py`。
 
 ## 硬规则（never / always）
@@ -51,6 +51,8 @@ uv run zhiji-eval intent --dataset evals/datasets/intent.json --baseline evals/b
 - `curl` 传中文 query 要 `--data-urlencode`；测 localhost 加 `--noproxy '*'`。
 - conftest 隔离环境变量（真实 Key 不会泄漏进测试）；改名/删依赖后手删 `.venv/bin` 残留旧脚本。
 - python 批量脚本用**绝对路径**：连续 cd 后相对路径会静默读写错文件。
+- **BSD grep 不支持 `\|` 交替**（macOS）——别用它做多词搜索，用 `rg`/Grep 工具。
+- **`agent-browser` 必须打开 `http://localhost:3000`，不要用 `127.0.0.1`**：Next 16 把后者当跨源拦截 `/_next/hmr` → 页面**不 hydrate** → 所有按钮点了没反应（HTML/JS 全 200，极易误判成业务 bug）。且 `agent-browser eval` 里的 `.click()` 合成事件不触发 React，必须用 `agent-browser click <sel>`。
 - git push 需代理隧道（代理不在时先 `nc -z 127.0.0.1 8086` 探测）。
 
 ## 验证标准（声称完成前必跑）
