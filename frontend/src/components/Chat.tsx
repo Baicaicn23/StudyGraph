@@ -1,7 +1,6 @@
 "use client";
 
 import * as Popover from "@radix-ui/react-popover";
-import { Check, Plus } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ClipboardEvent, DragEvent, KeyboardEvent } from "react";
@@ -15,7 +14,6 @@ import {
   chatActivity,
   createProject,
   generatePractice,
-  getHealth,
   listChatMessages,
   listChats,
   listFeedback,
@@ -340,7 +338,6 @@ export default function Chat() {
   // 检索模式：auto = 模型判断该查哪些知识库；manual = 用户指定
   const [retrievalMode, setRetrievalMode] = useState<"auto" | "manual">("auto");
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
-  const [provider, setProvider] = useState("");
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
   // 过程面板的「刚完成动作」摘要（✓ 短暂停留后渐隐，随事件流更新）
   const [settle, setSettle] = useState<{ key: string; summary: string } | null>(null);
@@ -598,9 +595,6 @@ export default function Chat() {
     void refreshLibraries();
     void refreshPlan();
     void refreshAskActivity();
-    getHealth()
-      .then((h) => setProvider(h.provider))
-      .catch(() => setProvider(""));
   }, [refreshLibraries, refreshPlan, refreshAskActivity]);
 
 
@@ -734,6 +728,7 @@ export default function Chat() {
       uploadingCount,
       getThreadId,
       selected,
+      retrievalMode,
       activeProjectId,
       handleEvent,
       refreshLibraries,

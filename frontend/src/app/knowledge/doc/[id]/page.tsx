@@ -96,7 +96,6 @@ function DocContent({ params }: { params: Promise<{ id: string }> }) {
   const [parseMsg, setParseMsg] = useState("");
   const [parseError, setParseError] = useState("");
   const [editing, setEditing] = useState(false);
-  const isFileDoc = doc?.kind === "file" || doc?.kind === "file_text";
   const isPdf = Boolean(doc && doc.title.toLowerCase().endsWith(".pdf"));
   // 懒解析支持范围与后端 PARSE_SUFFIXES 对齐（.doc/.ppt 老格式不支持）
   const canParse = Boolean(
