@@ -250,6 +250,12 @@ body: {"user_id":"local","question_id":1,"rating":"good"}
 #   rating: again | hard | good | easy
 → {"question_id":1,"library":"线性代数","rating":"good","mastery":5,"due_at":...,"due_in_days":3.0}
 
+POST /api/practice/{question_id}/explain   # 看详解（参考答案 + 关键步骤）
+#   懒生成：首次让模型写并落库缓存，之后直接读缓存（cached=true）
+#   需要真实模型；Mock 模式返回 400「详解需要接入真实模型…」
+→ {"question_id":1,"cached":false,"answer":"极限存在且等于 4。",
+   "steps":["x≠2 时约分得 x+2","代入得 lim=4"]}
+
 DELETE /api/practice/{question_id}?user_id=local
 → {"deleted": 1}                     # 404 练习题不存在（连带删作答记录）
 ```

@@ -13,7 +13,7 @@ LangGraph 显式状态图回合 + FastAPI + SQLite + Next.js 16（App Router + T
 
 ```bash
 ./scripts/dev.sh                             # 后端 8011 + 前端 3000（改后端代码必须重启，无 --reload）
-uv run pytest -q --basetemp=/tmp/sg-pytest   # 259 passed（Mock 零 API 消耗）
+uv run pytest -q --basetemp=/tmp/sg-pytest   # 279 passed（Mock 零 API 消耗）
 uv run ruff check src tests
 cd frontend && npx tsc --noEmit && npx eslint src && cd ..
 uv run zhiji-eval retrieval --dataset evals/datasets/retrieval.json --baseline evals/baselines/retrieval.json
@@ -68,6 +68,8 @@ uv run zhiji-demo --reset                    # 播种演示数据（含 assets/d
 - **LangGraph 检查点与会话是两套存储**：只删 `chat_sessions` 会留下能从正文还原的孤儿线程。删会话调 `graph.checkpointer.adelete_thread(thread_id)`，清理前用 `chat.count_sessions_with_thread()` 确认无其他会话共享该 thread_id。
 - **`documents.kind` 是状态机**：`file`（秒传未解析）→ 解析后升级 `file_text`（**原件仍在盘上**）。按 `kind` 过滤的查询必须想清楚「两个状态是否都该算」——`get_document_file` 曾只认 `file`，导致「解析入库」后原件 tab / 下载原文 404（**解析前正常、解析后反坏**）。
 - **`agent-browser` 必须打开 `http://localhost:3000`，不要用 `127.0.0.1`**：Next 16 把后者当跨源拦截 `/_next/hmr` → 页面**不 hydrate** → 所有按钮点了没反应（HTML/JS 全 200，极易误判成业务 bug）。且 `agent-browser eval` 里的 `.click()` 合成事件不触发 React，必须用 `agent-browser click <sel>`。
+- **`agent-browser click` 的两个静默陷阱**（都踩过，且都报 `✓ Done` 让人以为成功）：① ref 必须带 `@` 前缀——`click @e58` 才行，写成 `click e58` 会被当成 CSS 选择器**静默失败**；② 元素在**可视区之外**时点击会落到空处，**必须先 `agent-browser scrollintoview @e58`** 再 click。另外**只支持 CSS / `@ref`，不支持 `text=` 选择器**（会报 Element not found）。判断点击是否真的生效：看后端日志有没有收到请求，或重新 `snapshot` 看 DOM 变没变——**别信 `✓ Done`**。
+- 排查"点了没反应"的可靠姿势：`snapshot -i`（只列可交互元素）+ `eval` 里直接发一次 `fetch` 看接口通不通，两头一夹就能定位是"没点着"还是"请求失败"。
 - git push 需代理隧道（代理不在时先 `nc -z 127.0.0.1 8086` 探测）。
 
 ## 验证标准（声称完成前必跑）
