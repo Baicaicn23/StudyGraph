@@ -95,18 +95,33 @@ def chunk_markdown(
     return chunks or chunk_text(text, max_chars=max_chars, overlap=overlap)
 
 
-def rrf_fuse(rankings: list[list[SearchHit]], *, k: int = 60) -> list[SearchHit]:
-    """Reciprocal Rank Fusion：把多路排名按 ``1/(k+rank)`` 相加融合。
+def rrf_fuse(
+    rankings: list[list[SearchHit]],
+    *,
+    k: int = 60,
+    weights: list[float] | None = None,
+) -> list[SearchHit]:
+    """Reciprocal Rank Fusion：把多路排名按 ``weight/(k+rank)`` 相加融合。
 
     只用排名、不用原始分数，所以能把"关键词命中"和"语义相似"两种不可比的分数
     放在一起比较。
+
+    ``weights`` 与 ``rankings`` 一一对应（缺省全 1.0）——用于给**置信度较低**
+    的召回路降权：同义词扩写路靠推断补召回，不该与"原查询字面命中"平起平坐。
     """
 
     scores: dict[int, float] = {}
     hits: dict[int, SearchHit] = {}
-    for ranking in rankings:
+    for channel, ranking in enumerate(rankings):
+        weight = 1.0
+        if weights is not None and channel < len(weights):
+            weight = float(weights[channel])
+        if weight <= 0:
+            continue
         for rank, hit in enumerate(ranking):
-            scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + 1.0 / (k + rank + 1)
+            scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + weight / (
+                k + rank + 1
+            )
             hits[hit.chunk_id] = hit
     ordered = sorted(scores, key=lambda chunk_id: scores[chunk_id], reverse=True)
     return [replace(hits[chunk_id], score=scores[chunk_id]) for chunk_id in ordered]

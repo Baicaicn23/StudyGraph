@@ -1,5 +1,5 @@
 {
-  "cases": 6,
+  "cases": 9,
   "k": 3,
   "hit_at_k": 1.0,
   "mrr": 1.0

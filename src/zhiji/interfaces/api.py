@@ -41,6 +41,7 @@ from ..application.schedule_service import ScheduleService
 from ..application.title_writer import generate_title
 from ..config import Settings, get_settings, parse_mcp_servers
 from ..domain.errors import LearningError
+from ..domain.synonyms import load_synonym_groups
 from ..infrastructure.chat_repository import SqliteChatRepository
 from ..infrastructure.embeddings import get_embedder
 from ..infrastructure.extract import (
@@ -496,7 +497,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         resolved = settings or get_settings()
         knowledge = KnowledgeStore(
-            resolved.database_path, embedder=get_embedder(resolved)
+            resolved.database_path,
+            embedder=get_embedder(resolved),
+            synonym_groups=load_synonym_groups(resolved.synonyms_file),
         )
         repository = SqliteLearningRepository(resolved.database_path)
         usage_repository = SqliteUsageRepository(resolved.database_path)

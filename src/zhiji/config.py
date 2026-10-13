@@ -60,6 +60,8 @@ class Settings:
     tavily_api_key: str = ""
     # 可选：博查 Web Search API Key（中文搜索质量最好，付费；配了在 Tavily 之前优先用）
     bocha_api_key: str = ""
+    # 可选：自定义同义词组文件（JSON，每项 = 一组等价术语）——追加在内置表之后
+    synonyms_file: str = ""
 
 
 def get_settings() -> Settings:
@@ -105,6 +107,7 @@ def get_settings() -> Settings:
         bocha_api_key=os.environ.get(
             "ZHIJI_BOCHA_API_KEY", ""
         ).strip(),
+        synonyms_file=os.environ.get("ZHIJI_SYNONYMS_FILE", "").strip(),
     )
 
 

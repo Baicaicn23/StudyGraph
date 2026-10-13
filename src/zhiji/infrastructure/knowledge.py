@@ -1,7 +1,11 @@
 """学科知识库：SQLite 存储 + 混合检索（FTS trigram + 向量 + RRF）。
 
-`KnowledgePort` 的 SQLite 实现。纯算法（切块、RRF）在领域层
-（`domain/retrieval.py`），查询语法等存储细节留在这里。
+`KnowledgePort` 的 SQLite 实现。纯算法（切块、RRF、同义扩写）在领域层
+（`domain/retrieval.py`、`domain/synonyms.py`），查询语法等存储细节留在这里。
+
+检索是**四路召回 + RRF 融合**：原查询 FTS、同义词扩写 FTS、短词 LIKE
+（trigram 索引不到的两字中文词）、向量。扩写路按低权重计入——它是推断出来的
+召回，不该与字面命中平起平坐。
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ from pathlib import Path
 
 from ..domain.models import Chunk, SearchHit
 from ..domain.retrieval import chunk_markdown, chunk_pages, rrf_fuse
+from ..domain.synonyms import expand_terms
 from .embeddings import cosine
 
 try:  # 词级分词（可选依赖）：查询切词比滑窗 3-gram 噪声小
@@ -24,7 +29,45 @@ except ImportError:  # pragma: no cover
 _HAS_WORD_RE = re.compile(r"[\u4e00-\u9fffA-Za-z0-9]")
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+_TWO_CJK_RE = re.compile(r"^[\u4e00-\u9fff]{2}$")
 _TOKEN_SPLIT_RE = re.compile(r"[\s,，。！？!?、；;：:（）()\[\]「」《》\"'“”‘’]+")
+
+# 疑问/指代/虚词：查询里的高频噪声。两字词要进 LIKE 路前先剔掉，否则
+# 「矩阵的秩怎么求」会变成"矩阵 AND 的 AND 秩 AND 怎么 AND 求"，把召回掐死。
+_STOPWORDS = frozenset(
+    {
+        "什么",
+        "怎么",
+        "怎样",
+        "如何",
+        "为何",
+        "哪些",
+        "哪个",
+        "哪里",
+        "是否",
+        "能否",
+        "可以",
+        "请问",
+        "帮我",
+        "告诉",
+        "一下",
+        "一些",
+        "有没有",
+        "我们",
+        "我的",
+        "你的",
+        "他的",
+        "这个",
+        "那个",
+        "这种",
+        "那种",
+        "是指",
+        "指的",
+        "内容",
+        "东西",
+        "时候",
+    }
+)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS libraries (
@@ -67,13 +110,27 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def build_match_query(query: str) -> str:
-    """把自然语言查询转成 FTS5 的 OR 查询串。
+def _dedupe(terms: list[str]) -> list[str]:
+    unique: list[str] = []
+    for term in terms:
+        if term and term not in unique:
+            unique.append(term)
+    return unique
 
-    优先 jieba **词级**查询：≥3 字的词直接做短语——比滑窗 3-gram 噪声小
+
+def _phrase(term: str) -> str:
+    """FTS5 短语字面量：双引号包裹，内部双引号翻倍转义。"""
+
+    return '"' + term.replace('"', '""') + '"'
+
+
+def _query_terms(query: str) -> list[str]:
+    """查询 → FTS 检索词。
+
+    优先 jieba **词级**：≥3 字的词直接做短语——比滑窗 3-gram 噪声小
     （3-gram 会切出"态规""划适"这类跨词垃圾）。两字词进不了 trigram 索引，
-    由 `_search_like` 兜底。jieba 不可用或切不出 ≥3 字词时，回落旧的
-    3-gram 策略。返回空串表示无法构造查询（交由 LIKE 兜底）。
+    由 `short_cjk_terms` + `_search_terms_like` 兜底。jieba 不可用或切不出
+    ≥3 字词时，回落旧的 3-gram 策略。
     """
 
     terms: list[str] = []
@@ -91,12 +148,38 @@ def build_match_query(query: str) -> str:
                 terms.extend(token[i : i + 3] for i in range(len(token) - 2))
             else:
                 terms.append(token)
+    return _dedupe(terms)
 
-    unique: list[str] = []
-    for term in terms:
-        if term not in unique:
-            unique.append(term)
-    return " OR ".join('"' + term.replace('"', '""') + '"' for term in unique)
+
+def build_match_query(query: str) -> str:
+    """把自然语言查询转成 FTS5 的 OR 查询串。返回空串表示无法构造查询（交由 LIKE 兜底）。"""
+
+    return " OR ".join(_phrase(term) for term in _query_terms(query))
+
+
+def short_cjk_terms(query: str, *, limit: int = 4) -> list[str]:
+    """取出查询里的**两字中文词**（trigram 索引不到，须走 LIKE 路）。
+
+    这是原有链路的真实空洞：`build_match_query` 只收 ≥3 字词，于是
+    「矩阵的秩怎么求」里的「矩阵」「秩」被静默丢弃、「导数的几何意义」只剩
+    "数的几何"。「矩阵」「秩」「导数」「队列」这类两字词恰恰是学科资料里
+    信息量最高的术语。jieba 不可用时按 2 字滑窗兜底。
+    """
+
+    raw: list[str] = []
+    if jieba is not None:
+        raw = [word.strip() for word in jieba.cut_for_search(query or "")]
+    if not raw:
+        raw = _TOKEN_SPLIT_RE.split(query or "")
+    found: list[str] = []
+    for word in raw:
+        if (
+            _TWO_CJK_RE.match(word)
+            and word not in _STOPWORDS
+            and word not in found
+        ):
+            found.append(word)
+    return found[:limit]
 
 
 def _to_blob(vector: list[float]) -> bytes:
@@ -119,11 +202,16 @@ class KnowledgeStore:
         *,
         recall_depth: int = 8,
         rrf_k: int = 60,
+        synonym_groups: tuple[tuple[str, ...], ...] | None = None,
+        expansion_weight: float = 0.5,
     ) -> None:
         self.db_path = str(db_path)
         self.embedder = embedder
         self.recall_depth = recall_depth
         self.rrf_k = rrf_k
+        # None → 内置同义词组；传 () 可彻底关闭扩写
+        self.synonym_groups = synonym_groups
+        self.expansion_weight = expansion_weight
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self.files_root = Path(self.db_path).parent / "knowledge_files"
         self._initialize()
@@ -506,9 +594,25 @@ class KnowledgeStore:
         cleaned = (query or "").strip()
         if not cleaned:
             return []
-        fts = self._search_match(cleaned, libraries, self.recall_depth)
-        vectors = self._search_vectors(cleaned, libraries, self.recall_depth)
-        fused = rrf_fuse([fts, vectors], k=self.rrf_k)[:limit]
+
+        # 同义/中英扩写：≥3 字词可进 trigram FTS，<3 字词（如「队列」）只能走 LIKE
+        expansion = expand_terms(cleaned, self.synonym_groups)
+        expansion_long = [term for term in expansion if len(term) >= 3]
+        lexical = _dedupe(
+            [*[term for term in expansion if len(term) < 3], *short_cjk_terms(cleaned)]
+        )[:4]
+
+        rankings = [
+            self._search_match(cleaned, libraries, self.recall_depth),
+            self._search_match(
+                cleaned, libraries, self.recall_depth, extra_terms=expansion_long
+            ),
+            self._search_terms_like(lexical, libraries, self.recall_depth),
+            self._search_vectors(cleaned, libraries, self.recall_depth),
+        ]
+        # 权重：原查询字面命中最高，扩写路按推断降权；短词 LIKE 与向量居中
+        weights = [1.0, self.expansion_weight, 0.8, 1.0]
+        fused = rrf_fuse(rankings, k=self.rrf_k, weights=weights)[:limit]
         if not fused:
             fused = self._search_like(cleaned, libraries, limit)
         return fused
@@ -520,11 +624,17 @@ class KnowledgeStore:
         return f" AND library IN ({placeholders})", list(libraries)
 
     def _search_match(
-        self, query: str, libraries: list[str] | None, limit: int
+        self,
+        query: str,
+        libraries: list[str] | None,
+        limit: int,
+        *,
+        extra_terms: list[str] | None = None,
     ) -> list[SearchHit]:
-        match = build_match_query(query)
-        if not match:
+        terms = _dedupe([*_query_terms(query), *(extra_terms or [])])
+        if not terms:
             return []
+        match = " OR ".join(_phrase(term) for term in terms)
         clause, params = self._library_filter(libraries)
         sql = (
             "SELECT chunk_id, library, title, content, bm25(chunks_fts) AS rank "
@@ -542,6 +652,43 @@ class KnowledgeStore:
                 title=str(row["title"]),
                 content=str(row["content"]),
                 score=-float(row["rank"]),
+            )
+            for row in rows
+        ]
+
+    def _search_terms_like(
+        self, terms: list[str], libraries: list[str] | None, limit: int
+    ) -> list[SearchHit]:
+        """短词的 LIKE 召回：逐词匹配，**命中词数越多排名越前**。
+
+        两字中文词（矩阵 / 秩 / 导数 / 队列）进不了 trigram 索引。老链路只在
+        FTS + 向量**全空**时才用"整条查询当子串"兜底——「矩阵的秩怎么求」于是
+        要求原文出现这七个字，召回窄得离谱。这里改成逐词 LIKE 并按命中覆盖数
+        排序：既让「矩阵 + 秩」双命中的片段排前，也允许只命中一个词的片段
+        进入后续 RRF 融合（权重低于字面命中路）。
+        """
+
+        words = _dedupe([term for term in terms if term])
+        if not words:
+            return []
+        clause, params = self._library_filter(libraries)
+        coverage = " + ".join("(content LIKE ? ESCAPE '\\')" for _ in words)
+        sql = (
+            "SELECT chunk_id, library, title, content, hits FROM ("
+            "SELECT chunk_id, library, title, content, "
+            f"({coverage}) AS hits FROM chunks_fts WHERE 1=1{clause}"
+            ") WHERE hits >= 1 ORDER BY hits DESC LIMIT ?"
+        )
+        patterns = [f"%{_escape_like(word)}%" for word in words]
+        with self._connect() as connection:
+            rows = connection.execute(sql, [*patterns, *params, limit]).fetchall()
+        return [
+            SearchHit(
+                chunk_id=int(row["chunk_id"]),
+                library=str(row["library"]),
+                title=str(row["title"]),
+                content=str(row["content"]),
+                score=float(row["hits"]),
             )
             for row in rows
         ]
