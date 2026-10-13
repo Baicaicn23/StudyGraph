@@ -74,8 +74,8 @@ def test_attachment_ownership_and_missing_session(tmp_path) -> None:
         messages = client.get(
             f"/api/chats/{attachment_id}/messages", params={"user_id": "alice"}
         )
-        # 附件 id 不是会话 id：越权读取返回空列表（不报错）
-        assert messages.json()["messages"] == []
+        # 附件 id 不是会话 id → 会话不存在 → 404（与删/改会话的归属语义一致）
+        assert messages.status_code == 404
 
 
 def test_attachment_unsupported_type_rejected(tmp_path) -> None:

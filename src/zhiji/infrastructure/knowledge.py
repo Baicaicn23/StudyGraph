@@ -509,6 +509,24 @@ class KnowledgeStore:
 
     # -- 查询 -----------------------------------------------------------------
 
+    def chunk_ids_for_document(self, document_id: int) -> list[int]:
+        """这份资料的全部片段 id（删资料前先取，用来联动清掉由它派生的练习题）。"""
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT id FROM chunks WHERE document_id = ?", (document_id,)
+            ).fetchall()
+        return [int(row["id"]) for row in rows]
+
+    def chunk_ids_for_library(self, name: str) -> list[int]:
+        """这个学科库全部资料的片段 id（删库前先取，用于联动清题）。"""
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT id FROM chunks WHERE library = ?", (name,)
+            ).fetchall()
+        return [int(row["id"]) for row in rows]
+
     def list_libraries(self) -> list[dict[str, object]]:
         with self._connect() as connection:
             rows = connection.execute(

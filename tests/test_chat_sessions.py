@@ -433,11 +433,13 @@ def test_project_endpoints_crud(tmp_path) -> None:
 def test_chat_messages_endpoint_404s_never_leak(tmp_path) -> None:
     settings = Settings(database_path=str(tmp_path / "api.db"))
     with TestClient(create_app(settings)) as client:
-        # 不存在的会话：返回空（所有权校验），不报 500
-        body = client.get(
+        # 不存在的会话：404（与删/改会话一致），不再"200 + 空列表"——
+        # 后者让调用方分不清"这个会话没消息"和"这不是你的会话"。
+        response = client.get(
             "/api/chats/424242/messages", params={"user_id": "alice"}
-        ).json()
-        assert body == {"messages": []}
+        )
+        assert response.status_code == 404
+        assert "messages" not in response.json()
 
 
 def test_interrupt_resume_merges_into_single_assistant_message(tmp_path) -> None:

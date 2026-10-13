@@ -359,13 +359,27 @@ class LearningService:
     # -- 长期记忆 -------------------------------------------------------------
 
     def delete_feedback(self, user_id: str, feedback_id: int) -> bool:
-        return self.repository.delete_feedback(user_id, feedback_id)
+        # 先删误区本体；确实存在才联动删掉由它派生的变式题，避免留下悬挂引用。
+        if not self.repository.delete_feedback(user_id, feedback_id):
+            return False
+        self.repository.delete_questions_by_feedback(user_id, feedback_id)
+        return True
 
     def delete_question(self, user_id: str, question_id: int) -> bool:
         return self.repository.delete_question(user_id, question_id)
 
+    def delete_questions_by_chunks(self, chunk_ids: list[int]) -> int:
+        """资料被删时联动清掉由它派生的练习题（跨用户）。"""
+
+        return self.repository.delete_questions_by_chunks(chunk_ids)
+
     def delete_memory(self, user_id: str, memory_id: int) -> bool:
         return self.repository.delete_memory(user_id, memory_id)
+
+    def delete_memories_for_project(self, user_id: str, project_id: str) -> int:
+        """项目被删时联动清掉它的长期记忆，避免孤儿记忆。"""
+
+        return self.repository.delete_memories_for_project(user_id, project_id)
 
     def remember(
         self, user_id: str, text: str, *, project_id: str = ""

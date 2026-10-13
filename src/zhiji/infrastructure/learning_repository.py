@@ -298,6 +298,75 @@ class SqliteLearningRepository:
                 (due_at, rating, question_id),
             )
 
+    def delete_questions_by_feedback(self, user_id: str, feedback_id: int) -> int:
+        """删除某条误区派生出的变式题及其作答记录（误区被删时联动）。
+
+        一条误区最多派生一道题（`idx_pq_feedback` 部分唯一索引）。误区删掉后这道
+        变式题就失去了出处——`source_feedback_id` 指向不存在的行，是典型的悬挂数据：
+        它会继续出现在「今日复习」里，而用户早已不记得它是哪条错题的变式。返回删除条数。
+        """
+
+        with self._connect() as connection:
+            ids = [
+                int(row["id"])
+                for row in connection.execute(
+                    "SELECT id FROM practice_questions "
+                    "WHERE user_id = ? AND source_feedback_id = ?",
+                    (user_id, feedback_id),
+                ).fetchall()
+            ]
+            if ids:
+                marks = ",".join("?" for _ in ids)
+                connection.execute(
+                    f"DELETE FROM practice_attempts WHERE question_id IN ({marks})", ids
+                )
+                connection.execute(
+                    f"DELETE FROM practice_questions WHERE id IN ({marks})", ids
+                )
+        return len(ids)
+
+    def delete_questions_by_chunks(self, chunk_ids: list[int]) -> int:
+        """删除引用这些资料片段派生出的练习题（片段被删时联动，**跨用户**）。
+
+        知识库没有用户维度（全局共享），片段一旦删除，所有用户由它派生的题都失去了
+        出处（`source_chunk_id` 指向不存在的行）。返回删除条数。
+        """
+
+        if not chunk_ids:
+            return 0
+        with self._connect() as connection:
+            marks = ",".join("?" for _ in chunk_ids)
+            ids = [
+                int(row["id"])
+                for row in connection.execute(
+                    f"SELECT id FROM practice_questions WHERE source_chunk_id IN ({marks})",
+                    chunk_ids,
+                ).fetchall()
+            ]
+            if ids:
+                qmarks = ",".join("?" for _ in ids)
+                connection.execute(
+                    f"DELETE FROM practice_attempts WHERE question_id IN ({qmarks})", ids
+                )
+                connection.execute(
+                    f"DELETE FROM practice_questions WHERE id IN ({qmarks})", ids
+                )
+        return len(ids)
+
+    def delete_memories_for_project(self, user_id: str, project_id: str) -> int:
+        """删除某项目名下的全部长期记忆（项目被删时联动）。
+
+        记忆按 `project_id` 隔离，且 chat 请求默认按项目查询。项目删掉后这些记忆
+        按项目查永远读不到，但按「全部记忆」又能看到 → 名不副实的孤儿记忆。返回删除条数。
+        """
+
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM memories WHERE user_id = ? AND project_id = ?",
+                (user_id, str(project_id)),
+            )
+            return cursor.rowcount
+
     def record_attempt(
         self, question_id: int, rating: str, *, created_at: float
     ) -> None:

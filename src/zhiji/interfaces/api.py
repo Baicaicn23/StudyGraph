@@ -64,6 +64,11 @@ class ChatRequest(BaseModel):
     thread_id: str = Field(default="web", max_length=64)
     user_id: str = Field(default="local", max_length=64)
     knowledge_bases: list[str] = Field(default_factory=list)
+    # 检索模式：manual = 按 knowledge_bases 限定范围；auto = 由模型判断该查哪些库。
+    # **必须在这里声明**——`chat_stream` 会读 `body.retrieval_mode`，字段没声明时
+    # pydantic 直接丢弃入参，读属性就 AttributeError → 只要 knowledge_bases 非空
+    # 就 500（前端「指定知识库」模式因此长期不可用）。
+    retrieval_mode: str = Field(default="auto", max_length=16)
     # 会话持久化：session_id 指向已保存的会话；缺省时自动新建（自动保存）。
     # project_id 让本轮记忆按项目隔离（不同项目的记忆互不串味）。
     session_id: int | None = None
@@ -492,6 +497,32 @@ async def _refusal_stream(message: str):
     yield _sse("done", {})
 
 
+async def _drop_checkpoint_threads(
+    app: FastAPI, user_id: str, thread_ids: list[str | None]
+) -> None:
+    """删除会话（或会话所在项目）时，连同它的 LangGraph 检查点线程一起清掉。
+
+    检查点与会话是**两套存储**：`chat_sessions` 删了，`checkpoints` / `writes`
+    里的线程还在——不仅越攒越多（实测 33 线程 vs 7 会话），更严重的是**用户以为
+    删掉的对话仍能从孤儿线程里还原出正文**。这里按 thread_id 清干净。
+
+    `thread_id` 是客户端传的，缺省 `"web"`；极端情况下多个会话可能共享同一线程，
+    清理前先确认没有别的会话还在用，避免误删别人的断点。清理失败不影响删除接口返回。
+    """
+
+    checkpointer = getattr(app.state.graph, "checkpointer", None)
+    if checkpointer is None or not hasattr(checkpointer, "adelete_thread"):
+        return
+    chat = app.state.chat
+    for thread_id in {t for t in thread_ids if t}:
+        if chat.count_sessions_with_thread(user_id, thread_id):
+            continue  # 还有会话在用这个线程（共享 thread_id），不动
+        try:
+            await checkpointer.adelete_thread(thread_id)
+        except Exception:  # noqa: BLE001 — 检查点清理尽力而为，绝不拖垮删除语义
+            pass
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -617,16 +648,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.delete("/api/knowledge/document")
     async def delete_document(request: Request, id: int = Query(ge=1)) -> dict:
-        if not request.app.state.store.delete_document(id):
+        store = request.app.state.store
+        # 先记下这份资料的片段 id：资料删掉后，所有由这些片段派生的练习题就失去了
+        # 出处（source_chunk_id 指向不存在的行）——联动清掉，别留悬挂题。
+        chunk_ids = store.chunk_ids_for_document(id)
+        if not store.delete_document(id):
             raise HTTPException(status_code=404, detail="资料不存在")
+        request.app.state.learning.delete_questions_by_chunks(chunk_ids)
         return {"deleted": id}
 
     @app.delete("/api/knowledge/library")
     async def delete_library(request: Request, name: str = Query(min_length=1, max_length=64)) -> dict:  # noqa: E501
         """删除整个学科库：库里所有资料与检索索引一起删。"""
 
-        if not request.app.state.store.delete_library(name):
+        store = request.app.state.store
+        chunk_ids = store.chunk_ids_for_library(name)
+        if not store.delete_library(name):
             raise HTTPException(status_code=404, detail="知识库不存在")
+        # 整库资料都没了 → 由它们派生的练习题同样失去出处，一并清掉。
+        request.app.state.learning.delete_questions_by_chunks(chunk_ids)
         return {"deleted": name}
 
     @app.post("/api/knowledge/notes")
@@ -1220,11 +1260,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def rename_project(
         request: Request, project_id: int, user_id: str = "local", name: str = Form(...)
     ) -> dict:
-        if not request.app.state.chat.rename_project(
-            user_id, project_id, name.strip()[:64]
-        ):
+        name = name.strip()[:64]
+        if not name:
+            raise HTTPException(status_code=400, detail="项目名不能为空")
+        try:
+            renamed = request.app.state.chat.rename_project(user_id, project_id, name)
+        except Exception as exc:  # noqa: BLE001 — UNIQUE 冲突 → 409 已存在
+            if "UNIQUE" in str(exc):
+                raise HTTPException(status_code=409, detail="同名项目已存在") from exc
+            raise
+        if not renamed:
             raise HTTPException(status_code=404, detail="项目不存在")
-        return {"id": project_id, "name": name.strip()}
+        return {"id": project_id, "name": name}
 
     @app.delete("/api/projects/{project_id}")
     async def delete_project(
@@ -1239,14 +1286,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if project.get("is_default"):
             raise HTTPException(status_code=400, detail="默认对话空间不能删除")
 
-        session_ids = [
-            session["id"]
-            for session in chat.list_sessions(user_id, project_id=project_id)
-        ]
+        sessions = chat.list_sessions(user_id, project_id=project_id)
+        session_ids = [session["id"] for session in sessions]
+        thread_ids = [session.get("thread_id") for session in sessions]
         attachment_paths = chat.list_project_attachment_paths(user_id, project_id)
 
         if not chat.delete_project(user_id, project_id):
             raise HTTPException(status_code=404, detail="项目不存在")
+
+        # 记忆按 project_id 隔离：项目没了，按项目查永远读不到它们，却又会出现在
+        # 「全部记忆」里 —— 联动清掉，避免孤儿记忆。
+        request.app.state.learning.delete_memories_for_project(
+            user_id, str(project_id)
+        )
+        # 会话没了，它们的 LangGraph 检查点线程也该一起走（否则仍能还原对话正文）。
+        await _drop_checkpoint_threads(request.app, user_id, thread_ids)
 
         # 磁盘上的附件图片一并清理（失败不影响删除结果）
         for raw_path in attachment_paths:
@@ -1280,7 +1334,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def chat_messages(
         request: Request, session_id: int, user_id: str = "local"
     ) -> dict:
-        messages = request.app.state.chat.list_messages(user_id, session_id)
+        chat = request.app.state.chat
+        # 归属校验：非本人（或不存在）的会话应当和 DELETE/PUT 一样 404，
+        # 而不是"返回 200 空列表"——后者会让调用方分不清"没消息"和"不是你的会话"。
+        if chat.get_session(user_id, session_id) is None:
+            raise HTTPException(status_code=404, detail="会话不存在")
+        messages = chat.list_messages(user_id, session_id)
         for item in messages:
             # 附件名/过程步骤落库时是 JSON 字符串，回放时还原成列表
             try:
@@ -1312,8 +1371,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def delete_chat(
         request: Request, session_id: int, user_id: str = "local"
     ) -> dict:
-        if not request.app.state.chat.delete_session(user_id, session_id):
+        chat = request.app.state.chat
+        session = chat.get_session(user_id, session_id)
+        if session is None or not chat.delete_session(user_id, session_id):
             raise HTTPException(status_code=404, detail="会话不存在")
+        # 连同这条会话的 LangGraph 检查点线程一起清掉，别留能还原正文的孤儿线程。
+        await _drop_checkpoint_threads(request.app, user_id, [session.get("thread_id")])
         return {"deleted": session_id}
 
     @app.get("/api/memories")

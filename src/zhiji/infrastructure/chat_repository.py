@@ -327,6 +327,22 @@ class SqliteChatRepository:
             rows = connection.execute(query, params).fetchall()
         return [dict(row) for row in rows]
 
+    def count_sessions_with_thread(self, user_id: str, thread_id: str) -> int:
+        """还有多少会话在用这个 `thread_id`。
+
+        删会话时要顺带清掉它的 LangGraph 检查点线程，但 `thread_id` 是客户端传的
+        （缺省 `"web"`），极端情况下多个会话可能共享同一个线程——清理前用这个
+        计数确认没有别人还在用，避免把别人的断点一起删了。
+        """
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT COUNT(*) AS n FROM chat_sessions "
+                "WHERE user_id = ? AND thread_id = ?",
+                (user_id, thread_id),
+            ).fetchone()
+        return int(row["n"])
+
     def update_session(
         self,
         user_id: str,
