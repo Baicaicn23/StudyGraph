@@ -155,6 +155,51 @@ def test_system_prompt_contains_teaching_charter_and_progress() -> None:
     )
 
 
+def test_teaching_charter_carries_output_spec_and_concealment() -> None:
+    """输出规格 + 技术过程内隐——对所有角色共享的总纲约束。"""
+
+    from zhiji.application.graph import build_system_prompt
+
+    for agent in ("tutor", "practice", "progress", "retriever", "calculator", "chat"):
+        prompt = build_system_prompt(agent, {"messages": [], "agent": agent})
+        # 输出规格：结论先行 / 结尾必须落到下一步。
+        assert "结论先行" in prompt, agent
+        assert "结尾必须落到下一步" in prompt, agent
+        # 技术过程内隐：正文不提工具/步骤/报错，失败要降级为可用结论。
+        assert "技术过程内隐" in prompt, agent
+        assert "只讲教学" in prompt, agent
+        assert "稍后同步到你的知识库中" in prompt, agent
+        # 绝对禁止清单。
+        assert "绝对禁止" in prompt, agent
+
+
+def test_scenario_skeletons_live_in_their_own_profiles() -> None:
+    """分场景输出骨架挂在对应角色上——不该把讲解骨架挂到出题/进度角色。"""
+
+    from zhiji.application.graph import build_system_prompt
+
+    tutor = build_system_prompt("tutor", {"messages": [], "agent": "tutor"})
+    assert "知识点讲解的骨架" in tutor
+    assert "错题分析的骨架" in tutor
+
+    progress = build_system_prompt("progress", {"messages": [], "agent": "progress"})
+    assert "学习规划 / 备考方案的骨架" in progress
+    # 规划骨架用表格呈现阶段：| 阶段 | 核心内容 | 目标 |
+    assert "| 阶段 | 核心内容 | 目标 |" in progress
+    # 讲解骨架不外溢到进度角色。
+    assert "知识点讲解的骨架" not in progress
+
+
+def test_progress_keywords_cover_study_planning() -> None:
+    """「学习计划 / 备考」这类说法要能路由到 progress，否则会掉进闲聊。"""
+
+    from zhiji.application import routing
+
+    for text in ("帮我制定一个学习计划", "我要备考期末考试", "给我一个复习规划"):
+        intent, _ = routing.classify(text)
+        assert intent == routing.PROGRESS, text
+
+
 def test_system_prompt_omits_progress_when_empty() -> None:
     from zhiji.application.graph import build_system_prompt
 
