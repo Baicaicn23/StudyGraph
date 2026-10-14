@@ -14,7 +14,9 @@ if [[ "$ZHIJI_LLM_PROVIDER" == "mock" ]]; then
   echo "▶ 模型：Mock（确定性回答，零 API 消耗）"
   echo "  想用 .env 里的真实模型：ZHIJI_LLM_PROVIDER=openai ./scripts/dev.sh"
 else
-  echo "▶ 模型：$ZHIJI_LLM_PROVIDER（Key / Base URL 读 .env）"
+  # ⚠️ 变量名必须用花括号界定：后面紧跟的是**全角**括号（多字节），
+  # `$ZHIJI_LLM_PROVIDER（` 会被 bash 按字节误并进变量名 → set -u 下报 unbound variable。
+  echo "▶ 模型：${ZHIJI_LLM_PROVIDER}（Key / Base URL 读 .env）"
 fi
 
 echo "▶ 后端 http://127.0.0.1:8011"
