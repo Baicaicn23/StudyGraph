@@ -6,7 +6,8 @@
         --baseline evals/baselines/intent.json [--update]
 
 有基线且指标掉超过容差时**退出码为 1**（可直接进 CI）。`--update` 覆盖基线。
-检索评测强制用确定性 Mock 向量，保证同一版本任何人跑出同样的分数。
+检索评测强制用**确定性词面向量**（`LexicalHashEmbedding`），保证同一版本任何人
+跑出同样的分数；它只代表词面相似度，不替代真实语义 embedding。
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from pathlib import Path
 
 from ..application import evaluation as evals
 from ..config import get_settings
-from ..infrastructure.embeddings import MockHashEmbedding
+from ..infrastructure.embeddings import LexicalHashEmbedding
 from ..infrastructure.knowledge import KnowledgeStore
 
 
@@ -29,7 +30,8 @@ def _run_retrieval(args: argparse.Namespace) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         store = KnowledgeStore(
             Path(tmp) / "eval.db",
-            embedder=MockHashEmbedding(settings.embedding_dim),
+            embedder=LexicalHashEmbedding(settings.embedding_dim),
+            rerank=not getattr(args, "no_rerank", False),
         )
         evals.seed_knowledge(store, documents)
         metrics = evals.run_retrieval_eval(store, cases, k=k)
@@ -81,6 +83,11 @@ def main(argv: list[str] | None = None) -> int:
     retrieval.add_argument("--baseline", required=True)
     retrieval.add_argument("--tolerance", type=float, default=0.05)
     retrieval.add_argument("--update", action="store_true")
+    retrieval.add_argument(
+        "--no-rerank",
+        action="store_true",
+        help="关闭精排（消融实验用：同一份考卷看精排前后的差距）",
+    )
     retrieval.set_defaults(func=_run_retrieval)
 
     intent = sub.add_parser("intent", help="意图分类准确率评测")

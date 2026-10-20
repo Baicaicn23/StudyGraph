@@ -25,7 +25,7 @@
 
 | 能力               | 说明                                                                                                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 🔎 混合检索 RAG      | SQLite + FTS5 **trigram** 中文检索（jieba 词级查询）+ **向量余弦相似度** + **同义/中英扩写** + **短词 LIKE**，四路用 **RRF 加权融合**（扩写路降权，靠推断的召回不与字面命中平起平坐）；切块按结构来（PDF/PPT 按页、Markdown 按标题、纯文本盲切），结果带出处；接真 Embedding（如智谱 embedding-3）后同义换词也能召回，向量服务故障自动降级纯关键词 |
+| 🔎 混合检索 RAG      | SQLite + FTS5 **trigram** 中文检索（jieba 词级查询）+ **向量余弦相似度** + **同义/中英扩写** + **短词 LIKE**，四路用 **RRF 加权融合**（扩写路降权，靠推断的召回不与字面命中平起平坐），融合后再做**词面精排**（按原查询覆盖 / 扩写覆盖 / 标题命中重排，只调顺序、不增删候选）；切块按结构来（PDF/PPT 按页、Markdown 按标题、纯文本盲切），结果带出处；接真 Embedding（如智谱 embedding-3）后同义换词也能召回，向量服务故障自动降级纯关键词 |
 | ✦ 智能检索           | 检索范围两模式：**✦智能检索**（默认，模型按问题从候选库挑 1-3 个相关库，编造库名过滤、失败回落全库）/ **指定知识库**（手动勾选）；「存进知识库」选库条可**内联新建**并自动选中                                                                        |
 | 📥 资料入库          | TXT / Markdown / PDF 抽文本；PDF/Word/PPT/Excel **原样秒传 + 懒解析**（markitdown 引擎，PDF/PPT 逐页切块带页码出处，魔数校验挡损坏文件）；**图片走视觉转写**成规范 Markdown 笔记                                         |
 | 🫗 智能沉淀          | 「加入知识库」走模型提炼（按笔记规范去掉对话性内容，无知识内容时诚实 422），Mock 模式回退原文转存                                                                                                                    |
@@ -195,7 +195,7 @@ uv sync --extra openai
 ## 测试、评测与诊断
 
 ```bash
-uv run pytest -q --basetemp=/tmp/sg-pytest   # 279 passed（本机沙箱须指定 basetemp）
+uv run pytest -q --basetemp=/tmp/sg-pytest   # 284 passed（本机沙箱须指定 basetemp）
 uv run ruff check src tests scripts
 
 # 评测门禁（有基线时掉超过容差 → 退出码 1）
@@ -261,7 +261,7 @@ zhiji/
 │       ├── app/           7 个路由（聊天 / 知识库 / 笔记 / 练习 / 错题 / 今日复习 / 日程）
 │       ├── components/    AppShell · Chat · ChatsSection · KnowledgeTree · SchedulePickers · Markdown · ui
 │       └── lib/api.ts     接口封装（含两个 SSE 解析器）
-├── tests/             279 个自动测试（Mock，零 API 消耗）
+├── tests/             284 个自动测试（Mock，零 API 消耗）
 ├── scripts/dev.sh     一键起前后端
 ├── scripts/build_demo_materials.py  生成演示素材（内容全部自编，不引用教材）
 ├── CHANGELOG.md       版本更新日志

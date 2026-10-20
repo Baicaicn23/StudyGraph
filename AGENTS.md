@@ -13,10 +13,11 @@ LangGraph 显式状态图回合 + FastAPI + SQLite + Next.js 16（App Router + T
 
 ```bash
 ./scripts/dev.sh                             # 后端 8011 + 前端 3000（改后端代码必须重启，无 --reload）
-uv run pytest -q --basetemp=/tmp/sg-pytest   # 279 passed（Mock 零 API 消耗）
+uv run pytest -q --basetemp=/tmp/sg-pytest   # 284 passed（Mock 零 API 消耗）
 uv run ruff check src tests
 cd frontend && npx tsc --noEmit && npx eslint src && cd ..
 uv run zhiji-eval retrieval --dataset evals/datasets/retrieval.json --baseline evals/baselines/retrieval.json
+uv run zhiji-eval retrieval --dataset evals/datasets/retrieval.json --baseline evals/baselines/retrieval.json --no-rerank   # 消融：关精排看 MRR 差
 uv run zhiji-eval intent --dataset evals/datasets/intent.json --baseline evals/baselines/intent.json
 uv run zhiji-demo --reset                    # 播种演示数据（含 assets/demo_materials/ 的 PDF/Word/PPT）
 ```
@@ -33,7 +34,7 @@ uv run zhiji-demo --reset                    # 播种演示数据（含 assets/d
 ## 架构边界（三句话）
 
 - `src/zhiji` 分层：interfaces（API/SSE）→ application（编排/服务/JSON 模式）→ domain（纯函数：路由/切块/RRF）→ infrastructure（SQLite/LLM/搜索/Embedding）；frontend/ 用 Next.js App Router + Tailwind，无组件库（Radix Primitives 做弹层基座 + lucide 图标）。
-- 知识库检索**四路**（原查询 FTS + 同义/中英扩写 FTS + 两字词 LIKE + 向量），RRF **加权**融合（扩写路 0.5 降权）——扩写词表在 `domain/synonyms.py`（`ZHIJI_SYNONYMS_FILE` 可追加），权重写死在 `KnowledgeStore.search()`。**加能力请加通道，别改 `_query_terms()`**（会动评测基线）。文档入库走"原样秒传 + markitdown 懒解析"（PDF/PPT 逐页切块带页码出处）。
+- 知识库检索**四路**（原查询 FTS + 同义/中英扩写 FTS + 两字词 LIKE + 向量），RRF **加权**融合（扩写路 0.5 降权），再由**词面精排**（`domain/retrieval.py` `rerank_hits`：原查询覆盖 0.50 / 扩写覆盖 0.15 / 标题命中 0.35）重排序——精排**只调顺序、不增删候选**，`--no-rerank` 可关做消融——扩写词表在 `domain/synonyms.py`（`ZHIJI_SYNONYMS_FILE` 可追加），权重写死在 `KnowledgeStore.search()`。**加能力请加通道，别改 `_query_terms()`**（会动评测基线）。文档入库走"原样秒传 + markitdown 懒解析"（PDF/PPT 逐页切块带页码出处）。
 - LLM 调用一律经 `build_chat_model`：思考恒最大档（DeepSeek 用 `thinking` 开关、GLM 加 `reasoning_effort`，白名单 provider 才附加）；结构化输出走 `application/json_mode.py`。
 - 教学人格**分层**：总纲 `TEACHING_CHARTER`（三条红线 + 输出规格 + 技术过程内隐 + 禁止清单，全角色共享）→ `AgentProfile.system_prompt`（角色专属，讲解/错题/规划骨架挂这里）。`build_system_prompt` 拼接**稳定前缀在前、动态内容在后**（缓存友好，勿打乱）。改人格文案后跑 `tests/test_agent_modules.py`（断言各段真进了提示词）。
 
@@ -62,6 +63,7 @@ uv run zhiji-demo --reset                    # 播种演示数据（含 assets/d
 - conftest 隔离环境变量（真实 Key 不会泄漏进测试）；改名/删依赖后手删 `.venv/bin` 残留旧脚本。
 - python 批量脚本用**绝对路径**：连续 cd 后相对路径会静默读写错文件。
 - **BSD grep 不支持 `\|` 交替**（macOS）——别用它做多词搜索，用 `rg`/Grep 工具。
+- **检索评测必须用 `LexicalHashEmbedding`，不要换回 `MockHashEmbedding`**：后者用 ±1 随机符号哈希，共享 n-gram 的两段文本余弦会互相抵消≈0，于是评测里的向量路变成**纯噪声**、还以 1.0 权重把真正命中的候选挤出候选池（曾导致同义题「本征值」莫名漏召回）。评测改用 +1 计数哈希后，四路召回才被公平度量；它只代表词面相似度，真实语义由接真模型的 UAT 验证。
 - **新增工具必须同步 `domain/guardrails.py` 的 `_TOOL_LEAK_MARKERS`**（拦回复正文里的内部工具名，属「技术过程内隐」执行层兜底）；漏挂由 `test_tool_leak_markers_cover_registry` 抓出来。
 - **工作区文件工具**：`_workspace_dir()` 必须返回 **resolve 过的绝对路径**——`_safe_resolve()` 返回绝对路径，两边不一致时 `path.relative_to(...)` 会在**写完文件之后**抛错，表现为"盘上有文件却报写入失败"。测试 fixture 传 `tmp_path`（绝对）测不出，改这里务必跑 `test_relative_workspace_root_matches_production`。`user_id` 是客户端可传的，必须经 `_safe_user_segment()` 压成单层目录名。
 - **`ChatRequest` 的字段声明与 `body.X` 读取必须同时改**：pydantic 对**未声明的入参静默丢弃**，读它才 `AttributeError` → 500。`retrieval_mode` 曾漏声明 → 只要 `knowledge_bases` 非空就 500（「指定知识库」模式长期不可用、智能选库从未生效）。加接口参数时两处一起动。

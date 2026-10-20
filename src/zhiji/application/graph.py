@@ -250,29 +250,22 @@ def build_graph(
             effective = state.get("knowledge_bases")
         set_current_libraries(effective)
         set_current_user(state.get("user_id", "local"))
-        outputs: list[ToolMessage] = []
-        for call in getattr(last, "tool_calls", []) or []:
+        async def run_one(call: dict[str, Any]) -> ToolMessage:
             name = call.get("name", "")
             call_id = call.get("id", "")
             if not is_tool_allowed(profile, name):
-                outputs.append(
-                    ToolMessage(
-                        content=f"[tool_not_allowed] 当前模式下不允许调用「{name}」。",
-                        tool_call_id=call_id,
-                        name=name,
-                    )
+                return ToolMessage(
+                    content=f"[tool_not_allowed] 当前模式下不允许调用「{name}」。",
+                    tool_call_id=call_id,
+                    name=name,
                 )
-                continue
             tool = get_tool(name)
             if tool is None:
-                outputs.append(
-                    ToolMessage(
-                        content=f"[unknown_tool] 未知工具「{name}」。",
-                        tool_call_id=call_id,
-                        name=name,
-                    )
+                return ToolMessage(
+                    content=f"[unknown_tool] 未知工具「{name}」。",
+                    tool_call_id=call_id,
+                    name=name,
                 )
-                continue
             try:
                 result = await run_tool(
                     tool.ainvoke,
@@ -285,17 +278,28 @@ def build_graph(
                 # 必须原样向上抛，不能被当成工具错误吞掉。
                 raise
             except Exception as exc:  # noqa: BLE001 — 工具失败转成工具消息，不炸整回合
-                outputs.append(
-                    ToolMessage(
-                        content=f"[tool_error] {type(exc).__name__}: {exc}",
-                        tool_call_id=call_id,
-                        name=name,
-                    )
+                return ToolMessage(
+                    content=f"[tool_error] {type(exc).__name__}: {exc}",
+                    tool_call_id=call_id,
+                    name=name,
                 )
-                continue
-            outputs.append(
-                ToolMessage(content=str(result), tool_call_id=call_id, name=name)
-            )
+            return ToolMessage(content=str(result), tool_call_id=call_id, name=name)
+
+        # 同一轮的多个工具调用**并发执行**：它们之间没有数据依赖（有依赖会表现为
+        # 下一轮再调），串行只是白等——工具多是检索类，瓶颈是网络/模型往返。
+        # 用 return_exceptions 收齐再按原始顺序落库，顺序稳定、便于回放阅读。
+        calls = list(getattr(last, "tool_calls", []) or [])
+        results = await asyncio.gather(
+            *(run_one(call) for call in calls), return_exceptions=True
+        )
+        outputs: list[ToolMessage] = []
+        for item in results:
+            if isinstance(item, BaseException):
+                # GraphInterrupt 必须原样向上抛（图要靠它暂停等人确认）；
+                # 其它异常理论上已在 run_one 内转成 ToolMessage，走到这里说明是
+                # 预料之外的系统级错误，同样不能吞。
+                raise item
+            outputs.append(item)
         return {"messages": outputs, "tool_rounds": state.get("tool_rounds", 0) + 1}
 
     def should_continue(state: StudyState) -> str:

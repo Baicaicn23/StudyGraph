@@ -13,7 +13,7 @@
 
     <Box style={{ width: 258, flexDirection: 'column', justifyContent: 'flex-end' }}>
       <Box style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
-        <Text style={{ fontSize: 84, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>279</Text>
+        <Text style={{ fontSize: 84, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>284</Text>
         <Text style={{ fontSize: 18, color: '#4A5568', paddingBottom: 10 }}>项</Text>
       </Box>
       <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>自动化测试</Text>
@@ -25,7 +25,7 @@
     <Box style={{ width: 232, flexDirection: 'column', justifyContent: 'flex-end' }}>
       <Text style={{ fontSize: 84, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>1.0</Text>
       <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>检索 Hit@3 与 MRR</Text>
-      <Text style={{ fontSize: 13, color: '#8B97A8', marginTop: 4 }}>评测集 9 题</Text>
+      <Text style={{ fontSize: 13, color: '#8B97A8', marginTop: 4 }}>评测集 35 题</Text>
     </Box>
 
     <Box style={{ width: 1, height: 140, background: '#E5E7EB', marginLeft: 26, marginRight: 26 }} />

@@ -125,3 +125,91 @@ def rrf_fuse(
             hits[hit.chunk_id] = hit
     ordered = sorted(scores, key=lambda chunk_id: scores[chunk_id], reverse=True)
     return [replace(hits[chunk_id], score=scores[chunk_id]) for chunk_id in ordered]
+
+
+# -- 轻量精排（词面证据重排） --------------------------------------------------
+#
+# 为什么需要它：RRF 只用**排名**融合，本身不判断"这条命中是否真的贴着查询"。
+# 当某一路召回不可靠时（典型：没接真实 embedding、或语义模型与本领域不匹配），
+# 它会以同样的权重把"词面毫无关系"的候选混进结果。精排用**字面证据**对这些
+# 候选重新打分——纯函数、零模型、零网络，可离线单测。
+#
+# 注意：这里**不复用** `knowledge._query_terms()`。那条路径决定召回集合，动它会
+# 改变评测基线；精排只调**顺序**，不增删候选，两者职责分离。
+
+_CJK_RUN_RE = re.compile(r"[\u4e00-\u9fd5]+")
+_ASCII_WORD_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9\-]*")
+
+# 只在疑问句里出现、对匹配没有区分度的二字组合（命中它们不代表相关）
+_LOW_VALUE_SHINGLES = frozenset(
+    {
+        "什么", "到底", "怎么", "怎样", "多少", "哪个", "哪些", "如何", "为什",
+        "是否", "是不", "不是", "可以", "需要", "一下", "这个", "那个", "它的",
+        "的吗", "了吗", "有什", "么含", "含义", "意思", "区别",
+    }
+)
+
+
+def _shingles(text: str) -> set[str]:
+    """把文本压成"检索单元"集合：中文用二字切片、英文用整词（小写）。
+
+    中文不做分词而用二字切片，是因为切片不依赖词典，且天然覆盖"征值"这类
+    跨词边界但仍有区分度的片段。
+    """
+
+    units: set[str] = set()
+    for run in _CJK_RUN_RE.findall(str(text or "")):
+        for index in range(len(run) - 1):
+            gram = run[index : index + 2]
+            if gram not in _LOW_VALUE_SHINGLES:
+                units.add(gram)
+    for word in _ASCII_WORD_RE.findall(str(text or "")):
+        if len(word) >= 2:
+            units.add(word.lower())
+    return units
+
+
+def rerank_hits(
+    hits: list[SearchHit],
+    query: str,
+    *,
+    expansion: tuple[str, ...] | list[str] = (),
+    blend: float = 0.6,
+) -> list[SearchHit]:
+    """按词面证据对候选重排（确定性）。
+
+    打分 = RRF 归一化分 + ``blend × 词面分``；词面分由三部分构成：
+
+    - **原查询字面覆盖**（0.50）：查询自身的二字切片 / 英文词命中比例，最有说服力；
+    - **同义扩写覆盖**（0.15）：由扩写词命中，权重更低——扩写是推断；
+    - **标题命中**（0.35）：命中落在标题上，通常意味着"这份资料就是在讲这件事"。
+
+    只调顺序、不增删候选；查询无可用单元时原样返回。
+    """
+
+    query_units = _shingles(query)
+    extra_units = _shingles(" ".join(str(item) for item in expansion)) - query_units
+    if not query_units and not extra_units:
+        return hits
+
+    top = max((hit.score for hit in hits), default=0.0) or 1.0
+    scored: list[tuple[float, float, SearchHit]] = []
+    for hit in hits:
+        doc_units = _shingles(f"{hit.title} {hit.content}")
+        title_units = _shingles(hit.title)
+        literal = (
+            len(query_units & doc_units) / len(query_units) if query_units else 0.0
+        )
+        expanded = (
+            len(extra_units & doc_units) / len(extra_units) if extra_units else 0.0
+        )
+        in_title = (
+            len(query_units & title_units) / len(query_units) if query_units else 0.0
+        )
+        lexical = 0.50 * literal + 0.15 * expanded + 0.35 * in_title
+        blended = hit.score / top + blend * lexical
+        scored.append((blended, hit.score, hit))
+
+    # 融合分相同再按原始 RRF 分（保证同分时不让纯词面把基础排序完全推翻）
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return [replace(hit, score=round(blended, 6)) for blended, _raw, hit in scored]

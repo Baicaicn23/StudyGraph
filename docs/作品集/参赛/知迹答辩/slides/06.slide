@@ -49,7 +49,7 @@
         <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#1A2230' }}>可评测：有考卷也有门禁</Text>
       </Box>
       <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.75, marginTop: 10 }}>
-        检索 9 题、意图 15 句，各有固定考卷与基线 JSON；改动后重跑，掉出容差命令即返回非零，可直接进 CI。
+        检索 35 题、意图 15 句，各有固定考卷与基线 JSON；改动后重跑，掉出容差命令即返回非零，可直接进 CI。
       </Text>
       <Text style={{ fontSize: 13.5, color: '#8B97A8', lineHeight: 1.7, marginTop: 6 }}>
         把靠感觉判断，变成靠数字判断。

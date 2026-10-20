@@ -64,3 +64,52 @@ def test_list_libraries_counts_documents(tmp_path: Path) -> None:
 
     assert libraries["高等数学"] == 2
     assert libraries["线性代数"] == 1
+
+
+# -- 轻量精排（词面证据重排） --------------------------------------------------
+
+def _hit(chunk_id: int, title: str, content: str, score: float):
+    from zhiji.domain.models import SearchHit
+
+    return SearchHit(
+        chunk_id=chunk_id, library="高等数学", title=title, content=content, score=score
+    )
+
+
+def test_rerank_demotes_noise_without_lexical_overlap() -> None:
+    """语义路权重高、但词面毫无关系的候选，应被真正贴题的候选压过去。
+
+    回归背景：RRF 只看排名，无法识别"某一路召回其实不可靠"（例如没接真实
+    embedding 时），噪声候选会以同样的票数挤掉真正命中的结果。
+    """
+
+    from zhiji.domain.retrieval import rerank_hits
+
+    hits = [
+        _hit(1, "行列式的性质", "交换两行其值变号；两行成比例时行列式为零。", 0.016),
+        _hit(2, "特征值与特征向量", "特征值刻画线性变换在特征方向上的伸缩倍数。", 0.013),
+    ]
+
+    ranked = rerank_hits(hits, "本征值到底是什么含义", expansion=("特征值",))
+
+    assert [item.chunk_id for item in ranked] == [2, 1]
+
+
+def test_rerank_keeps_order_when_query_has_no_units() -> None:
+    """查询没有可用检索单元时原样返回，避免空转。"""
+
+    from zhiji.domain.retrieval import rerank_hits
+
+    hits = [_hit(1, "甲", "内容一", 0.02), _hit(2, "乙", "内容二", 0.01)]
+    assert [item.chunk_id for item in rerank_hits(hits, "？！")] == [1, 2]
+
+
+def test_rerank_does_not_drop_candidates() -> None:
+    """精排只调顺序、不增删候选——召回集合的职责不在这里。"""
+
+    from zhiji.domain.retrieval import rerank_hits
+
+    hits = [
+        _hit(index, f"标题{index}", "无关内容", 0.01) for index in range(1, 6)
+    ]
+    assert len(rerank_hits(hits, "极限的运算法则")) == len(hits)

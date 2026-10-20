@@ -60,6 +60,37 @@ class MockHashEmbedding:
         return _l2_normalize(vector)
 
 
+class LexicalHashEmbedding:
+    """确定性**词面**向量（评测专用）：n-gram 计数哈希，不用随机符号。
+
+    与 `MockHashEmbedding` 只差一点：每个 gram 记 +1 而不是 ±1。差别是决定性的——
+    随机符号会让"共享大量 n-gram 的两段文本"余弦接近 0（互相抵消），于是评测里的
+    向量路变成纯噪声、还会以 1.0 权重把真正命中的候选挤出候选池；计数哈希则让
+    共享 n-gram 的文本真的更相似。
+
+    它**只代表词面相似度**，不替代真实语义 embedding 的质量；真实语义召回的效果
+    由接真模型的 UAT 单独验证。用在检索评测里，是为了让四路召回被公平度量。
+    """
+
+    def __init__(self, dim: int = 256) -> None:
+        self._dim = dim
+        self.name = f"lexical-hash-{dim}"
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        return [self._embed_one(text) for text in texts]
+
+    def _embed_one(self, text: str) -> list[float]:
+        vector = [0.0] * self._dim
+        for gram in _ngrams(text):
+            digest = int(hashlib.md5(gram.encode("utf-8")).hexdigest(), 16)
+            vector[digest % self._dim] += 1.0
+        return _l2_normalize(vector)
+
+
 class OpenAIEmbedding:
     def __init__(self, *, base_url: str, api_key: str, model: str) -> None:
         self.name = model

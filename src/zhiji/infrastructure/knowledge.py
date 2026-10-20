@@ -17,7 +17,7 @@ from array import array
 from pathlib import Path
 
 from ..domain.models import Chunk, SearchHit
-from ..domain.retrieval import chunk_markdown, chunk_pages, rrf_fuse
+from ..domain.retrieval import chunk_markdown, chunk_pages, rerank_hits, rrf_fuse
 from ..domain.synonyms import expand_terms
 from .embeddings import cosine
 
@@ -204,6 +204,8 @@ class KnowledgeStore:
         rrf_k: int = 60,
         synonym_groups: tuple[tuple[str, ...], ...] | None = None,
         expansion_weight: float = 0.5,
+        rerank: bool = True,
+        rerank_blend: float = 0.6,
     ) -> None:
         self.db_path = str(db_path)
         self.embedder = embedder
@@ -212,6 +214,9 @@ class KnowledgeStore:
         # None → 内置同义词组；传 () 可彻底关闭扩写
         self.synonym_groups = synonym_groups
         self.expansion_weight = expansion_weight
+        # 精排开关：只影响**顺序**，不改变召回集合（消融实验用得上）
+        self.rerank = rerank
+        self.rerank_blend = rerank_blend
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self.files_root = Path(self.db_path).parent / "knowledge_files"
         self._initialize()
@@ -636,10 +641,17 @@ class KnowledgeStore:
         ]
         # 权重：原查询字面命中最高，扩写路按推断降权；短词 LIKE 与向量居中
         weights = [1.0, self.expansion_weight, 0.8, 1.0]
-        fused = rrf_fuse(rankings, k=self.rrf_k, weights=weights)[:limit]
+        # 精排要看到比最终条数更多的候选，否则只是给已定好的前 N 名换座次
+        pool = max(limit * 4, 24) if self.rerank else limit
+        fused = rrf_fuse(rankings, k=self.rrf_k, weights=weights)[:pool]
         if not fused:
             fused = self._search_like(cleaned, libraries, limit)
-        return fused
+            return fused[:limit]
+        if self.rerank:
+            fused = rerank_hits(
+                fused, cleaned, expansion=expansion, blend=self.rerank_blend
+            )
+        return fused[:limit]
 
     def _library_filter(self, libraries: list[str] | None) -> tuple[str, list[object]]:
         if not libraries:

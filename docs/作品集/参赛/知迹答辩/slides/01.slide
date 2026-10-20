@@ -62,7 +62,7 @@
     </Box>
 
     <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 10 }}>
-      <Text style={{ fontSize: 14, color: '#C9D8EF' }}>279 项自动化测试</Text>
+      <Text style={{ fontSize: 14, color: '#C9D8EF' }}>284 项自动化测试</Text>
       <Box style={{ width: 1, height: 13, background: '#3D7BD9' }} />
       <Text style={{ fontSize: 14, color: '#C9D8EF' }}>检索 Hit@3 = 1.0</Text>
       <Box style={{ width: 1, height: 13, background: '#3D7BD9' }} />
