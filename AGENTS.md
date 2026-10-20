@@ -18,6 +18,7 @@ uv run ruff check src tests
 cd frontend && npx tsc --noEmit && npx eslint src && cd ..
 uv run zhiji-eval retrieval --dataset evals/datasets/retrieval.json --baseline evals/baselines/retrieval.json
 uv run zhiji-eval retrieval --dataset evals/datasets/retrieval.json --baseline evals/baselines/retrieval.json --no-rerank   # 消融：关精排看 MRR 差
+uv run zhiji-eval retrieval --dataset evals/datasets/retrieval.json --baseline evals/baselines/retrieval.json --embedding real   # 真向量复验（联网、有成本）
 uv run zhiji-eval intent --dataset evals/datasets/intent.json --baseline evals/baselines/intent.json
 uv run zhiji-demo --reset                    # 播种演示数据（含 assets/demo_materials/ 的 PDF/Word/PPT）
 ```

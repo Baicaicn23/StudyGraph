@@ -21,9 +21,10 @@
       只做一个能跑的对话循环，半天就够；难的是让它出错时不炸、花钱有上限、变差了能发现。下面八项各自解决一个问题。
     </Text>
 
-    <Box style={{ flexDirection: 'column', marginTop: 20, background: '#F7F9FC', borderRadius: 8, padding: 16, gap: 8 }}>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6 }}>全部八项都有对应测试</Text>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6 }}>共 284 项，离线可跑</Text>
+    <Box style={{ flexDirection: 'column', marginTop: 20, background: '#F7F9FC', borderRadius: 8, padding: 18, gap: 10 }}>
+      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65 }}>全部八项都有对应测试，共 284 项，离线可跑。</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65 }}>而且它们互相咬合：没有检查点就做不了人在环，没有权限双层就谈不上可评测。</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65 }}>所以这不是八个模块的清单，是一套依赖关系。</Text>
     </Box>
 
   </Box>

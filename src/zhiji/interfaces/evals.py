@@ -20,7 +20,7 @@ from pathlib import Path
 
 from ..application import evaluation as evals
 from ..config import get_settings
-from ..infrastructure.embeddings import LexicalHashEmbedding
+from ..infrastructure.embeddings import LexicalHashEmbedding, get_embedder
 from ..infrastructure.knowledge import KnowledgeStore
 
 
@@ -28,9 +28,17 @@ def _run_retrieval(args: argparse.Namespace) -> int:
     documents, cases, k = evals.load_retrieval_dataset(args.dataset)
     settings = get_settings()
     with tempfile.TemporaryDirectory() as tmp:
+        if getattr(args, "embedding", "lexical") == "real":
+            embedder = get_embedder(settings)
+            if embedder is None:
+                print("  ✗ 未配置真实 Embedding（ZHIJI_EMBEDDING_*），无法跑 --embedding real")
+                return 1
+            print(f"  向量：真实模型 {getattr(embedder, 'name', 'unknown')}")
+        else:
+            embedder = LexicalHashEmbedding(settings.embedding_dim)
         store = KnowledgeStore(
             Path(tmp) / "eval.db",
-            embedder=LexicalHashEmbedding(settings.embedding_dim),
+            embedder=embedder,
             rerank=not getattr(args, "no_rerank", False),
         )
         evals.seed_knowledge(store, documents)
@@ -87,6 +95,13 @@ def main(argv: list[str] | None = None) -> int:
         "--no-rerank",
         action="store_true",
         help="关闭精排（消融实验用：同一份考卷看精排前后的差距）",
+    )
+    retrieval.add_argument(
+        "--embedding",
+        choices=["lexical", "real"],
+        default="lexical",
+        help="评测用向量：lexical=确定性词面向量（默认、离线）；"
+        "real=读 .env 的真 Embedding（联网、有成本，用于验证精排在真实语义下是否仍有益）",
     )
     retrieval.set_defaults(func=_run_retrieval)
 
