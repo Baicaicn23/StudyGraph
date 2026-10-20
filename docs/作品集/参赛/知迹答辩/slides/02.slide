@@ -1,0 +1,99 @@
+<Slide style={{ width: 1280, height: 720, background: '#FFFFFF', padding: 0, position: 'relative', fontFamily: 'PingFang SC' }}>
+
+  <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
+  <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
+
+  <Box style={{ position: 'absolute', left: 76, top: 96, width: 1128 }}>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>资料都在，为什么复习时找不到</Text>
+    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>断点不在"有没有资料"，而在"有没有把资料沉淀下来"这一步</Text>
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 190, width: 700, height: 466, flexDirection: 'column' }}>
+
+    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>现象 · 断在哪一步</Text>
+
+    <Box style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 18, marginTop: 20 }}>
+
+      <Box style={{ flexDirection: 'column', alignItems: 'center' }}>
+        <Box style={{ width: 40, height: 40, borderRadius: 6, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>1</Text>
+        </Box>
+        <Box style={{ width: 2, height: 86, background: '#D6DCE5', marginTop: 10 }} />
+        <Box style={{ width: 40, height: 40, borderRadius: 6, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>2</Text>
+        </Box>
+        <Box style={{ width: 2, height: 86, background: '#D6DCE5', marginTop: 10 }} />
+        <Box style={{ width: 40, height: 40, borderRadius: 6, background: '#D9534F', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>3</Text>
+        </Box>
+      </Box>
+
+      <Box style={{ width: 642, flexDirection: 'column' }}>
+
+        <Box style={{ height: 128, flexDirection: 'column' }}>
+          <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#1A2230' }}>资料散落在三处，各存一份</Text>
+          <Text style={{ fontSize: 15.5, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
+            课程平台上的作业与课件、聊天工具里的答疑记录、手机拍的纸质板书——三处各有一半，谁也不全。
+          </Text>
+        </Box>
+
+        <Box style={{ height: 128, flexDirection: 'column', marginTop: 8 }}>
+          <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#1A2230' }}>没有沉淀环节，平时不会主动整理</Text>
+          <Text style={{ fontSize: 15.5, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
+            打开这类工具的第一件事总是"提问"，而不是"归档"；整理只发生在期末，而期末最缺时间。
+          </Text>
+        </Box>
+
+        <Box style={{ height: 128, flexDirection: 'column', marginTop: 8 }}>
+          <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#D9534F' }}>期末只剩一个空库，无题可练</Text>
+          <Text style={{ fontSize: 15.5, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
+            既没有成套的资料可查，也没有可练的题；只能重新翻聊天记录，从头把知识再捡一遍。
+          </Text>
+        </Box>
+
+      </Box>
+
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 824, top: 190, width: 380, height: 466, flexDirection: 'column' }}>
+
+    <Box style={{ background: '#0E3F8C', borderRadius: 8, padding: 22, height: 236, flexDirection: 'column', justifyContent: 'space-between' }}>
+      <Text style={{ fontSize: 14, color: '#8FB2E0', letterSpacing: 1.5 }}>我们的判断</Text>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 1.55 }}>
+        缺的不是更聪明的问答，而是把日常碎片自动攒成复习材料的机制。
+      </Text>
+      <Text style={{ fontSize: 13.5, color: '#B9CCE8', lineHeight: 1.6 }}>
+        所以知识库要当"沉淀罐"，不是"资料夹"。
+      </Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'column', marginTop: 22, gap: 14 }}>
+
+      <Box style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8', width: 62 }}>三处</Text>
+        <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.6, width: 300 }}>课程平台 / 聊天工具 / 纸质讲义</Text>
+      </Box>
+
+      <Box style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8', width: 62 }}>缺失</Text>
+        <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.6, width: 300 }}>平时把资料变成可检索片段的那一步</Text>
+      </Box>
+
+      <Box style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8', width: 62 }}>结果</Text>
+        <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.6, width: 300 }}>期末有资料、没有可练的题</Text>
+      </Box>
+
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>02 / 10</Text>
+  </Box>
+
+</Slide>

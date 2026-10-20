@@ -1,0 +1,130 @@
+<Slide style={{ width: 1280, height: 720, background: '#FFFFFF', padding: 0, position: 'relative', fontFamily: 'PingFang SC' }}>
+
+  <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
+  <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
+
+  <Box style={{ position: 'absolute', left: 76, top: 96, width: 1128 }}>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>四层依赖只朝内，一个回合画成图</Text>
+    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>架构决定可维护性，状态图决定可解释性——这两件事都要能指着图讲</Text>
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 190, width: 680, height: 466, flexDirection: 'column' }}>
+
+    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>分层 · 依赖只朝内</Text>
+
+    <Box style={{ flexDirection: 'column', marginTop: 14, gap: 8 }}>
+
+      <Box style={{ width: 680, height: 58, background: '#F0F5FC', borderRadius: 6, borderLeft: '4px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 16, gap: 14 }}>
+        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8', width: 108 }}>interfaces</Text>
+        <Text style={{ fontSize: 14, color: '#4A5568', width: 520 }}>FastAPI + SSE 接口层（组合根，依赖全部）</Text>
+      </Box>
+
+      <Box style={{ width: 620, height: 58, background: '#F0F5FC', borderRadius: 6, borderLeft: '4px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 16, gap: 14 }}>
+        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8', width: 108 }}>application</Text>
+        <Text style={{ fontSize: 14, color: '#4A5568', width: 460 }}>用例编排 · 端口 Protocol · LangGraph 图</Text>
+      </Box>
+
+      <Box style={{ width: 560, height: 58, background: '#E8EFF8', borderRadius: 6, borderLeft: '4px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 16, gap: 14 }}>
+        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8', width: 108 }}>domain</Text>
+        <Text style={{ fontSize: 14, color: '#4A5568', width: 400 }}>纯函数：路由 · 切块 · RRF · 排期 · 护栏</Text>
+      </Box>
+
+      <Box style={{ width: 500, height: 58, background: '#F7F9FC', borderRadius: 6, borderLeft: '4px solid #3D7BD9', flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 16, gap: 14 }}>
+        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#3D7BD9', width: 108 }}>infrastructure</Text>
+        <Text style={{ fontSize: 14, color: '#4A5568', width: 340 }}>SQLite · LLM · Embedding · 文件解析</Text>
+      </Box>
+
+    </Box>
+
+    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5, marginTop: 18 }}>回合 · 显式状态图</Text>
+
+    <Box style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 0 }}>
+
+      <Box style={{ flexDirection: 'column', alignItems: 'center', width: 80 }}>
+        <Box style={{ width: 80, height: 72, borderRadius: 6, background: '#FFFFFF', border: '1.4px solid #D6DCE5', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#4A5568' }}>START</Text>
+        </Box>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>用户提问</Text>
+      </Box>
+
+      <Box style={{ width: 34, height: 2, background: '#3D7BD9' }} />
+
+      <Box style={{ flexDirection: 'column', alignItems: 'center', width: 80 }}>
+        <Box style={{ width: 80, height: 72, borderRadius: 6, background: '#E8EFF8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#0E3F8C' }}>route</Text>
+        </Box>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>意图路由</Text>
+      </Box>
+
+      <Box style={{ width: 34, height: 2, background: '#3D7BD9' }} />
+
+      <Box style={{ flexDirection: 'column', alignItems: 'center', width: 80 }}>
+        <Box style={{ width: 80, height: 72, borderRadius: 6, background: '#E8EFF8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#0E3F8C' }}>plan</Text>
+        </Box>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>复杂才规划</Text>
+      </Box>
+
+      <Box style={{ width: 34, height: 2, background: '#3D7BD9' }} />
+
+      <Box style={{ flexDirection: 'column', alignItems: 'center', width: 80 }}>
+        <Box style={{ width: 80, height: 72, borderRadius: 6, background: '#1E4FA8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' }}>agent</Text>
+        </Box>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>模型推理</Text>
+      </Box>
+
+      <Box style={{ width: 34, height: 2, background: '#3D7BD9' }} />
+
+      <Box style={{ flexDirection: 'column', alignItems: 'center', width: 80 }}>
+        <Box style={{ width: 80, height: 72, borderRadius: 6, background: '#F0F5FC', border: '1.4px solid #3D7BD9', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8' }}>tools</Text>
+        </Box>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>工具循环</Text>
+      </Box>
+
+      <Box style={{ width: 34, height: 2, background: '#3D7BD9' }} />
+
+      <Box style={{ flexDirection: 'column', alignItems: 'center', width: 80 }}>
+        <Box style={{ width: 80, height: 72, borderRadius: 6, background: '#FFFFFF', border: '1.4px solid #D6DCE5', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#4A5568' }}>END</Text>
+        </Box>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>回答落库</Text>
+      </Box>
+
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 800, top: 190, width: 404, height: 466, flexDirection: 'column', gap: 16 }}>
+
+    <Box style={{ flexDirection: 'column', height: 142, background: '#F7F9FC', borderRadius: 8, padding: 18 }}>
+      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#0E3F8C' }}>为什么分四层</Text>
+      <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
+        domain 只依赖标准库，检索权重与排期规则能在没有网络、没有模型的情况下被单元测试。
+      </Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'column', height: 142, background: '#F7F9FC', borderRadius: 8, padding: 18 }}>
+      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#0E3F8C' }}>为什么画成图</Text>
+      <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
+        状态图让"这一步在做什么"可以被指着讲；每个节点有检查点，能断点续跑，也能在写操作前暂停等人确认。
+      </Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'column', height: 142, background: '#0E3F8C', borderRadius: 8, padding: 18 }}>
+      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#FFFFFF' }}>所以它可被审阅</Text>
+      <Text style={{ fontSize: 14, color: '#C9D8EF', lineHeight: 1.7, marginTop: 8 }}>
+        流程、分支与中断点都在图里，不在某个函数的 if 里——这是可解释性的前提，不是装饰。
+      </Text>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>04 / 10</Text>
+  </Box>
+
+</Slide>

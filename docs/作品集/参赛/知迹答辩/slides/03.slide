@@ -1,0 +1,92 @@
+<Slide style={{ width: 1280, height: 720, background: '#FFFFFF', padding: 0, position: 'relative', fontFamily: 'PingFang SC' }}>
+
+  <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
+  <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
+
+  <Box style={{ position: 'absolute', left: 76, top: 96, width: 1128 }}>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>一条五步闭环，每一步都留下数据</Text>
+    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>闭环的关键不是步骤多，而是每一环都往库里留东西——下一轮从这些东西开始</Text>
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 192, width: 1128, height: 234 }}>
+
+    <Box style={{ position: 'absolute', left: 154, top: 57, width: 122, height: 2, background: '#1E4FA8' }} />
+    <Box style={{ position: 'absolute', left: 384, top: 57, width: 122, height: 2, background: '#1E4FA8' }} />
+    <Box style={{ position: 'absolute', left: 614, top: 57, width: 122, height: 2, background: '#1E4FA8' }} />
+    <Box style={{ position: 'absolute', left: 844, top: 57, width: 122, height: 2, background: '#1E4FA8' }} />
+
+    <Box style={{ position: 'absolute', left: 46, top: 4, width: 108, height: 108, borderRadius: 54, background: '#E8EFF8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C' }}>资料</Text>
+    </Box>
+    <Box style={{ position: 'absolute', left: 276, top: 4, width: 108, height: 108, borderRadius: 54, background: '#E8EFF8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C' }}>检索</Text>
+    </Box>
+    <Box style={{ position: 'absolute', left: 506, top: 4, width: 108, height: 108, borderRadius: 54, background: '#1E4FA8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' }}>出题</Text>
+    </Box>
+    <Box style={{ position: 'absolute', left: 736, top: 4, width: 108, height: 108, borderRadius: 54, background: '#E8EFF8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C' }}>复习</Text>
+    </Box>
+    <Box style={{ position: 'absolute', left: 966, top: 4, width: 108, height: 108, borderRadius: 54, background: '#E8EFF8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#0E3F8C' }}>掌握度</Text>
+    </Box>
+
+    <Text style={{ position: 'absolute', left: 15, top: 122, width: 170, textAlign: 'center', fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>多格式资料入库</Text>
+    <Text style={{ position: 'absolute', left: 15, top: 146, width: 170, textAlign: 'center', fontSize: 13.5, color: '#8B97A8' }}>片段 · 页码 · 出处</Text>
+
+    <Text style={{ position: 'absolute', left: 245, top: 122, width: 170, textAlign: 'center', fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>四路召回融合</Text>
+    <Text style={{ position: 'absolute', left: 245, top: 146, width: 170, textAlign: 'center', fontSize: 13.5, color: '#8B97A8' }}>命中片段 · 引用</Text>
+
+    <Text style={{ position: 'absolute', left: 475, top: 122, width: 170, textAlign: 'center', fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>按错因出变式题</Text>
+    <Text style={{ position: 'absolute', left: 475, top: 146, width: 170, textAlign: 'center', fontSize: 13.5, color: '#8B97A8' }}>题干 · 参考答案</Text>
+
+    <Text style={{ position: 'absolute', left: 705, top: 122, width: 170, textAlign: 'center', fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>作答与四档自评</Text>
+    <Text style={{ position: 'absolute', left: 705, top: 146, width: 170, textAlign: 'center', fontSize: 13.5, color: '#8B97A8' }}>自评 · 下次复习时间</Text>
+
+    <Text style={{ position: 'absolute', left: 935, top: 122, width: 170, textAlign: 'center', fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>学科掌握度画像</Text>
+    <Text style={{ position: 'absolute', left: 935, top: 146, width: 170, textAlign: 'center', fontSize: 13.5, color: '#8B97A8' }}>掌握度 · 薄弱学科</Text>
+
+    <Box style={{ position: 'absolute', left: 0, top: 180, width: 1128, height: 46, background: '#F0F5FC', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}>
+      <Text style={{ fontSize: 15, color: '#1E4FA8' }}>
+        掌握度回到薄弱学科，下一轮从薄弱处开始 —— 这就是闭环成立的地方
+      </Text>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 456, width: 1128, height: 200, background: '#F7F9FC', borderRadius: 8, flexDirection: 'row', alignItems: 'center', paddingLeft: 28, paddingRight: 28 }}>
+
+    <Box style={{ width: 320, flexDirection: 'column' }}>
+      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0E3F8C' }}>产物落库</Text>
+      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
+        每次检索留下带页码的片段，每次出题留下题干与详解，每次自评留下排期与掌握度。
+      </Text>
+    </Box>
+
+    <Box style={{ width: 1, height: 104, background: '#D6DCE5', marginLeft: 22, marginRight: 22 }} />
+
+    <Box style={{ width: 320, flexDirection: 'column' }}>
+      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0E3F8C' }}>产物可复用</Text>
+      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
+        片段能再被检索，题能再派变式题，排期能按自评重排——旧数据一直有用。
+      </Text>
+    </Box>
+
+    <Box style={{ width: 1, height: 104, background: '#D6DCE5', marginLeft: 22, marginRight: 22 }} />
+
+    <Box style={{ width: 320, flexDirection: 'column' }}>
+      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0E3F8C' }}>复用降成本</Text>
+      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
+        第二轮复习不必从零开始，只补薄弱处；时间花在不会的地方，而不是抄一遍笔记。
+      </Text>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>03 / 10</Text>
+  </Box>
+
+</Slide>

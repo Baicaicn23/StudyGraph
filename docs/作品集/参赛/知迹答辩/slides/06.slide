@@ -1,0 +1,104 @@
+<Slide style={{ width: 1280, height: 720, background: '#FFFFFF', padding: 0, position: 'relative', fontFamily: 'PingFang SC' }}>
+
+  <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
+  <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
+
+  <Box style={{ position: 'absolute', left: 76, top: 96, width: 1128 }}>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>三条承诺，写在执行层而不是提示词里</Text>
+    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>最小权限、人在环、可评测——每一条都能指出对应的代码位置，而不是一句口号</Text>
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 196, width: 648, height: 458, flexDirection: 'column' }}>
+
+    <Box style={{ flexDirection: 'column', height: 146 }}>
+      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Box style={{ width: 26, height: 26, borderRadius: 5, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' }}>1</Text>
+        </Box>
+        <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#1A2230' }}>工具最小权限，做两层</Text>
+      </Box>
+      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.75, marginTop: 10 }}>
+        schema 层决定"模型看得见哪些工具"，执行层再决定"能不能真的跑"：练习 agent 只读、进度 agent 无工具、写操作一律拒绝。
+      </Text>
+      <Text style={{ fontSize: 13.5, color: '#8B97A8', lineHeight: 1.7, marginTop: 6 }}>
+        只做一层都会失效：模型会反复尝试，或说出被禁工具名后失败。
+      </Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'column', height: 146, marginTop: 10 }}>
+      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Box style={{ width: 26, height: 26, borderRadius: 5, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' }}>2</Text>
+        </Box>
+        <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#1A2230' }}>人在环：写操作先暂停</Text>
+      </Box>
+      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.75, marginTop: 10 }}>
+        模型要落库时，图在 interrupt 节点暂停；用户点确认后用 Command 从检查点恢复，才真正写入"记住 / 错题"这类数据。
+      </Text>
+      <Text style={{ fontSize: 13.5, color: '#8B97A8', lineHeight: 1.7, marginTop: 6 }}>
+        不确认就不恢复，流程结构上保证不落库。
+      </Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'column', height: 146, marginTop: 10 }}>
+      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Box style={{ width: 26, height: 26, borderRadius: 5, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' }}>3</Text>
+        </Box>
+        <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#1A2230' }}>可评测：有考卷也有门禁</Text>
+      </Box>
+      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.75, marginTop: 10 }}>
+        检索 9 题、意图 15 句，各有固定考卷与基线 JSON；改动后重跑，掉出容差命令即返回非零，可直接进 CI。
+      </Text>
+      <Text style={{ fontSize: 13.5, color: '#8B97A8', lineHeight: 1.7, marginTop: 6 }}>
+        把靠感觉判断，变成靠数字判断。
+      </Text>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 764, top: 196, width: 440, height: 458, flexDirection: 'column' }}>
+
+    <Box style={{ background: '#0E3F8C', borderRadius: 8, padding: 22, height: 200, flexDirection: 'column', justifyContent: 'space-between' }}>
+      <Text style={{ fontSize: 14, color: '#8FB2E0', letterSpacing: 1.5 }}>为什么值得讲</Text>
+      <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 1.55 }}>
+        这三条是"产品承诺"，因为它们在执行层强制，而不是写在提示词里。
+      </Text>
+      <Text style={{ fontSize: 13.5, color: '#B9CCE8', lineHeight: 1.6 }}>
+        提示词可以被绕过，代码路径不能。
+      </Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'column', marginTop: 16, gap: 12 }}>
+
+      <Box style={{ flexDirection: 'column', borderLeft: '2px solid #3D7BD9', paddingLeft: 12 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>权限</Text>
+        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 4 }}>角色 → 可见工具 → 是否放行，三列可查</Text>
+      </Box>
+
+      <Box style={{ flexDirection: 'column', borderLeft: '2px solid #3D7BD9', paddingLeft: 12 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>中断</Text>
+        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 4 }}>图里的节点，能在回合过程中停下等人</Text>
+      </Box>
+
+      <Box style={{ flexDirection: 'column', borderLeft: '2px solid #3D7BD9', paddingLeft: 12 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>门禁</Text>
+        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 4 }}>两份 JSON 基线，掉分即失败，不是看一眼</Text>
+      </Box>
+
+      <Box style={{ flexDirection: 'column', borderLeft: '2px solid #3D7BD9', paddingLeft: 12 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>痕迹</Text>
+        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 4 }}>每个回合有 trace，失败可归因到具体环节</Text>
+      </Box>
+
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>06 / 10</Text>
+  </Box>
+
+</Slide>

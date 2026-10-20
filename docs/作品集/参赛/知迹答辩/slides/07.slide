@@ -1,0 +1,81 @@
+<Slide style={{ width: 1280, height: 720, background: '#FFFFFF', padding: 0, position: 'relative', fontFamily: 'PingFang SC' }}>
+
+  <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
+  <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
+
+  <Box style={{ position: 'absolute', left: 76, top: 96, width: 1128 }}>
+    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>可评测，所以可改进</Text>
+    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>数字的意义不在满分，而在"有固定考卷和基线门禁"——改动会掉分，掉分会被发现</Text>
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 188, width: 1128, height: 176, flexDirection: 'row' }}>
+
+    <Box style={{ width: 258, flexDirection: 'column', justifyContent: 'flex-end' }}>
+      <Box style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+        <Text style={{ fontSize: 84, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>279</Text>
+        <Text style={{ fontSize: 18, color: '#4A5568', paddingBottom: 10 }}>项</Text>
+      </Box>
+      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>自动化测试</Text>
+      <Text style={{ fontSize: 13, color: '#8B97A8', marginTop: 4 }}>全程离线 · 零 API 消耗</Text>
+    </Box>
+
+    <Box style={{ width: 1, height: 140, background: '#E5E7EB', marginLeft: 26, marginRight: 26 }} />
+
+    <Box style={{ width: 232, flexDirection: 'column', justifyContent: 'flex-end' }}>
+      <Text style={{ fontSize: 84, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>1.0</Text>
+      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>检索 Hit@3 与 MRR</Text>
+      <Text style={{ fontSize: 13, color: '#8B97A8', marginTop: 4 }}>评测集 9 题</Text>
+    </Box>
+
+    <Box style={{ width: 1, height: 140, background: '#E5E7EB', marginLeft: 26, marginRight: 26 }} />
+
+    <Box style={{ width: 232, flexDirection: 'column', justifyContent: 'flex-end' }}>
+      <Text style={{ fontSize: 84, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>1.0</Text>
+      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>意图分类准确率</Text>
+      <Text style={{ fontSize: 13, color: '#8B97A8', marginTop: 4 }}>评测集 15 句</Text>
+    </Box>
+
+    <Box style={{ width: 1, height: 140, background: '#E5E7EB', marginLeft: 26, marginRight: 26 }} />
+
+    <Box style={{ width: 232, flexDirection: 'column', justifyContent: 'flex-end' }}>
+      <Text style={{ fontSize: 84, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>0</Text>
+      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>测试期外部调用</Text>
+      <Text style={{ fontSize: 13, color: '#8B97A8', marginTop: 4 }}>Mock 模型，可离线跑</Text>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 392, width: 1128, height: 262, flexDirection: 'row', gap: 20 }}>
+
+    <Box style={{ width: 554, flexDirection: 'column', background: '#F7F9FC', borderRadius: 8, padding: 22 }}>
+      <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>这些数字说明什么</Text>
+      <Text style={{ fontSize: 16, color: '#1A2230', lineHeight: 1.8, marginTop: 12 }}>
+        满分本身不稀奇——真题只有 9 道与 15 句。真正有意义的是：它是一份**可复跑的考卷**。改检索权重、改意图规则、换模型，重跑一次就知道有没有变差。
+      </Text>
+      <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.75, marginTop: 12 }}>
+        掉出容差时命令返回非零，因此它能进 CI——把"感觉变笨了"变成一个会让流水线变红的数字。
+      </Text>
+    </Box>
+
+    <Box style={{ width: 554, flexDirection: 'column', background: '#0E3F8C', borderRadius: 8, padding: 22 }}>
+      <Text style={{ fontSize: 14, color: '#8FB2E0', letterSpacing: 1.5 }}>门禁怎么跑</Text>
+      <Box style={{ flexDirection: 'column', marginTop: 14, gap: 10 }}>
+        <Text style={{ fontSize: 14.5, color: '#FFFFFF', lineHeight: 1.6 }}>1　两份 JSON 考卷：检索题 + 意图句</Text>
+        <Text style={{ fontSize: 14.5, color: '#FFFFFF', lineHeight: 1.6 }}>2　一份基线：记录当前 Hit@3 / MRR / 准确率</Text>
+        <Text style={{ fontSize: 14.5, color: '#FFFFFF', lineHeight: 1.6 }}>3　改完代码重跑，与基线比差</Text>
+        <Text style={{ fontSize: 14.5, color: '#FFFFFF', lineHeight: 1.6 }}>4　超出容差 → 命令非零退出，拦住提交</Text>
+      </Box>
+      <Text style={{ fontSize: 13, color: '#8FB2E0', lineHeight: 1.6, marginTop: 12 }}>
+        另外每个回合有 trace，失败能归因到具体环节，而不是"模型不行"。
+      </Text>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>07 / 10</Text>
+  </Box>
+
+</Slide>

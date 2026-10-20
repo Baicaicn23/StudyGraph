@@ -1,0 +1,56 @@
+<Slide style={{ width: 1280, height: 720, background: '#FFFFFF', padding: 0, position: 'relative', fontFamily: 'PingFang SC' }}>
+
+  <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
+  <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
+
+  <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128, flexDirection: 'column', alignItems: 'center' }}>
+    <Text style={{ fontSize: 104, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>3</Text>
+    <Text style={{ fontSize: 19, color: '#1A2230', fontWeight: 'bold', marginTop: 10 }}>项还没做，我不打算留到被问出来</Text>
+    <Text style={{ fontSize: 14.5, color: '#4A5568', marginTop: 8 }}>
+      边界写在这里，也写在材料的功能核对表里——标"计划中"，不冒充已完成
+    </Text>
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 320, width: 1128, height: 160, flexDirection: 'row', gap: 30 }}>
+
+    <Box style={{ width: 356, flexDirection: 'column', background: '#F7F9FC', borderRadius: 8, padding: 18 }}>
+      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#0E3F8C' }}>多用户与数据隔离</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
+        当前单用户。要做成能交付班级的产品，这是第一件必须补的事——登录、课程归属、数据隔离。
+      </Text>
+    </Box>
+
+    <Box style={{ width: 356, flexDirection: 'column', background: '#F7F9FC', borderRadius: 8, padding: 18 }}>
+      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#0E3F8C' }}>在线监控聚合面板</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
+        目前靠 trace 命令行诊断，够开发用；长期运营需要面板把失败率与耗时聚起来。
+      </Text>
+    </Box>
+
+    <Box style={{ width: 356, flexDirection: 'column', background: '#F7F9FC', borderRadius: 8, padding: 18 }}>
+      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#0E3F8C' }}>Reranker 重排</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
+        现在四路召回 + RRF 融合已经够用；资料量再上一个量级时，重排才值得引入。
+      </Text>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 508, width: 1128, height: 62, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: 1 }}>
+      边界说出来，剩下的部分才可信。
+    </Text>
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 592, width: 1128, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Text style={{ fontSize: 15, color: '#4A5568' }}>谢谢，欢迎提问</Text>
+    <Text style={{ fontSize: 13, color: '#8B97A8' }}>材料与代码：知迹 · 参赛作品仓库</Text>
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>10 / 10</Text>
+  </Box>
+
+</Slide>
