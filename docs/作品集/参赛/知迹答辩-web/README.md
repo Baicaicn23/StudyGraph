@@ -1,6 +1,8 @@
 # 知迹答辩 · HTML 演示版
 
-用 [html-ppt-skill](https://github.com/lewislulu/html-ppt-skill)（MIT）生成的 16 页答辩演示。
+用 [html-ppt-skill](https://github.com/lewislulu/html-ppt-skill)（MIT）生成的 16 页答辩演示，
+视觉采用**深色科技风**（graphify-dark-graph 的设计系统：深底 + 环境光晕 + 玻璃卡片 + 渐变标题），
+**每页配一张手写 SVG 架构图**（状态机 / 管线 / 漏斗 / 门禁 / 调度环 / 外部连接）。
 结构：封面 / 目录 / 背景 2 页 / **技术 9 页（一项一页）** / 应用与验证 / 边界与下一步 / 收束。
 **这一版是新的独立产物**，与同目录上级的 `知迹答辩/`（python-pptx 生成的原生可编辑 pptx）是两套并列方案。
 
@@ -12,7 +14,7 @@
 | 演讲者模式 | 放映中按 **S**：弹出演讲者窗口（当前页 / 下一页 / 讲稿 / 计时器），与观众窗口同步 |
 | 备注抽屉 | 按 **N** 看当前页讲稿 |
 | 总览网格 | 按 **O** 一屏看完全部页 |
-| 换主题 | 按 **T** 循环（默认 `academic-paper`，另有 `swiss-grid` / `engineering-whiteprint` / `editorial-serif` / `minimal-white`） |
+| 深浅切换 | 改 `assets/deck-dark.css` 为 `assets/themes/<主题>.css` 即可换成浅色学术风 |
 | 全屏 / 翻页 | **F** / **← →** / 空格 |
 
 ## 交付物
