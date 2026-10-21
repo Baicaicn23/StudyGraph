@@ -102,7 +102,7 @@ def head(s, title, kicker="", accent=NAVY):
 FLOOR = 6.80          # 内容区底边（页脚安全线之上）
 
 
-def foot(s, n, total=10, note=""):
+def foot(s, n, total=11, note=""):
     """页脚：细分隔线 + 左侧标签 + 右侧页码。"""
     dk.hrule(s, M, H - 0.46, CW, color=LINE, weight=0.012)
     dk.text(s, M, H - 0.38, CW * 0.6, 0.22,
@@ -294,31 +294,72 @@ sw = (CW - 0.66) / 4
 sx = M
 for i, (d, t, desc, c) in enumerate(steps):
     if i:
-        dk.arrow(s, sx - 0.20, y + 0.52, 0.14, 0.14, color=C((150, 162, 178)), direction="right")
-    dk.box(s, sx, y + 0.10, sw, 2.36, fill=BG, line=LINE, line_w=0.9, round=True, r=0.07)
-    dk.box(s, sx, y + 0.10, sw, 0.05, fill=c)
-    dk.text(s, sx + 0.20, y + 0.30, sw - 0.4, 0.24, [para(d, 11, c, True)])
-    dk.text(s, sx + 0.20, y + 0.56, sw - 0.4, 0.30, [para(t, 16, INK, True)])
-    dk.text(s, sx + 0.20, y + 0.96, sw - 0.4, 1.30,
+        dk.arrow(s, sx - 0.20, y + 1.34, 0.14, 0.14, color=C((150, 162, 178)), direction="right")
+    dk.box(s, sx, y + 0.16, sw, 2.60, fill=BG, line=LINE, line_w=0.9, round=True, r=0.07)
+    dk.box(s, sx, y + 0.16, sw, 0.05, fill=c)
+    dk.text(s, sx + 0.22, y + 0.40, sw - 0.44, 0.24, [para(d, 11, c, True)])
+    dk.text(s, sx + 0.22, y + 0.68, sw - 0.44, 0.30, [para(t, 17, INK, True)])
+    dk.text(s, sx + 0.22, y + 1.10, sw - 0.44, 1.50,
             [[(ln, 12, SLATE, False, False, dk.FONT)] for ln in desc.split("\n")],
-            line_spacing=1.36)
+            line_spacing=1.40)
     sx += sw + 0.22
 
-# 真实界面
-iy = y + 2.52
-dk.text(s, M, iy, 4.0, 0.26, [para("真实运行界面", 14, INK, True)])
-dk.picture(s, str(ASSETS / "ui-knowledge.png"), M, iy + 0.30, 4.40, 1.86, fit="contain")
-dk.picture(s, str(ASSETS / "ui-practice.png"), M + 4.56, iy + 0.30, 4.40, 1.86, fit="contain")
-dk.text(s, M + 9.20, iy + 0.34, CW - 9.20, 1.76,
-        [para("没有华丽的图表，只有确定的一条线："
-              "每一步都知道自己依据什么、结果存在哪、下次还练不练。",
-              13, INK, True)], line_spacing=1.40)# 底部结论条（浅色系 + 缩窄；位置在内容最低点之下，不遮挡上方任何元素）
+# 下半：这一步到底解决了什么
+dy = y + 3.02
+dk.text(s, M, dy, 5.0, 0.26, [para("四个动作连起来，中间没有断点", 15, INK, True)])
+dk.box(s, M, dy + 0.36, CW, 1.10, fill=C((250, 251, 252)), line=LINE, line_w=0.9, round=True, r=0.08)
+dk.text(s, M + 0.28, dy + 0.54, 3.2, 0.28,
+        [para("资料 → 题 → 复习", 20, C((30, 110, 100)), True)])
+dk.text(s, M + 3.90, dy + 0.50, CW - 4.2, 0.72,
+        [para("传进来的资料决定题从哪来，题做错在哪决定下次练什么，"
+              "自评的高低决定掌握度涨还是跌。存资料的不管错题、讲题的不管下次还错不错 —— "
+              "知迹把这三件事接成了一件事。", 13, SLATE)], line_spacing=1.40)
+# 底部结论条（浅色系 + 缩窄；位置在内容最低点之下，不遮挡上方任何元素）
 ib = 6.60
 dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.8, round=True, r=0.05)
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
-dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("定位", 9.5, C((30, 110, 92)), True)])
-dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("每一个功能都要回答同一个问题：它让答案更可信了吗？", 11, C((38, 52, 46)), True)])
+dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("流程", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("每一步都知道自己依据什么、结果存在哪、下次还练不练。", 11, C((38, 52, 46)), True)])
 foot(s, 4)
+
+# ================================================================ 05 真实界面
+
+s = slide()
+y = head(s, "这些不是示意图，是跑起来的真实界面",
+         "界面 · 知识库页与练习页")
+
+shots = [
+    ("知识库页", "资料进来后的样子：按学科分好库，文档可点开读，解析状态一眼可见。",
+     ASSETS / "ui-knowledge.png", NAVY),
+    ("练习页", "做题、记错因、自评、掌握度与复习安排，都在同一页里。",
+     ASSETS / "ui-practice.png", EMERALD),
+]
+SHOT_W = 5.86
+px = M
+for name, desc, path, c in shots:
+    dk.box(s, px, y + 0.08, SHOT_W, 0.34, fill=c, round=True, r=0.05)
+    dk.text(s, px + 0.20, y + 0.135, SHOT_W - 0.4, 0.24, [para(name, 13, C((255, 255, 255)), True)])
+    dk.picture(s, str(path), px, y + 0.52, SHOT_W, 2.64, fit="contain")
+    dk.text(s, px, y + 3.28, SHOT_W, 0.44, [para(desc, 12.5, SLATE)], line_spacing=1.38)
+    px += SHOT_W + 0.37
+
+# 底部：为什么放真图（横向条）
+wy = y + 3.86
+dk.box(s, M, wy, CW, 0.98, fill=C((250, 251, 252)), line=LINE, line_w=0.9, round=True, r=0.08)
+dk.box(s, M, wy, 0.05, 0.98, fill=EMERALD)
+dk.text(s, M + 0.28, wy + 0.16, 2.4, 0.26, [para("放真图的原因", 15, INK, True)])
+dk.text(s, M + 2.90, wy + 0.16, CW - 3.2, 0.68,
+        [para("这是我自己跑起来的界面，不是设计稿。答辩时如果评委问「界面是你画的还是真做的」，"
+              "把这两张推过去比任何解释都省事。左边是知识库 —— 资料按学科分好，每份文档都能点开看解析到哪一页；"
+              "右边是练习页 —— 题、错因、掌握度、复习安排都在里面，连着上一页那四步。",
+              12, SLATE)], line_spacing=1.40)
+# 底部结论条（浅色系 + 缩窄；位置在内容最低点之下，不遮挡上方任何元素）
+ib = 6.60
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.8, round=True, r=0.05)
+dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
+dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("流程", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("上面那四步，都在这两个页面里发生。", 11, C((38, 52, 46)), True)])
+foot(s, 5)
 
 # ================================================================ 05 亮点一：治幻觉
 
@@ -378,7 +419,7 @@ dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), lin
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
 dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("亮点 ① · 答得准", 9.5, C((30, 110, 92)), True)])
 dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("找得到、说得清出处。可模型接下来要动手，这还只是回答问题。", 11, C((38, 52, 46)), True)])
-foot(s, 5)
+foot(s, 6)
 
 # ================================================================ 06 亮点二：Agent 架构
 
@@ -432,7 +473,7 @@ dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), lin
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
 dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("亮点 ② · 管得住", 9.5, C((30, 110, 92)), True)])
 dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("答得准 + 管得住 = 敢信。接下来要证明的是：它今天没比昨天变笨。", 11, C((38, 52, 46)), True)])
-foot(s, 6)
+foot(s, 7)
 
 # ================================================================ 07 工程稳健性
 
@@ -494,7 +535,7 @@ dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), lin
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
 dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("亮点 ②", 9.5, C((30, 110, 92)), True)])
 dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("写在提示词里模型可以忘，写在 interrupt() 里它跑不掉。", 11, C((38, 52, 46)), True)])
-foot(s, 7)
+foot(s, 8)
 
 # ================================================================ 08 边界
 
@@ -543,7 +584,7 @@ dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), lin
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
 dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("工程", 9.5, C((30, 110, 92)), True)])
 dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("domain 层不碰 I/O，回归测试跑一次十几秒，零 API 消耗。", 11, C((38, 52, 46)), True)])
-foot(s, 8)
+foot(s, 9)
 
 # ================================================================ 09 Roadmap
 
@@ -590,7 +631,7 @@ dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), lin
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
 dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("边界", 9.5, C((30, 110, 92)), True)])
 dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("六项能力每一项都有代码依据 —— 说清楚比多做一点更有用。", 11, C((38, 52, 46)), True)])
-foot(s, 9)
+foot(s, 10)
 
 # ================================================================ 10 团队与致谢
 
@@ -630,6 +671,8 @@ dk.text(s, W - M - 4.6, qy + 0.26, 4.26, 0.76,
          [("知迹 · 赛道十三 · 智慧教育　·　欢迎指正", 10.5,
            C((165, 185, 212)), False, False, dk.FONT)]],
         align=dk.PP_ALIGN.RIGHT, line_spacing=1.46)
+
+foot(s, 11)
 
 # ================================================================ 保存
 
