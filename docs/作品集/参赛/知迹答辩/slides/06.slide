@@ -4,96 +4,96 @@
   <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
   <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
 
-  <Box style={{ position: 'absolute', left: 76, top: 96, width: 1128 }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>三条承诺，写在执行层而不是提示词里</Text>
-    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>最小权限、人在环、可评测——每一条都能指出对应的代码位置，而不是一句口号</Text>
+  <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128 }}>
+    <Text style={{ fontSize: 33, fontWeight: 'bold', color: '#0E3F8C' }}>用自己的资料回答，还告诉你「第几页」</Text>
+    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>第四个时刻：它凭什么觉得就是这一段——凭四条不同的找法，而不是一条</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 196, width: 648, height: 458, flexDirection: 'column' }}>
+  <Box style={{ position: 'absolute', left: 76, top: 190, width: 1128, height: 132, flexDirection: 'row' }}>
 
-    <Box style={{ flexDirection: 'column', height: 146 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Box style={{ width: 26, height: 26, borderRadius: 5, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' }}>1</Text>
-        </Box>
-        <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#1A2230' }}>工具最小权限，做两层</Text>
-      </Box>
-      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.75, marginTop: 10 }}>
-        schema 层决定"模型看得见哪些工具"，执行层再决定"能不能真的跑"：练习 agent 只读、进度 agent 无工具、写操作一律拒绝。
-      </Text>
-      <Text style={{ fontSize: 13.5, color: '#8B97A8', lineHeight: 1.7, marginTop: 6 }}>
-        只做一层都会失效：模型会反复尝试，或说出被禁工具名后失败。
-      </Text>
+    <Box style={{ width: 256, flexDirection: 'column' }}>
+      <Text style={{ fontSize: 13, color: '#8B97A8' }}>找法一</Text>
+      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>按字面找</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>你写「导数」，就直接搜这两个字。</Text>
+      <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>命中准，但怕错一个字</Text>
     </Box>
 
-    <Box style={{ flexDirection: 'column', height: 146, marginTop: 10 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Box style={{ width: 26, height: 26, borderRadius: 5, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' }}>2</Text>
-        </Box>
-        <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#1A2230' }}>人在环：写操作先暂停</Text>
-      </Box>
-      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.75, marginTop: 10 }}>
-        模型要落库时，图在 interrupt 节点暂停；用户点确认后用 Command 从检查点恢复，才真正写入"记住 / 错题"这类数据。
-      </Text>
-      <Text style={{ fontSize: 13.5, color: '#8B97A8', lineHeight: 1.7, marginTop: 6 }}>
-        不确认就不恢复，流程结构上保证不落库。
-      </Text>
+    <Box style={{ width: 1, height: 110, background: '#E5E7EB', marginLeft: 16, marginRight: 16 }} />
+
+    <Box style={{ width: 256, flexDirection: 'column' }}>
+      <Text style={{ fontSize: 13, color: '#8B97A8' }}>找法二</Text>
+      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>换个说法找</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>你问「本征值」，它知道资料里写的是「特征值」。</Text>
+      <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>救「同义不同词」</Text>
     </Box>
 
-    <Box style={{ flexDirection: 'column', height: 146, marginTop: 10 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Box style={{ width: 26, height: 26, borderRadius: 5, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' }}>3</Text>
-        </Box>
-        <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#1A2230' }}>可评测：有考卷也有门禁</Text>
-      </Box>
-      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.75, marginTop: 10 }}>
-        检索 35 题、意图 15 句，各有固定考卷与基线 JSON；改动后重跑，掉出容差命令即返回非零，可直接进 CI。
-      </Text>
-      <Text style={{ fontSize: 13.5, color: '#8B97A8', lineHeight: 1.7, marginTop: 6 }}>
-        把靠感觉判断，变成靠数字判断。
-      </Text>
+    <Box style={{ width: 1, height: 110, background: '#E5E7EB', marginLeft: 16, marginRight: 16 }} />
+
+    <Box style={{ width: 256, flexDirection: 'column' }}>
+      <Text style={{ fontSize: 13, color: '#8B97A8' }}>找法三</Text>
+      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>短词兜底</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>「秩」「队列」这种两个字，别的找法会漏。</Text>
+      <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>救「太短搜不到」</Text>
+    </Box>
+
+    <Box style={{ width: 1, height: 110, background: '#E5E7EB', marginLeft: 16, marginRight: 16 }} />
+
+    <Box style={{ width: 256, flexDirection: 'column' }}>
+      <Text style={{ fontSize: 13, color: '#8B97A8' }}>找法四</Text>
+      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>按意思找</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>一个字都不一样，但讲的是同一件事。</Text>
+      <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>救「换句话问」</Text>
     </Box>
 
   </Box>
 
-  <Box style={{ position: 'absolute', left: 764, top: 196, width: 440, height: 458, flexDirection: 'column' }}>
+  <Box style={{ position: 'absolute', left: 76, top: 340, width: 1128, height: 100, flexDirection: 'row', gap: 20 }}>
 
-    <Box style={{ background: '#0E3F8C', borderRadius: 8, padding: 22, height: 200, flexDirection: 'column', justifyContent: 'space-between' }}>
-      <Text style={{ fontSize: 14, color: '#8FB2E0', letterSpacing: 1.5 }}>为什么值得讲</Text>
-      <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 1.55 }}>
-        这三条是"产品承诺"，因为它们在执行层强制，而不是写在提示词里。
-      </Text>
-      <Text style={{ fontSize: 13.5, color: '#B9CCE8', lineHeight: 1.6 }}>
-        提示词可以被绕过，代码路径不能。
+    <Box style={{ width: 554, flexDirection: 'column', borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>然后把四份结果「按名次」合并</Text>
+      <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.7, marginTop: 6 }}>
+        不能把四种分数直接相加——它们的单位根本不一样。只看各自排第几，再加权。
       </Text>
     </Box>
 
-    <Box style={{ flexDirection: 'column', marginTop: 16, gap: 12 }}>
-
-      <Box style={{ flexDirection: 'column', borderLeft: '2px solid #3D7BD9', paddingLeft: 12 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>权限</Text>
-        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 4 }}>角色 → 可见工具 → 是否放行，三列可查</Text>
-      </Box>
-
-      <Box style={{ flexDirection: 'column', borderLeft: '2px solid #3D7BD9', paddingLeft: 12 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>中断</Text>
-        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 4 }}>图里的节点，能在回合过程中停下等人</Text>
-      </Box>
-
-      <Box style={{ flexDirection: 'column', borderLeft: '2px solid #3D7BD9', paddingLeft: 12 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>门禁</Text>
-        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 4 }}>两份 JSON 基线，掉分即失败，不是看一眼</Text>
-      </Box>
-
-      <Box style={{ flexDirection: 'column', borderLeft: '2px solid #3D7BD9', paddingLeft: 12 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>痕迹</Text>
-        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 4 }}>每个回合有 trace，失败可归因到具体环节</Text>
-      </Box>
-
+    <Box style={{ width: 554, flexDirection: 'column', borderLeft: '3px solid #3D7BD9', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>合并完再排一次序</Text>
+      <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.7, marginTop: 6 }}>
+        看谁的原文里真的出现了你问的字、且出现在标题上——把「看着像」的往下压。
+      </Text>
     </Box>
 
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 458, width: 1128, height: 108, flexDirection: 'row', alignItems: 'center' }}>
+
+    <Box style={{ width: 250, flexDirection: 'column' }}>
+      <Text style={{ fontSize: 40, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>35</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', marginTop: 6 }}>道检索题（配 21 篇资料）</Text>
+    </Box>
+
+    <Box style={{ width: 250, flexDirection: 'column' }}>
+      <Text style={{ fontSize: 40, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>34</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', marginTop: 6 }}>道第一次就找对</Text>
+    </Box>
+
+    <Box style={{ width: 250, flexDirection: 'column' }}>
+      <Text style={{ fontSize: 40, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>35</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', marginTop: 6 }}>道（接真实模型时全对）</Text>
+    </Box>
+
+    <Box style={{ width: 300, flexDirection: 'column', borderLeft: '1px solid #E5E7EB', paddingLeft: 18 }}>
+      <Text style={{ fontSize: 14, color: '#1A2230', lineHeight: 1.65 }}>
+        把最后一层排序关掉，成绩从 0.9714 掉到 0.9571 —— 这一层不是装饰。
+      </Text>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 588, width: 1128, height: 50, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14.5, color: '#FFFFFF' }}>
+      工程上叫：四路召回 + 加权名次融合（RRF）+ 词面精排；每一路都有它的「为什么」
+    </Text>
   </Box>
 
   <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

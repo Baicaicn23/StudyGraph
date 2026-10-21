@@ -4,76 +4,61 @@
   <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
   <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
 
-  <Box style={{ position: 'absolute', left: 76, top: 96, width: 1128 }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>不是示意图，是真实运行的界面</Text>
-    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>七个页面都在跑；引用能落到具体页码，才算"有据可查"</Text>
+  <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128 }}>
+    <Text style={{ fontSize: 33, fontWeight: 'bold', color: '#0E3F8C' }}>六件事：两件做好、三件半成、一件没做</Text>
+    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>这一页是给自己挑毛病——说清哪里还没做好，比说自己很强更可信</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 190, width: 780, height: 352, border: '1px solid #D6DCE5', borderRadius: 6, overflow: 'hidden' }}>
-    <Image src="assets/ui-knowledge.png" style={{ width: 778, height: 350, objectFit: 'cover' }} />
+  <Box style={{ position: 'absolute', left: 76, top: 192, width: 1128, height: 36, flexDirection: 'row', alignItems: 'center', background: '#F0F5FC', borderRadius: 6, paddingLeft: 14 }}>
+    <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#0E3F8C', width: 430 }}>事项</Text>
+    <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#0E3F8C', width: 110 }}>状态</Text>
+    <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#0E3F8C', width: 545 }}>依据 / 还差什么</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 880, top: 190, width: 324, height: 352, flexDirection: 'column' }}>
+  <Box style={{ position: 'absolute', left: 76, top: 232, width: 1128, height: 348, flexDirection: 'column' }}>
 
-    <Box style={{ flexDirection: 'column', height: 112 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Box style={{ width: 22, height: 22, borderRadius: 4, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#FFFFFF' }}>1</Text>
-        </Box>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>三栏阅读页</Text>
-      </Box>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
-        左目录树、中正文、右 AI 助手与大纲；大纲跟着滚动高亮，长文档不迷路。
-      </Text>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>断了能接上（可恢复执行）</Text>
+      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1E4FA8', width: 110 }}>做好</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>状态图 + 断点存档；中断恢复有专门的测试</Text>
     </Box>
 
-    <Box style={{ flexDirection: 'column', height: 112, marginTop: 8 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Box style={{ width: 22, height: 22, borderRadius: 4, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#FFFFFF' }}>2</Text>
-        </Box>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>引用落到页</Text>
-      </Box>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
-        PDF 与 PPT 按页切块，出处带「第 N 页」；原件能内联预览，也能下载。
-      </Text>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>找资料准（混合检索）</Text>
+      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1E4FA8', width: 110 }}>做好</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>35 道题考卷；接真实模型时 35 道全对</Text>
     </Box>
 
-    <Box style={{ flexDirection: 'column', height: 112, marginTop: 8 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Box style={{ width: 22, height: 22, borderRadius: 4, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#FFFFFF' }}>3</Text>
-        </Box>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>作答后看详解</Text>
-      </Box>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
-        复习卡里写完思路可看参考答案与关键步骤，再四档自评。
-      </Text>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>动作可控（工具治理）</Text>
+      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#BA7517', width: 110 }}>半成</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>权限两道 + 超时兜底；还缺「按具体参数」的细权限</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>长对话记得住（上下文压缩）</Text>
+      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#BA7517', width: 110 }}>半成</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>有 240 字纪要；还没做「关键事实外置成笔记」</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>记得住人（长期记忆）</Text>
+      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#BA7517', width: 110 }}>半成</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>按课程分开存 + 写入前确认；缺「过期与删除」</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, paddingLeft: 14 }}>
+      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>整次会话算不算成功（任务级评测）</Text>
+      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#D9534F', width: 110 }}>没做</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>现在只测「找到没」「分类对不对」，不测「这轮有用没」</Text>
     </Box>
 
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 572, width: 1128, height: 84, background: '#F7F9FC', borderRadius: 8, flexDirection: 'row', alignItems: 'center', paddingLeft: 24, paddingRight: 24 }}>
-
-    <Box style={{ width: 330, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 13, color: '#8B97A8' }}>演示库规模</Text>
-      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230', marginTop: 4 }}>7 个学科库 · 24 份资料</Text>
-    </Box>
-
-    <Box style={{ width: 1, height: 44, background: '#D6DCE5', marginLeft: 20, marginRight: 20 }} />
-
-    <Box style={{ width: 330, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 13, color: '#8B97A8' }}>检索片段</Text>
-      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230', marginTop: 4 }}>46 个片段，全部带出处</Text>
-    </Box>
-
-    <Box style={{ width: 1, height: 44, background: '#D6DCE5', marginLeft: 20, marginRight: 20 }} />
-
-    <Box style={{ width: 330, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 13, color: '#8B97A8' }}>资料类型</Text>
-      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230', marginTop: 4 }}>PDF / Word / PPT / 图片</Text>
-    </Box>
-
+  <Box style={{ position: 'absolute', left: 76, top: 596, width: 1128, height: 50, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14.5, color: '#FFFFFF' }}>
+      所以下一步不是继续加功能，而是把第 5、6 件补上——一个决定「记得对」，一个决定「测得出」
+    </Text>
   </Box>
 
   <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

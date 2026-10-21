@@ -4,91 +4,91 @@
   <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
   <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
 
-  <Box style={{ position: 'absolute', left: 76, top: 96, width: 1128 }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>资料都在，为什么复习时找不到</Text>
-    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>断点不在"有没有资料"，而在"有没有把资料沉淀下来"这一步</Text>
+  <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128 }}>
+    <Text style={{ fontSize: 33, fontWeight: 'bold', color: '#0E3F8C' }}>它不是「会不会答」，而是「每次靠不靠得住」</Text>
+    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>一个学习工具背后，其实是一次又一次会出岔子的过程</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 190, width: 700, height: 466, flexDirection: 'column' }}>
+  <Box style={{ position: 'absolute', left: 76, top: 190, width: 616, height: 402, flexDirection: 'column' }}>
 
-    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>现象 · 断在哪一步</Text>
+    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>先说场景 · 一学期里三个时刻</Text>
 
-    <Box style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 18, marginTop: 20 }}>
+    <Box style={{ flexDirection: 'column', marginTop: 14, gap: 14 }}>
 
-      <Box style={{ flexDirection: 'column', alignItems: 'center' }}>
-        <Box style={{ width: 40, height: 40, borderRadius: 6, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>1</Text>
-        </Box>
-        <Box style={{ width: 2, height: 86, background: '#D6DCE5', marginTop: 10 }} />
-        <Box style={{ width: 40, height: 40, borderRadius: 6, background: '#1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>2</Text>
-        </Box>
-        <Box style={{ width: 2, height: 86, background: '#D6DCE5', marginTop: 10 }} />
-        <Box style={{ width: 40, height: 40, borderRadius: 6, background: '#D9534F', justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>3</Text>
-        </Box>
+      <Box style={{ flexDirection: 'column', height: 112, borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
+        <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#1A2230' }}>上课时，讲义散在三处</Text>
+        <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.6, marginTop: 6 }}>
+          课程平台、聊天记录、手机相册各存一半，谁也不全。
+        </Text>
+        <Text style={{ fontSize: 13, color: '#8B97A8', marginTop: 6 }}>结果：找某一页，要翻三个地方</Text>
       </Box>
 
-      <Box style={{ width: 642, flexDirection: 'column' }}>
+      <Box style={{ flexDirection: 'column', height: 112, borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
+        <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#1A2230' }}>写作业时，问一句就走</Text>
+        <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.6, marginTop: 6 }}>
+          答案留在对话框里，没有变成任何能复用的东西。
+        </Text>
+        <Text style={{ fontSize: 13, color: '#8B97A8', marginTop: 6 }}>结果：同类问题，每次都从零再问</Text>
+      </Box>
 
-        <Box style={{ height: 128, flexDirection: 'column' }}>
-          <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#1A2230' }}>资料散落在三处，各存一份</Text>
-          <Text style={{ fontSize: 15.5, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
-            课程平台上的作业与课件、聊天工具里的答疑记录、手机拍的纸质板书——三处各有一半，谁也不全。
-          </Text>
-        </Box>
-
-        <Box style={{ height: 128, flexDirection: 'column', marginTop: 8 }}>
-          <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#1A2230' }}>没有沉淀环节，平时不会主动整理</Text>
-          <Text style={{ fontSize: 15.5, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
-            打开这类工具的第一件事总是"提问"，而不是"归档"；整理只发生在期末，而期末最缺时间。
-          </Text>
-        </Box>
-
-        <Box style={{ height: 128, flexDirection: 'column', marginTop: 8 }}>
-          <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#D9534F' }}>期末只剩一个空库，无题可练</Text>
-          <Text style={{ fontSize: 15.5, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
-            既没有成套的资料可查，也没有可练的题；只能重新翻聊天记录，从头把知识再捡一遍。
-          </Text>
-        </Box>
-
+      <Box style={{ flexDirection: 'column', height: 112, borderLeft: '3px solid #D9534F', paddingLeft: 14 }}>
+        <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#D9534F' }}>期末时，想练却没有题</Text>
+        <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.6, marginTop: 6 }}>
+          资料还在，但没有成套的题，只能重新翻记录。
+        </Text>
+        <Text style={{ fontSize: 13, color: '#8B97A8', marginTop: 6 }}>结果：时间全花在找东西上</Text>
       </Box>
 
     </Box>
 
   </Box>
 
-  <Box style={{ position: 'absolute', left: 824, top: 190, width: 380, height: 466, flexDirection: 'column' }}>
+  <Box style={{ position: 'absolute', left: 740, top: 190, width: 464, height: 402, flexDirection: 'column' }}>
 
-    <Box style={{ background: '#0E3F8C', borderRadius: 8, padding: 22, height: 236, flexDirection: 'column', justifyContent: 'space-between' }}>
-      <Text style={{ fontSize: 14, color: '#8FB2E0', letterSpacing: 1.5 }}>我们的判断</Text>
-      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 1.55 }}>
-        缺的不是更聪明的问答，而是把日常碎片自动攒成复习材料的机制。
-      </Text>
-      <Text style={{ fontSize: 13.5, color: '#B9CCE8', lineHeight: 1.6 }}>
-        所以知识库要当"沉淀罐"，不是"资料夹"。
-      </Text>
+    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>再问一层 · 四个会出岔子的时刻</Text>
+
+    <Box style={{ flexDirection: 'column', marginTop: 8 }}>
+
+      <Box style={{ flexDirection: 'column', height: 92, borderBottom: '1px solid #E5E7EB' }}>
+        <Box style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+          <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8' }}>1</Text>
+          <Text style={{ fontSize: 15, color: '#1A2230', lineHeight: 1.55, width: 420 }}>聊到一半关掉网页，回来还接得上吗？</Text>
+        </Box>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 8, paddingLeft: 22 }}>靠「存档」——下一页</Text>
+      </Box>
+
+      <Box style={{ flexDirection: 'column', height: 92 }}>
+        <Box style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+          <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8' }}>2</Text>
+          <Text style={{ fontSize: 15, color: '#1A2230', lineHeight: 1.55, width: 420 }}>查资料的接口挂了，整个回答会崩吗？</Text>
+        </Box>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 8, paddingLeft: 22 }}>靠「兜底」——再下一页</Text>
+      </Box>
+
+      <Box style={{ flexDirection: 'column', height: 92, borderBottom: '1px solid #E5E7EB' }}>
+        <Box style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+          <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8' }}>3</Text>
+          <Text style={{ fontSize: 15, color: '#1A2230', lineHeight: 1.55, width: 420 }}>聊了两小时，还记不记得前面说过什么？</Text>
+        </Box>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 8, paddingLeft: 22 }}>靠「纪要」——后面讲</Text>
+      </Box>
+
+      <Box style={{ flexDirection: 'column', height: 92 }}>
+        <Box style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+          <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8' }}>4</Text>
+          <Text style={{ fontSize: 15, color: '#1A2230', lineHeight: 1.55, width: 420 }}>它说「帮你存好了」，真的存了？</Text>
+        </Box>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 8, paddingLeft: 22 }}>靠「先问你」——后面讲</Text>
+      </Box>
+
     </Box>
 
-    <Box style={{ flexDirection: 'column', marginTop: 22, gap: 14 }}>
+  </Box>
 
-      <Box style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8', width: 62 }}>三处</Text>
-        <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.6, width: 300 }}>课程平台 / 聊天工具 / 纸质讲义</Text>
-      </Box>
-
-      <Box style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8', width: 62 }}>缺失</Text>
-        <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.6, width: 300 }}>平时把资料变成可检索片段的那一步</Text>
-      </Box>
-
-      <Box style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1E4FA8', width: 62 }}>结果</Text>
-        <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.6, width: 300 }}>期末有资料、没有可练的题</Text>
-      </Box>
-
-    </Box>
-
+  <Box style={{ position: 'absolute', left: 76, top: 606, width: 1128, height: 48, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14.5, color: '#FFFFFF' }}>
+      这四个时刻，工程上分别叫：中断可恢复 · 工具故障兜底 · 上下文管理 · 写操作前确认
+    </Text>
   </Box>
 
   <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

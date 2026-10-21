@@ -4,84 +4,63 @@
   <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
   <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
 
-  <Box style={{ position: 'absolute', left: 76, top: 96, width: 1128 }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>一条五步闭环，每一步都留下数据</Text>
-    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>闭环的关键不是步骤多，而是每一环都往库里留东西——下一轮从这些东西开始</Text>
+  <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128 }}>
+    <Text style={{ fontSize: 33, fontWeight: 'bold', color: '#0E3F8C' }}>断了能接着聊，不用从头再问一遍</Text>
+    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>这是第一个「会出岔子的时刻」：中途关掉、网络断了，回来还在不在</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 192, width: 1128, height: 234 }}>
+  <Box style={{ position: 'absolute', left: 76, top: 190, width: 560, height: 360, flexDirection: 'column' }}>
 
-    <Box style={{ position: 'absolute', left: 154, top: 57, width: 122, height: 2, background: '#1E4FA8' }} />
-    <Box style={{ position: 'absolute', left: 384, top: 57, width: 122, height: 2, background: '#1E4FA8' }} />
-    <Box style={{ position: 'absolute', left: 614, top: 57, width: 122, height: 2, background: '#1E4FA8' }} />
-    <Box style={{ position: 'absolute', left: 844, top: 57, width: 122, height: 2, background: '#1E4FA8' }} />
+    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>打个比方</Text>
+    <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>打游戏都懂：存档、读档</Text>
 
-    <Box style={{ position: 'absolute', left: 46, top: 4, width: 108, height: 108, borderRadius: 54, background: '#E8EFF8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C' }}>资料</Text>
-    </Box>
-    <Box style={{ position: 'absolute', left: 276, top: 4, width: 108, height: 108, borderRadius: 54, background: '#E8EFF8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C' }}>检索</Text>
-    </Box>
-    <Box style={{ position: 'absolute', left: 506, top: 4, width: 108, height: 108, borderRadius: 54, background: '#1E4FA8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' }}>出题</Text>
-    </Box>
-    <Box style={{ position: 'absolute', left: 736, top: 4, width: 108, height: 108, borderRadius: 54, background: '#E8EFF8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C' }}>复习</Text>
-    </Box>
-    <Box style={{ position: 'absolute', left: 966, top: 4, width: 108, height: 108, borderRadius: 54, background: '#E8EFF8', border: '1.4px solid #1E4FA8', justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#0E3F8C' }}>掌握度</Text>
+    <Box style={{ position: 'relative', width: 520, height: 120, marginTop: 22 }}>
+      <Box style={{ position: 'absolute', left: 0, top: 52, width: 520, height: 10, background: '#E8EFF8', borderRadius: 5 }} />
+      <Box style={{ position: 'absolute', left: 150, top: 45, width: 24, height: 24, borderRadius: 12, background: '#1E4FA8' }} />
+      <Box style={{ position: 'absolute', left: 340, top: 45, width: 24, height: 24, borderRadius: 12, background: '#1E4FA8' }} />
+      <Text style={{ position: 'absolute', left: 108, top: 16, fontSize: 13, color: '#1E4FA8' }}>存档点一</Text>
+      <Text style={{ position: 'absolute', left: 298, top: 16, fontSize: 13, color: '#1E4FA8' }}>存档点二</Text>
+      <Text style={{ position: 'absolute', left: 0, top: 80, fontSize: 13, color: '#8B97A8' }}>开始</Text>
+      <Text style={{ position: 'absolute', left: 470, top: 80, fontSize: 13, color: '#8B97A8' }}>继续</Text>
     </Box>
 
-    <Text style={{ position: 'absolute', left: 15, top: 122, width: 170, textAlign: 'center', fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>多格式资料入库</Text>
-    <Text style={{ position: 'absolute', left: 15, top: 146, width: 170, textAlign: 'center', fontSize: 13.5, color: '#8B97A8' }}>片段 · 页码 · 出处</Text>
-
-    <Text style={{ position: 'absolute', left: 245, top: 122, width: 170, textAlign: 'center', fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>四路召回融合</Text>
-    <Text style={{ position: 'absolute', left: 245, top: 146, width: 170, textAlign: 'center', fontSize: 13.5, color: '#8B97A8' }}>命中片段 · 引用</Text>
-
-    <Text style={{ position: 'absolute', left: 475, top: 122, width: 170, textAlign: 'center', fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>按错因出变式题</Text>
-    <Text style={{ position: 'absolute', left: 475, top: 146, width: 170, textAlign: 'center', fontSize: 13.5, color: '#8B97A8' }}>题干 · 参考答案</Text>
-
-    <Text style={{ position: 'absolute', left: 705, top: 122, width: 170, textAlign: 'center', fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>作答与四档自评</Text>
-    <Text style={{ position: 'absolute', left: 705, top: 146, width: 170, textAlign: 'center', fontSize: 13.5, color: '#8B97A8' }}>自评 · 下次复习时间</Text>
-
-    <Text style={{ position: 'absolute', left: 935, top: 122, width: 170, textAlign: 'center', fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>学科掌握度画像</Text>
-    <Text style={{ position: 'absolute', left: 935, top: 146, width: 170, textAlign: 'center', fontSize: 13.5, color: '#8B97A8' }}>掌握度 · 薄弱学科</Text>
-
-    <Box style={{ position: 'absolute', left: 0, top: 180, width: 1128, height: 46, background: '#F0F5FC', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ fontSize: 15, color: '#1E4FA8' }}>
-        掌握度回到薄弱学科，下一轮从薄弱处开始 —— 这就是闭环成立的地方
-      </Text>
-    </Box>
+    <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.8, marginTop: 6 }}>
+      每走完一步，它把「走到哪了」记一笔。你关掉页面、网断了，下次打开从这个点接着走，不用把前面重讲一遍。
+    </Text>
 
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 456, width: 1128, height: 200, background: '#F7F9FC', borderRadius: 8, flexDirection: 'row', alignItems: 'center', paddingLeft: 28, paddingRight: 28 }}>
+  <Box style={{ position: 'absolute', left: 700, top: 190, width: 504, height: 360, flexDirection: 'column' }}>
 
-    <Box style={{ width: 320, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0E3F8C' }}>产物落库</Text>
-      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
-        每次检索留下带页码的片段，每次出题留下题干与详解，每次自评留下排期与掌握度。
-      </Text>
+    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>它是怎么做的</Text>
+
+    <Box style={{ flexDirection: 'column', marginTop: 8 }}>
+      <Box style={{ flexDirection: 'column', height: 108, borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
+        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 12 }}>一、你说一句</Text>
+        <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
+          它先判断这句话要干什么——是问知识点、要出题，还是让你查资料。
+        </Text>
+      </Box>
+      <Box style={{ flexDirection: 'column', height: 108, borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
+        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 12 }}>二、它自己决定下一步</Text>
+        <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
+          查什么、调哪个工具，是它自己选的；每选一次，就把进展存一次档。
+        </Text>
+      </Box>
+      <Box style={{ flexDirection: 'column', height: 108, borderLeft: '3px solid #D9534F', paddingLeft: 14 }}>
+        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 12 }}>三、要动你的数据，先停下</Text>
+        <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
+          存笔记、记错题这类操作，会停在那里等你点确认——这也是「存档」带来的能力。
+        </Text>
+      </Box>
     </Box>
 
-    <Box style={{ width: 1, height: 104, background: '#D6DCE5', marginLeft: 22, marginRight: 22 }} />
+  </Box>
 
-    <Box style={{ width: 320, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0E3F8C' }}>产物可复用</Text>
-      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
-        片段能再被检索，题能再派变式题，排期能按自评重排——旧数据一直有用。
-      </Text>
-    </Box>
-
-    <Box style={{ width: 1, height: 104, background: '#D6DCE5', marginLeft: 22, marginRight: 22 }} />
-
-    <Box style={{ width: 320, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0E3F8C' }}>复用降成本</Text>
-      <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
-        第二轮复习不必从零开始，只补薄弱处；时间花在不会的地方，而不是抄一遍笔记。
-      </Text>
-    </Box>
-
+  <Box style={{ position: 'absolute', left: 76, top: 586, width: 1128, height: 50, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14.5, color: '#FFFFFF' }}>
+      工程上叫：回合状态图 · 检查点（断点）· 中断后恢复（interrupt / resume）
+    </Text>
   </Box>
 
   <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

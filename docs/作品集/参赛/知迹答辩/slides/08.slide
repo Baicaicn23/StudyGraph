@@ -4,101 +4,57 @@
   <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
   <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
 
-  <Box style={{ position: 'absolute', left: 76, top: 96, width: 1128 }}>
-    <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>八个模块，决定它是系统还是原型</Text>
-    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>这些不是"有更好"，而是"缺一项就不算能交付的工程系统"</Text>
+  <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128 }}>
+    <Text style={{ fontSize: 33, fontWeight: 'bold', color: '#0E3F8C' }}>走一遍真实使用：从上传讲义到期末复习</Text>
+    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>下面这张不是画的，是系统真实界面截的图</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 196, width: 296, height: 458, flexDirection: 'column' }}>
-
-    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>工程完整度</Text>
-
-    <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#0E3F8C', lineHeight: 1.5, marginTop: 12 }}>
-      缺一项，\n就退回原型
+  <Box style={{ position: 'absolute', left: 76, top: 194, width: 660 }}>
+    <Box style={{ width: 660, height: 297, border: '1px solid #D6DCE5', borderRadius: 6, overflow: 'hidden' }}>
+      <Image src="assets/ui-knowledge.png" style={{ width: 658, height: 295, objectFit: 'cover' }} />
+    </Box>
+    <Text style={{ fontSize: 13, color: '#8B97A8', marginTop: 10 }}>
+      知识库页：左边是学科目录（7 个库），中间是资料列表（PDF 与 Word 混放），右边可以直接就着这些资料提问
     </Text>
+  </Box>
 
-    <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.8, marginTop: 12 }}>
-      只做一个能跑的对话循环，半天就够；难的是让它出错时不炸、花钱有上限、变差了能发现。下面八项各自解决一个问题。
+  <Box style={{ position: 'absolute', left: 772, top: 190, width: 432, height: 378, flexDirection: 'column' }}>
+
+    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>四步走完一遍</Text>
+
+    <Box style={{ flexDirection: 'column', marginTop: 10 }}>
+      <Box style={{ flexDirection: 'column', height: 86, borderLeft: '3px solid #1E4FA8', paddingLeft: 12 }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>一、把讲义丢进去</Text>
+        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 6 }}>
+          支持 PDF / Word / PPT / Excel，拍照的板书也能转成文字。
+        </Text>
+      </Box>
+      <Box style={{ flexDirection: 'column', height: 86, borderLeft: '3px solid #1E4FA8', paddingLeft: 12 }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>二、就着自己的资料问</Text>
+        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 6 }}>
+          回答下面标着出自哪份资料、第几页，能点开看原文。
+        </Text>
+      </Box>
+      <Box style={{ flexDirection: 'column', height: 86, borderLeft: '3px solid #1E4FA8', paddingLeft: 12 }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>三、错题记下来</Text>
+        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 6 }}>
+          顺手标个错因，之后能按错因出新题，不是随便出一道。
+        </Text>
+      </Box>
+      <Box style={{ flexDirection: 'column', height: 86, borderLeft: '3px solid #3D7BD9', paddingLeft: 12 }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>四、到期它会提醒</Text>
+        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 6 }}>
+          「今天练什么」只看该练的；学得怎么样，周报里有一页。
+        </Text>
+      </Box>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 584, width: 1128, height: 50, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14.5, color: '#FFFFFF' }}>
+      关键一点：出处能落到「第 N 页」——这才叫有据可查，不然只是「看着像」
     </Text>
-
-    <Box style={{ flexDirection: 'column', marginTop: 20, background: '#F7F9FC', borderRadius: 8, padding: 18, gap: 10 }}>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65 }}>全部八项都有对应测试，共 284 项，离线可跑。</Text>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65 }}>而且它们互相咬合：没有检查点就做不了人在环，没有权限双层就谈不上可评测。</Text>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65 }}>所以这不是八个模块的清单，是一套依赖关系。</Text>
-    </Box>
-
-  </Box>
-
-  <Box style={{ position: 'absolute', left: 412, top: 196, width: 380, height: 458, flexDirection: 'column' }}>
-
-    <Box style={{ flexDirection: 'column', height: 106 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1E4FA8' }}>01</Text>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>输入输出护栏</Text>
-      </Box>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>输入拦越界与提示词注入，输出拦空回答与系统提示词泄漏。</Text>
-    </Box>
-
-    <Box style={{ flexDirection: 'column', height: 106, marginTop: 8 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1E4FA8' }}>02</Text>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>工具超时与重试</Text>
-      </Box>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>单次超时；只对可重试错误做有限退避，失败转成工具消息而不炸回合。</Text>
-    </Box>
-
-    <Box style={{ flexDirection: 'column', height: 106, marginTop: 8 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1E4FA8' }}>03</Text>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>上下文压缩</Text>
-      </Box>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>历史过长时从整轮边界裁剪，绝不拆散"调用—结果"的配对。</Text>
-    </Box>
-
-    <Box style={{ flexDirection: 'column', height: 106, marginTop: 8 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1E4FA8' }}>04</Text>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>模型路由与预算</Text>
-      </Box>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>按意图与复杂度选档；token 记账，当日超预算直接阻止真实调用。</Text>
-    </Box>
-
-  </Box>
-
-  <Box style={{ position: 'absolute', left: 828, top: 196, width: 380, height: 458, flexDirection: 'column' }}>
-
-    <Box style={{ flexDirection: 'column', height: 106 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1E4FA8' }}>05</Text>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>MCP 客户端</Text>
-      </Box>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>自写 stdio JSON-RPC，能启动外部 server、发现工具并注册进工具表。</Text>
-    </Box>
-
-    <Box style={{ flexDirection: 'column', height: 106, marginTop: 8 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1E4FA8' }}>06</Text>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>检查点与续跑</Text>
-      </Box>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>会话可断点续跑；它同时也是"写操作先暂停"能成立的前提。</Text>
-    </Box>
-
-    <Box style={{ flexDirection: 'column', height: 106, marginTop: 8 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1E4FA8' }}>07</Text>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>回合诊断</Text>
-      </Box>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>每个回合留 trace，失败可归因到路由、检索、工具还是生成。</Text>
-    </Box>
-
-    <Box style={{ flexDirection: 'column', height: 106, marginTop: 8 }}>
-      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1E4FA8' }}>08</Text>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>评测门禁</Text>
-      </Box>
-      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>两份考卷 + 基线；改完重跑，掉出容差即返回非零，拦住提交。</Text>
-    </Box>
-
   </Box>
 
   <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
