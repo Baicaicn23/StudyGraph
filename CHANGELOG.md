@@ -3,6 +3,23 @@
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 的格式；
 里程碑（M1~M14）按功能批划分，未发布的小改动并入当前批次。
 
+## [M14.6] — 2026-10-21 · 引入 OfficeCLI 做 PPT 交付后处理
+
+调研 10 个 PPT / 设计工具（见 `docs/调研/PPT与设计工具选型调研.md`）后选定 **OfficeCLI**：
+单二进制、内置 .NET，不需要 Office / LibreOffice / python-pptx。
+
+- 新增 `scripts/ppt_postprocess.py`：写页名 → 出缩略图总览 → 校验，一条命令。
+- **修复一个此前没发现的问题**：`slidep` 生成的页标题是普通文本框，**不是 PowerPoint 标题占位符**，
+  导致大纲视图里 11 页标题全空白。改为写入 slide name（`slide_titles.json` 为唯一数据源），
+  文件自带可读大纲。**未采用** `add --type placeholder --prop phType=title`——
+  实测它会继承版式的巨大黑色标题框、盖住页面自己的标题。
+- 新增**总览自查**通道：`officecli view deck.pptx screenshot --grid 3` 一张图看完 11 页版式，
+  比逐页视觉模型检查快且不受接口限流影响。
+- 新增**定点改字**通道：`officecli query --find` 定位形状 → `set --prop text`，
+  改字不必重灌整页。
+- 脚本内置**占用检测**：文件被 WPS / PowerPoint 打开时直接拒绝执行——
+  被占用时 OfficeCLI 会报 "Updated" 却**不落盘**（页名写不进去、文件修改时间不变）。
+
 ## [M14.5] — 2026-10-20 · 检索与执行链路强化（评测集扩容 / 精排 / 抽取式摘要 / 工具并发）
 
 按"ROI 优先"做的四项改造。**先扩评测集再改代码**——否则任何改进都无法证明。

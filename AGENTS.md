@@ -86,3 +86,21 @@ uv run zhiji-demo --reset                    # 播种演示数据（含 assets/d
 - ❌ 日程×学习闭环联动（日程是独立每日规划工具）
 - ❌ 思考强度选择 UI / 自定义模型 / 模型切换（思考恒 max）
 - ❌ 对话跨项目移动（记忆按 project_id 隔离）
+
+## PPT 交付后处理（OfficeCLI，2026-10-21 起）
+答辩 PPT 由 `slidep` 生成后还有三件后处理，用 `scripts/ppt_postprocess.py` 一条命令做完：
+```bash
+uv run python scripts/ppt_postprocess.py \
+  --ppt docs/作品集/参赛/知迹答辩/知迹答辩.pptx --render /tmp/deck-grid.png
+```
+- **写页名**：`.slide` 生成的标题是普通文本框，**不是 PowerPoint 标题占位符** → 大纲视图里
+  11 页标题全空白。脚本按 `slide_titles.json` 写入 slide name，文件自带可读大纲。
+  ⚠️ **别用 `add --type placeholder --prop phType=title` 补占位符**：它会继承版式的巨大黑色
+  标题框，直接盖住我们自己的标题（已实测）。
+- **出总览自查**：`officecli view deck.pptx screenshot --grid 3 -o out.png` → 一张图看完 11 页
+  版式。**比逐页 VLM 视觉检查快且不受限流影响**，改完 PPT 先看这张。
+- **定点改字**：`officecli query deck.pptx 'textbox' --compact --find 关键词` 拿到路径 →
+  `officecli set deck.pptx '/slide[2]/shape[@id=106]' --prop text="新文字"` → **不用重灌整页**。
+- **校验**：`officecli validate deck.pptx`（文本溢出/格式不一致）。
+- ⚠️ **写入前必须关掉 WPS / PowerPoint 里的该文件**：被打开时编辑器持有写句柄，
+  命令会报 "Updated" 但**不落盘**（页名写不进去、文件修改时间不变）。脚本已内置占用检测。
