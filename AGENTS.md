@@ -98,8 +98,11 @@ uv run python scripts/make_overview_figure.py --png
 # → docs/作品集/插图/知迹方法总览/知迹-方法总览.{svg,png}
 ```
 
-- **插图必须手写 SVG，不能用生图模型** —— 这类图要清晰中文标注，模型写中文必糊。
-  生成器纯 stdlib，Chrome `--headless=new --no-sandbox` 栅格化（旧的 `--headless` 会 SIGTRAP）。
+- **插图分两类，别混**：
+  - **方法论图 / 架构图 / 带准确数字的图** → 必须手写 SVG（结构与数字要准，生图模型做不到）。
+  - **氛围插画 / 封面场景** → 可用生图模型（豆包 Seedream 4.0 中文渲染约 98%，标题可直接写进图里）。
+  - **数字永远不交给生图模型**（错一位就是编造数据），留在 PPT 里叠。
+- Chrome headless 必须 `--headless=new --no-sandbox`（旧的 `--headless` 会 SIGTRAP）。
 - **PPT 逐页配图作业单**：`docs/作品集/参赛/知迹答辩-插图交接文档.md`（16 页），
   含每页的可复制文案、配图需求、中英生图提示词、排版建议、视觉统一规范。
   后续若有人接着做 PPT，**页序以该文档为准，不要另起一套**。
