@@ -37,7 +37,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DECK = REPO_ROOT / "docs/作品集/参赛/知迹答辩/知迹答辩.pptx"
-DEFAULT_TITLES = REPO_ROOT / "docs/作品集/参赛/知迹答辩/slide_titles.json"
+DEFAULT_TITLES = REPO_ROOT / "docs/作品集/参赛/知迹答辩/slide_titles.json"  # 可选：不存在时跳过
 
 
 def _officecli() -> str:
