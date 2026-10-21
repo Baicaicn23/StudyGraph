@@ -1,0 +1,86 @@
+<Slide style={{ width: 1280, height: 720, position: 'relative', background: '#FFFFFF', fontFamily: 'PingFang SC, Hiragino Sans GB, sans-serif' }}>
+    <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 56, background: '#1E4FA8' }} />
+    <Box style={{ position: 'absolute', top: 0, left: 40, height: 56, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: 'bold' }}>知迹</Text>
+        <Box style={{ width: 1, height: 16, background: '#5B8FD9' }} />
+        <Text style={{ fontSize: 15, color: '#C9DDF5' }}>Agent 工程化实践</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 0, right: 40, height: 56, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>解法 ③ · 可度量</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 56, left: 40, width: 1200, height: 92, flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>中文资料难找，所以不只找一路</Text>
+        <Text style={{ fontSize: 19, color: '#4A5568' }}>四路并行召回 → 加权融合 → 词面精排 —— 每一步都可消融验证</Text>
+    </Box>
+
+<Box style={{ position: 'absolute', top: 168, left: 40, width: 330, height: 52, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: '0 14px', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Box style={{ width: 5, height: 30, background: '#1E4FA8' }} />
+                <Box style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0E3F8C' }}>原查询 FTS</Text>
+                    <Text style={{ fontSize: 13, color: '#8B97A8' }}>字面 trigram</Text>
+                </Box>
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1E4FA8', fontFamily: 'SF Mono, Menlo, monospace' }}>1.0</Text>
+            </Box>
+<Box style={{ position: 'absolute', top: 230, left: 40, width: 330, height: 52, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: '0 14px', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Box style={{ width: 5, height: 30, background: '#1E4FA8' }} />
+                <Box style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0E3F8C' }}>同义 / 中英扩写</Text>
+                    <Text style={{ fontSize: 13, color: '#8B97A8' }}>换个说法也能找到</Text>
+                </Box>
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1E4FA8', fontFamily: 'SF Mono, Menlo, monospace' }}>0.5</Text>
+            </Box>
+<Box style={{ position: 'absolute', top: 292, left: 40, width: 330, height: 52, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: '0 14px', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Box style={{ width: 5, height: 30, background: '#1E4FA8' }} />
+                <Box style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0E3F8C' }}>两字词 LIKE</Text>
+                    <Text style={{ fontSize: 13, color: '#8B97A8' }}>短词专门兜底</Text>
+                </Box>
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1E4FA8', fontFamily: 'SF Mono, Menlo, monospace' }}>0.8</Text>
+            </Box>
+<Box style={{ position: 'absolute', top: 354, left: 40, width: 330, height: 52, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: '0 14px', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Box style={{ width: 5, height: 30, background: '#1E4FA8' }} />
+                <Box style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#0E3F8C' }}>向量语义</Text>
+                    <Text style={{ fontSize: 13, color: '#8B97A8' }}>零字面重叠</Text>
+                </Box>
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1E4FA8', fontFamily: 'SF Mono, Menlo, monospace' }}>1.0</Text>
+            </Box>
+    <Box style={{ position: 'absolute', top: 190, left: 400, width: 220, height: 216, background: '#E8EFF8', border: '2px solid #1E4FA8', borderRadius: 10, justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0E3F8C' }}>加权 RRF</Text>
+        <Text style={{ fontSize: 15, color: '#4A5568' }}>k = 60</Text>
+        <Text style={{ fontSize: 13, color: '#8B97A8' }}>扩写路降权 0.5</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 250, left: 654, width: 190, height: 96, background: '#FFFFFF', border: '2px solid #3D7BD9', borderRadius: 8, justifyContent: 'center', alignItems: 'center', gap: 5 }}>
+        <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#0E3F8C' }}>词面精排</Text>
+        <Text style={{ fontSize: 13, color: '#8B97A8' }}>只调顺序 · 不增删候选</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 168, left: 876, width: 364, height: 240, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 16, gap: 10 }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C' }}>top-k 片段，每条带出处</Text>
+        <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.6 }}>精排权重</Text>
+        <Box style={{ gap: 6 }}>
+            <Text style={{ fontSize: 14, color: '#1A2230' }}>原查询覆盖　0.50</Text>
+            <Text style={{ fontSize: 14, color: '#1A2230' }}>扩写覆盖　　0.15</Text>
+            <Text style={{ fontSize: 14, color: '#1A2230' }}>标题命中　　0.35</Text>
+        </Box>
+        <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 5, padding: 10, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 14, color: '#0E3F8C', lineHeight: 1.6 }}>
+                35 题考卷 Hit@3 = MRR = 0.9714；关掉精排掉到 0.9571
+            </Text>
+        </Box>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 648, left: 40, width: 1200, height: 56, background: '#E8EFF8', borderTop: '2px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 12 }}>
+        <Box style={{ width: 4, height: 24, background: '#1E4FA8' }} />
+        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>「本征值」能搜到写着「特征值」的资料 —— 靠的不是运气，是多路召回与可调的权重</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', bottom: 8, left: 40, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>知迹 · 赛道十三 · 智慧教育</Text>
+    </Box>
+    <Box style={{ position: 'absolute', bottom: 8, right: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <Text style={{ fontSize: 15, color: '#1E4FA8', fontWeight: 'bold' }}>08</Text>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>/ 16</Text>
+    </Box>
+</Slide>

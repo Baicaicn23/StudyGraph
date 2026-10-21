@@ -1,0 +1,62 @@
+<Slide style={{ width: 1280, height: 720, position: 'relative', background: '#FFFFFF', fontFamily: 'PingFang SC, Hiragino Sans GB, sans-serif' }}>
+    <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 56, background: '#1E4FA8' }} />
+    <Box style={{ position: 'absolute', top: 0, left: 40, height: 56, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: 'bold' }}>知迹</Text>
+        <Box style={{ width: 1, height: 16, background: '#5B8FD9' }} />
+        <Text style={{ fontSize: 15, color: '#C9DDF5' }}>Agent 工程化实践</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 0, right: 40, height: 56, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>解法 ⑥ · 成本与约束</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 56, left: 40, width: 1200, height: 92, flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>看不见的三件事，撑住上面所有能力</Text>
+        <Text style={{ fontSize: 19, color: '#4A5568' }}>上下文、预算、护栏 —— 用户看不到，但少了任何一样系统都会垮</Text>
+    </Box>
+
+<Box style={{ position: 'absolute', top: 160, left: 40, width: 384, height: 480, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 22, flexDirection: 'column', gap: 12 }}>
+            <Box style={{ width: 46, height: 46, background: '#1E4FA8', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, color: '#FFFFFF', fontWeight: 'bold' }}>1</Text>
+            </Box>
+            <Text style={{ fontSize: 25, fontWeight: 'bold', color: '#0E3F8C' }}>上下文压缩</Text>
+            <Text style={{ fontSize: 16, color: '#3D7BD9', fontWeight: 'bold' }}>24 条上限 · 保留最近 14 条</Text>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.75 }}>只从整轮边界裁剪，不拆散「工具调用—结果」配对；摘要用抽取式，240 字以内，不额外调模型。</Text>
+            <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 5, padding: 12, justifyContent: 'center' }}>
+                <Text style={{ fontSize: 14, color: '#0E3F8C', lineHeight: 1.65 }}>拆散了模型会看到孤立的结果并报错 —— 这是踩过的坑</Text>
+            </Box>
+        </Box>
+<Box style={{ position: 'absolute', top: 160, left: 448, width: 384, height: 480, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 22, flexDirection: 'column', gap: 12 }}>
+            <Box style={{ width: 46, height: 46, background: '#1E4FA8', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, color: '#FFFFFF', fontWeight: 'bold' }}>2</Text>
+            </Box>
+            <Text style={{ fontSize: 25, fontWeight: 'bold', color: '#0E3F8C' }}>模型路由与预算</Text>
+            <Text style={{ fontSize: 16, color: '#3D7BD9', fontWeight: 'bold' }}>按意图与复杂度选档位</Text>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.75 }}>每次调用记 token，当日超预算直接阻止真实调用；简单意图走小模型，复杂请求走大模型。</Text>
+            <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 5, padding: 12, justifyContent: 'center' }}>
+                <Text style={{ fontSize: 14, color: '#0E3F8C', lineHeight: 1.65 }}>省的是不该省的地方，不是在关键处省</Text>
+            </Box>
+        </Box>
+<Box style={{ position: 'absolute', top: 160, left: 856, width: 384, height: 480, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 22, flexDirection: 'column', gap: 12 }}>
+            <Box style={{ width: 46, height: 46, background: '#1E4FA8', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, color: '#FFFFFF', fontWeight: 'bold' }}>3</Text>
+            </Box>
+            <Text style={{ fontSize: 25, fontWeight: 'bold', color: '#0E3F8C' }}>护栏</Text>
+            <Text style={{ fontSize: 16, color: '#3D7BD9', fontWeight: 'bold' }}>输入拦越界与注入 · 输出拦泄漏</Text>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.75 }}>规则写成纯函数，可单测。系统提示词与内部工具标识符出现在正文里会被拦下。</Text>
+            <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 5, padding: 12, justifyContent: 'center' }}>
+                <Text style={{ fontSize: 14, color: '#0E3F8C', lineHeight: 1.65 }}>不靠模型自觉 —— 自觉不是工程手段</Text>
+            </Box>
+        </Box>
+
+    <Box style={{ position: 'absolute', top: 648, left: 40, width: 1200, height: 56, background: '#E8EFF8', borderTop: '2px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 12 }}>
+        <Box style={{ width: 4, height: 24, background: '#1E4FA8' }} />
+        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>这三件事决定系统能撑多久 —— 而它们全都不在界面上</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', bottom: 8, left: 40, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>知迹 · 赛道十三 · 智慧教育</Text>
+    </Box>
+    <Box style={{ position: 'absolute', bottom: 8, right: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <Text style={{ fontSize: 15, color: '#1E4FA8', fontWeight: 'bold' }}>12</Text>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>/ 16</Text>
+    </Box>
+</Slide>

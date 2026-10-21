@@ -1,0 +1,86 @@
+<Slide style={{ width: 1280, height: 720, position: 'relative', background: '#FFFFFF', fontFamily: 'PingFang SC, Hiragino Sans GB, sans-serif' }}>
+    <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 56, background: '#1E4FA8' }} />
+    <Box style={{ position: 'absolute', top: 0, left: 40, height: 56, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: 'bold' }}>知迹</Text>
+        <Box style={{ width: 1, height: 16, background: '#5B8FD9' }} />
+        <Text style={{ fontSize: 15, color: '#C9DDF5' }}>Agent 工程化实践</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 0, right: 40, height: 56, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>解法 ⑤ · 学习闭环</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 56, left: 40, width: 1200, height: 92, flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>答完这一题，决定下次什么时候再见到它</Text>
+        <Text style={{ fontSize: 19, color: '#4A5568' }}>四档自评 → 掌握度增减 → 到期重排 —— 全部可复算</Text>
+    </Box>
+
+<Box style={{ position: 'absolute', top: 190, left: 700, width: 540, height: 66, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 6, flexDirection: 'row', alignItems: 'center', padding: '0 18px', gap: 14 }}>
+                <Box style={{ width: 6, height: 34, background: '#D9534F' }} />
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C', fontFamily: 'SF Mono, Menlo, monospace', width: 80 }}>again</Text>
+                <Text style={{ fontSize: 16, color: '#4A5568', width: 84 }}>忘了</Text>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#D9534F', width: 70, fontFamily: 'SF Mono, Menlo, monospace' }}>−10</Text>
+                <Text style={{ fontSize: 16, color: '#1A2230' }}>掌握度</Text>
+                <Box style={{ flex: 1 }} />
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C', fontFamily: 'SF Mono, Menlo, monospace' }}>立即</Text>
+                <Text style={{ fontSize: 14, color: '#8B97A8' }}>后再见</Text>
+            </Box>
+<Box style={{ position: 'absolute', top: 268, left: 700, width: 540, height: 66, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 6, flexDirection: 'row', alignItems: 'center', padding: '0 18px', gap: 14 }}>
+                <Box style={{ width: 6, height: 34, background: '#E5B54B' }} />
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C', fontFamily: 'SF Mono, Menlo, monospace', width: 80 }}>hard</Text>
+                <Text style={{ fontSize: 16, color: '#4A5568', width: 84 }}>有点难</Text>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#E5B54B', width: 70, fontFamily: 'SF Mono, Menlo, monospace' }}>−3</Text>
+                <Text style={{ fontSize: 16, color: '#1A2230' }}>掌握度</Text>
+                <Box style={{ flex: 1 }} />
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C', fontFamily: 'SF Mono, Menlo, monospace' }}>1 天</Text>
+                <Text style={{ fontSize: 14, color: '#8B97A8' }}>后再见</Text>
+            </Box>
+<Box style={{ position: 'absolute', top: 346, left: 700, width: 540, height: 66, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 6, flexDirection: 'row', alignItems: 'center', padding: '0 18px', gap: 14 }}>
+                <Box style={{ width: 6, height: 34, background: '#3D7BD9' }} />
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C', fontFamily: 'SF Mono, Menlo, monospace', width: 80 }}>good</Text>
+                <Text style={{ fontSize: 16, color: '#4A5568', width: 84 }}>掌握了</Text>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#3D7BD9', width: 70, fontFamily: 'SF Mono, Menlo, monospace' }}>+5</Text>
+                <Text style={{ fontSize: 16, color: '#1A2230' }}>掌握度</Text>
+                <Box style={{ flex: 1 }} />
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C', fontFamily: 'SF Mono, Menlo, monospace' }}>3 天</Text>
+                <Text style={{ fontSize: 14, color: '#8B97A8' }}>后再见</Text>
+            </Box>
+<Box style={{ position: 'absolute', top: 424, left: 700, width: 540, height: 66, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 6, flexDirection: 'row', alignItems: 'center', padding: '0 18px', gap: 14 }}>
+                <Box style={{ width: 6, height: 34, background: '#1E4FA8' }} />
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C', fontFamily: 'SF Mono, Menlo, monospace', width: 80 }}>easy</Text>
+                <Text style={{ fontSize: 16, color: '#4A5568', width: 84 }}>太简单</Text>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1E4FA8', width: 70, fontFamily: 'SF Mono, Menlo, monospace' }}>+10</Text>
+                <Text style={{ fontSize: 16, color: '#1A2230' }}>掌握度</Text>
+                <Box style={{ flex: 1 }} />
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C', fontFamily: 'SF Mono, Menlo, monospace' }}>7 天</Text>
+                <Text style={{ fontSize: 14, color: '#8B97A8' }}>后再见</Text>
+            </Box>
+    <Box style={{ position: 'absolute', top: 160, left: 40, width: 620, height: 476, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 14 }}>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0E3F8C' }}>自评 → 掌握度增减 → 到期重排</Text>
+        <Box style={{ flex: 1, background: '#FFFFFF', border: '2px solid #1E4FA8', borderRadius: 10, margin: '14px 70px', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 46, fontWeight: 'bold', color: '#0E3F8C' }}>0 – 100</Text>
+            <Text style={{ fontSize: 16, color: '#4A5568' }}>掌握度区间，夹紧不外溢</Text>
+        </Box>
+        <Box style={{ background: '#E8EFF8', borderRadius: 6, padding: 14, gap: 6 }}>
+            <Text style={{ fontSize: 15, color: '#0E3F8C', lineHeight: 1.7 }}>
+                整个排期是<b>纯函数</b>：给定当前掌握度与自评档位，算出下次到期时间。
+                不调模型、不随机 —— 所以它能被单测覆盖，也能被复算。
+            </Text>
+        </Box>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 160, left: 690, width: 550, height: 476 }}>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0E3F8C', marginBottom: 8 }}>四档自评 → 间隔</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 648, left: 40, width: 1200, height: 56, background: '#E8EFF8', borderTop: '2px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 12 }}>
+        <Box style={{ width: 4, height: 24, background: '#1E4FA8' }} />
+        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>复习计划不是模型「建议」的，是按规则算出来的 —— 同样的输入永远得到同样的排期</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', bottom: 8, left: 40, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>知迹 · 赛道十三 · 智慧教育</Text>
+    </Box>
+    <Box style={{ position: 'absolute', bottom: 8, right: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <Text style={{ fontSize: 15, color: '#1E4FA8', fontWeight: 'bold' }}>11</Text>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>/ 16</Text>
+    </Box>
+</Slide>

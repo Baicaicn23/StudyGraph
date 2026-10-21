@@ -1,0 +1,75 @@
+<Slide style={{ width: 1280, height: 720, position: 'relative', background: '#FFFFFF', fontFamily: 'PingFang SC, Hiragino Sans GB, sans-serif' }}>
+    <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 56, background: '#1E4FA8' }} />
+    <Box style={{ position: 'absolute', top: 0, left: 40, height: 56, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: 'bold' }}>知迹</Text>
+        <Box style={{ width: 1, height: 16, background: '#5B8FD9' }} />
+        <Text style={{ fontSize: 15, color: '#C9DDF5' }}>Agent 工程化实践</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 0, right: 40, height: 56, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>解法 ① · 可恢复</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 56, left: 40, width: 1200, height: 92, flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>一次学习回合，是画出来的一张图</Text>
+        <Text style={{ fontSize: 19, color: '#4A5568' }}>route → plan → agent ⇄ tools —— 循环与分支都写在明面上</Text>
+    </Box>
+
+<Box style={{ position: 'absolute', top: 214, left: 46, width: 150, height: 74, background: '#F7F9FC', border: '2px solid #1E4FA8', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#1E4FA8' }}>START</Text>
+            </Box>
+<Box style={{ position: 'absolute', top: 249, left: 199, width: 20, height: 3, background: '#1E4FA8' }} />
+            <Box style={{ position: 'absolute', top: 241, left: 215, width: 11, height: 11, background: '#1E4FA8', borderRadius: 2, transform: 'rotate(45deg)' }} />
+<Box style={{ position: 'absolute', top: 214, left: 230, width: 168, height: 74, background: '#1E4FA8', border: '2px solid #1E4FA8', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#FFFFFF' }}>route</Text>
+            </Box>
+<Box style={{ position: 'absolute', top: 249, left: 401, width: 20, height: 3, background: '#1E4FA8' }} />
+            <Box style={{ position: 'absolute', top: 241, left: 417, width: 11, height: 11, background: '#1E4FA8', borderRadius: 2, transform: 'rotate(45deg)' }} />
+<Box style={{ position: 'absolute', top: 214, left: 432, width: 168, height: 74, background: '#1E4FA8', border: '2px solid #1E4FA8', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#FFFFFF' }}>plan</Text>
+            </Box>
+<Box style={{ position: 'absolute', top: 249, left: 603, width: 20, height: 3, background: '#1E4FA8' }} />
+            <Box style={{ position: 'absolute', top: 241, left: 619, width: 11, height: 11, background: '#1E4FA8', borderRadius: 2, transform: 'rotate(45deg)' }} />
+<Box style={{ position: 'absolute', top: 214, left: 634, width: 168, height: 74, background: '#0E3F8C', border: '2px solid #1E4FA8', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#FFFFFF' }}>agent</Text>
+            </Box>
+<Box style={{ position: 'absolute', top: 249, left: 805, width: 20, height: 3, background: '#1E4FA8' }} />
+            <Box style={{ position: 'absolute', top: 241, left: 821, width: 11, height: 11, background: '#1E4FA8', borderRadius: 2, transform: 'rotate(45deg)' }} />
+<Box style={{ position: 'absolute', top: 214, left: 836, width: 168, height: 74, background: '#0E3F8C', border: '2px solid #1E4FA8', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#FFFFFF' }}>tools</Text>
+            </Box>
+<Box style={{ position: 'absolute', top: 249, left: 1007, width: 20, height: 3, background: '#1E4FA8' }} />
+            <Box style={{ position: 'absolute', top: 241, left: 1023, width: 11, height: 11, background: '#1E4FA8', borderRadius: 2, transform: 'rotate(45deg)' }} />
+<Box style={{ position: 'absolute', top: 214, left: 1038, width: 150, height: 74, background: '#F7F9FC', border: '2px solid #1E4FA8', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#1E4FA8' }}>END</Text>
+            </Box>
+    <Box style={{ position: 'absolute', top: 296, left: 560, width: 168, height: 44, borderLeft: '2px solid #3D7BD9', borderBottom: '2px solid #3D7BD9', borderRight: '2px solid #3D7BD9', borderRadius: 6, background: '#E8EFF8', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ fontSize: 16, color: '#0E3F8C', fontWeight: 'bold' }}>调用 — 回填</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 362, left: 40, width: 1200, height: 118, flexDirection: 'row', gap: 16 }}>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 6, padding: 14, gap: 5 }}>
+            <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#0E3F8C' }}>route · 判意图</Text>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.6 }}>六类意图路由到四个子智能体，每个角色带各自的工具权限</Text>
+        </Box>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 6, padding: 14, gap: 5 }}>
+            <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#0E3F8C' }}>plan · 判要不要规划</Text>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.6 }}>规则先判复杂度，简单请求直接跳过，需要才调模型（上限 5 步）</Text>
+        </Box>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 6, padding: 14, gap: 5 }}>
+            <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#0E3F8C' }}>agent ⇄ tools · 循环</Text>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.6 }}>最多 6 轮工具调用；每轮结束都写检查点，可中断可续跑</Text>
+        </Box>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 648, left: 40, width: 1200, height: 56, background: '#E8EFF8', borderTop: '2px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 12 }}>
+        <Box style={{ width: 4, height: 24, background: '#1E4FA8' }} />
+        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>状态存在图里而不是消息列表里，所以第 7 步崩了，第 6 步的检查点还在</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', bottom: 8, left: 40, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>知迹 · 赛道十三 · 智慧教育</Text>
+    </Box>
+    <Box style={{ position: 'absolute', bottom: 8, right: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <Text style={{ fontSize: 15, color: '#1E4FA8', fontWeight: 'bold' }}>05</Text>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>/ 16</Text>
+    </Box>
+</Slide>

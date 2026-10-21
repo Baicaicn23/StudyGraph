@@ -1,0 +1,81 @@
+<Slide style={{ width: 1280, height: 720, position: 'relative', background: '#FFFFFF', fontFamily: 'PingFang SC, Hiragino Sans GB, sans-serif' }}>
+    <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 56, background: '#1E4FA8' }} />
+    <Box style={{ position: 'absolute', top: 0, left: 40, height: 56, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: 'bold' }}>知迹</Text>
+        <Box style={{ width: 1, height: 16, background: '#5B8FD9' }} />
+        <Text style={{ fontSize: 15, color: '#C9DDF5' }}>Agent 工程化实践</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 0, right: 40, height: 56, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>边界 · 最该先补的</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 56, left: 40, width: 1200, height: 92, flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>记忆是最弱的一环，也是最该先补的</Text>
+        <Text style={{ fontSize: 19, color: '#4A5568' }}>六项能力里唯一的「一半」里，问题最集中的地方</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 160, left: 40, width: 560, height: 476, flexDirection: 'column', gap: 14 }}>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0E3F8C' }}>记忆为什么是最弱的一环</Text>
+        <Box style={{ background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 18, gap: 10 }}>
+            <Text style={{ fontSize: 16, color: '#4A5568', lineHeight: 1.75 }}>
+                事实抽取用的是<b>正则规则</b>（只认「记住：X」「我在准备 X」这类明确句式），抽取后<b>全量注入</b>提示词。
+            </Text>
+            <Box style={{ background: '#FFF4F3', borderRadius: 5, padding: 12 }}>
+                <Text style={{ fontSize: 15, color: '#D9534F', lineHeight: 1.7 }}>
+                    表里只有 created_at，没有有效状态。<br />
+                    大二说「我在准备四级」、大三说「我在准备考研」——<br />
+                    两条会同时注入，模型两件都当真。
+                </Text>
+            </Box>
+        </Box>
+        <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 8, padding: 18, gap: 8, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#0E3F8C' }}>用得越久越脏</Text>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.75 }}>
+                记忆是无条件注入的，过期记忆会污染每一次对话。LongMemEval（ICLR 2025）的结论也是
+                「简单记忆设计在时间推理上表现差」—— 这正是要补的短板。
+            </Text>
+        </Box>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 160, left: 620, width: 620, height: 476, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 14 }}>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0E3F8C' }}>记忆生命周期：三个状态</Text>
+        <Box style={{ gap: 10 }}>
+            <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 12, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 14 }}>
+                <Box style={{ width: 88, height: 40, background: '#1E4FA8', borderRadius: 5, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>有效</Text>
+                </Box>
+                <Text style={{ fontSize: 15, color: '#4A5568', flex: 1 }}>当前成立、参与注入</Text>
+            </Box>
+            <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 12, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 14 }}>
+                <Box style={{ width: 88, height: 40, background: '#E5B54B', borderRadius: 5, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>被替代</Text>
+                </Box>
+                <Text style={{ fontSize: 15, color: '#4A5568', flex: 1 }}>同类新事实写入时，旧的自动让位</Text>
+            </Box>
+            <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 12, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 14 }}>
+                <Box style={{ width: 88, height: 40, background: '#8B97A8', borderRadius: 5, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>失效</Text>
+                </Box>
+                <Text style={{ fontSize: 15, color: '#4A5568', flex: 1 }}>到期或长期未被引用，不再注入</Text>
+            </Box>
+        </Box>
+        <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 6, padding: 16, justifyContent: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#0E3F8C' }}>注入也要按需</Text>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.7 }}>
+                不全量拼进提示词，而是复用项目里已有的四路召回，只取与当前问题相关的几条。
+            </Text>
+        </Box>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 648, left: 40, width: 1200, height: 56, background: '#E8EFF8', borderTop: '2px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 12 }}>
+        <Box style={{ width: 4, height: 24, background: '#1E4FA8' }} />
+        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>下一步① 任务级评测　② 记忆的过期与删除　③ 更难的检索考卷 —— 都能在现有门禁里验证</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', bottom: 8, left: 40, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>知迹 · 赛道十三 · 智慧教育</Text>
+    </Box>
+    <Box style={{ position: 'absolute', bottom: 8, right: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <Text style={{ fontSize: 15, color: '#1E4FA8', fontWeight: 'bold' }}>15</Text>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>/ 16</Text>
+    </Box>
+</Slide>

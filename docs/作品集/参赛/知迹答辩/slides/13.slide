@@ -1,0 +1,85 @@
+<Slide style={{ width: 1280, height: 720, position: 'relative', background: '#FFFFFF', fontFamily: 'PingFang SC, Hiragino Sans GB, sans-serif' }}>
+    <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 56, background: '#1E4FA8' }} />
+    <Box style={{ position: 'absolute', top: 0, left: 40, height: 56, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: 'bold' }}>知迹</Text>
+        <Box style={{ width: 1, height: 16, background: '#5B8FD9' }} />
+        <Text style={{ fontSize: 15, color: '#C9DDF5' }}>Agent 工程化实践</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 0, right: 40, height: 56, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>证据 · 怎么判断今天没比昨天变笨</Text>
+    </Box>
+    <Box style={{ position: 'absolute', top: 56, left: 40, width: 1200, height: 92, flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>怎么证明它没坏</Text>
+        <Text style={{ fontSize: 19, color: '#4A5568' }}>不是「我觉得挺准」，是每次改动都能复跑同一份考卷</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 162, left: 40, width: 1200, height: 236, flexDirection: 'row', gap: 16 }}>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 12, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#0E3F8C' }}>固定考卷</Text>
+            <Box style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                <Text style={{ fontSize: 56, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1.05 }}>35</Text>
+                <Text style={{ fontSize: 20, color: '#4A5568', marginBottom: 8 }}>题检索 + 15 句意图</Text>
+            </Box>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.7 }}>每题标注正确片段（gold），覆盖同义换词与短词考点</Text>
+        </Box>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 12, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#0E3F8C' }}>基线门禁</Text>
+            <Box style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                <Text style={{ fontSize: 56, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1.05 }}>0.05</Text>
+                <Text style={{ fontSize: 20, color: '#4A5568', marginBottom: 8 }}>容差</Text>
+            </Box>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.7 }}>掉出容差，命令返回非零 —— 能直接进提交前检查</Text>
+        </Box>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 12, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#0E3F8C' }}>当前水平</Text>
+            <Box style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                <Text style={{ fontSize: 56, fontWeight: 'bold', color: '#0E3F8C', lineHeight: 1.05 }}>0.9714</Text>
+                <Text style={{ fontSize: 20, color: '#4A5568', marginBottom: 8 }}>Hit@3 = MRR</Text>
+            </Box>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.7 }}>意图准确率 1.0；接真实向量 35 题全中</Text>
+        </Box>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 412, left: 40, width: 1200, height: 224, flexDirection: 'row', gap: 16 }}>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 10 }}>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0E3F8C' }}>消融：机制有用，当场可见</Text>
+            <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 6 }}>
+                <Box style={{ background: '#1E4FA8', borderRadius: 6, padding: '10px 18px' }}>
+                    <Text style={{ fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', fontFamily: 'SF Mono, Menlo, monospace' }}>0.9714</Text>
+                </Box>
+                <Text style={{ fontSize: 20, color: '#8B97A8' }}>→</Text>
+                <Box style={{ background: '#D9534F', borderRadius: 6, padding: '10px 18px' }}>
+                    <Text style={{ fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', fontFamily: 'SF Mono, Menlo, monospace' }}>0.9571</Text>
+                </Box>
+                <Text style={{ fontSize: 16, color: '#4A5568', flex: 1 }}>关掉词面精排，MRR 立刻掉下来 —— 不需要「我觉得更好」</Text>
+            </Box>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.7 }}>
+                评测用确定性向量（同版本任何人跑出同样分数），有基线 JSON 与容差门禁；接真实向量复验 35 题全中。
+            </Text>
+        </Box>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 10 }}>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0E3F8C' }}>还能测出「变差」吗</Text>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.75 }}>
+                目前只能测「找到没」和「分类对不对」，<b>测不了「这次复习到底有没有用」</b>。
+            </Text>
+            <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 5, padding: 12, justifyContent: 'center' }}>
+                <Text style={{ fontSize: 14, color: '#0E3F8C', lineHeight: 1.65 }}>
+                    下一步要补任务级成功率，并用 pass^k 看稳定性 —— 报 pass@1 会把「偶尔能成」包装成「稳定可用」。
+                </Text>
+            </Box>
+        </Box>
+    </Box>
+
+    <Box style={{ position: 'absolute', top: 648, left: 40, width: 1200, height: 56, background: '#E8EFF8', borderTop: '2px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 12 }}>
+        <Box style={{ width: 4, height: 24, background: '#1E4FA8' }} />
+        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>评测的价值不在分数高，在<b>分数掉了能立刻知道</b> —— 这是它能进 CI 的前提</Text>
+    </Box>
+
+    <Box style={{ position: 'absolute', bottom: 8, left: 40, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>知迹 · 赛道十三 · 智慧教育</Text>
+    </Box>
+    <Box style={{ position: 'absolute', bottom: 8, right: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <Text style={{ fontSize: 15, color: '#1E4FA8', fontWeight: 'bold' }}>13</Text>
+        <Text style={{ fontSize: 14, color: '#8B97A8' }}>/ 16</Text>
+    </Box>
+</Slide>
