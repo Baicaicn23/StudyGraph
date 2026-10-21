@@ -97,10 +97,6 @@ uv run zhiji-demo --reset                    # 播种演示数据（含 assets/d
 # 论文级方法示意图（SVG 源 + 高清 PNG）—— 改文案后重跑即可
 uv run python scripts/make_overview_figure.py --png
 # → docs/作品集/插图/知迹方法总览/知迹-方法总览.{svg,png}
-
-# 从源文档生成给豆包 Agent 的自包含提示词（改完源文档务必重跑）
-uv run python scripts/build_doubao_briefing.py
-# → docs/作品集/参赛/知迹答辩/知迹答辩-豆包Agent交接提示词.md
 ```
 
 - **唯一数据源**：`docs/作品集/参赛/知迹答辩-插图交接文档.md`（16 页规格）。
@@ -110,9 +106,9 @@ uv run python scripts/build_doubao_briefing.py
   - **氛围插画 / 封面场景** → 可用生图模型（豆包 Seedream 4.0 中文渲染约 98%，标题可直接写进图里）。
   - **数字永远不交给生图模型**（错一位就是编造数据），留在 PPT 里叠。
 - Chrome headless 必须 `--headless=new --no-sandbox`（旧的 `--headless` 会 SIGTRAP）。
-- **PPT 逐页配图规格**：`docs/作品集/参赛/知迹答辩-插图交接文档.md`（16 页，**唯一数据源**）。
-  给豆包 Agent 的自包含提示词由 `scripts/build_doubao_briefing.py` 从它生成。
-  后续若有人接着做 PPT，**页序以该文档为准，不要另起一套**。
+- **PPT 交接文档**：`docs/作品集/参赛/知迹答辩-插图交接文档.md` —— 写给**执行方（豆包 Agent）**
+  的完整规格：任务 / 背景 / 硬约束 / 16 页逐页作业单 / 视觉规范 / 执行方式 / 验收 / 数字口径。
+  后续若有人接着做 PPT，**页序与文案以该文档为准，不要另起一套**。
 - 用户偏好（已否决的别再做）：kami 纸感学术风「太空、留白多」→ 走**明亮浅色调**；
   插图要**3D 写实 / 摄影级质感**，不要扁平矢量示意图；**全篇不出现人物**。
 
