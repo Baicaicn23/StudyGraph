@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="academic-paper">
+<head>
+<meta charset="utf-8">
+<title>知迹 · 答辩汇报</title>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" id="theme-link" href="assets/themes/academic-paper.css">
+<link rel="stylesheet" href="assets/animations/animations.css">
+</head>
+<body>
+
+<div class="deck" data-themes="academic-paper,editorial-serif,swiss-grid,engineering-whiteprint,minimal-white" data-theme-base="assets/themes/">
+
+  <!-- 01 封面 -->
+  <section class="slide is-active" data-title="封面">
+    <div class="deck-header"><span class="eyebrow">知迹 · 智慧教育与智能软件类</span><span class="eyebrow">全国大学生数字媒体科技作品及创意竞赛</span></div>
+    <div class="anim-stagger-list">
+      <p class="kicker">AI 学习私教与智能复习系统</p>
+      <h1 class="h1 anim-fade-up" data-anim="fade-up">
+        整理资料，出题，<br>复习——<span class="gradient-text">三件事</span>
+      </h1>
+      <p class="lede">面向大学生的个人学习管理台。把传进来的资料变成能刷的题，<br>再按掌握度和到期时间把复习排好；AI 不擅自改你的数据。</p>
+      <div class="row wrap mt-l">
+        <span class="pill pill-accent">284 项自动测试</span>
+        <span class="pill">35 道检索题</span>
+        <span class="pill">7 个功能页面</span>
+        <span class="pill">1 个 SQLite 文件</span>
+        <span class="pill">零构建 · 可交互演示</span>
+      </div>
+    </div>
+    <div class="deck-footer"><span class="dim2">技术栈：Python · LangGraph · FastAPI + SSE · SQLite · Next.js · MCP</span><span class="slide-number" data-current="1" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>开场。</b>各位评委好，我们的作品叫「知迹」。</p>
+      <p>它其实只做三件事：<b>把学习资料整理进来</b>、<b>按资料自动出题</b>、<b>结合知识库把复习排好</b>。</p>
+      <p>接下来十分钟，我先讲这三件事在实际使用中长什么样，然后逐项讲支撑它们的技术——背景和技术是分开的，不混着讲。</p>
+      <p>右下角四个数字先放这儿：284 项自动测试、35 道检索题、7 个功能页面、全部数据装在一个 SQLite 文件里。</p>
+    </aside>
+  </section>
+
+  <!-- 02 目录 -->
+  <section class="slide" data-title="目录">
+    <p class="eyebrow">Contents · 目录</p>
+    <h2 class="h2">四段：背景、技术、应用与验证、边界</h2>
+    <p class="lede mt-s">背景只讲用户视角；技术一段一项、一页，讲清「是什么、我们怎么做的、代价是什么」。</p>
+    <div class="grid g2 mt-l anim-stagger-list" data-anim-target>
+      <div class="card">
+        <div class="row"><div class="h3 dim2" style="width:56px">01</div><div>
+          <h4>背景</h4>
+          <p class="dim">这个应用做什么、实际一周怎么用。技术是后面六页的事，这里不出现技术名词。</p>
+        </div></div>
+      </div>
+      <div class="card">
+        <div class="row"><div class="h3 dim2" style="width:56px">02</div><div>
+          <h4>技术</h4>
+          <p class="dim">回合编排 · 工具调用 · 工具权限 · 检索 · MCP · 联网搜索。每项一页。</p>
+        </div></div>
+      </div>
+      <div class="card">
+        <div class="row"><div class="h3 dim2" style="width:56px">03</div><div>
+          <h4>应用与验证</h4>
+          <p class="dim">真实界面长什么样，用什么指标验的，数字的口径是什么。</p>
+        </div></div>
+      </div>
+      <div class="card">
+        <div class="row"><div class="h3 dim2" style="width:56px">04</div><div>
+          <h4>边界与下一步</h4>
+          <p class="dim">哪些做到一半、哪些还没做，接下来按什么顺序补。</p>
+        </div></div>
+      </div>
+    </div>
+    <div class="deck-footer"><span class="dim2">知迹</span><span class="slide-number" data-current="2" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>讲一下结构。</b>背景和技术这两段是分开的，不混着讲。</p>
+      <p>背景只讲用户视角：这个应用做什么、实际一周怎么用。技术那段六项，<b>一项一页</b>。</p>
+      <p>最后是应用验证和边界——<b>边界那页我会主动说哪些没做完</b>。</p>
+    </aside>
+  </section>
+
+  <!-- 03 背景① 三件事 -->
+  <section class="slide" data-title="背景：做什么">
+    <p class="kicker">01 背景 · 要做的三件事</p>
+    <h2 class="h2">整理资料，出题，复习——三件事连起来</h2>
+    <p class="lede mt-s">三件事不是三个功能，是一条链：每一步的产出，都得成为下一步的输入。</p>
+    <div class="grid g3 mt-l anim-stagger-list" data-anim-target>
+      <div class="card">
+        <p class="eyebrow">Step 1</p>
+        <h3>整理资料</h3>
+        <p class="dim">讲义、课件、笔记、错题照片传进来，按学科分好。</p>
+        <ul class="mt-m">
+          <li>PDF / Word / PPT / Excel <b>原样秒传</b>，用到时才解析建索引</li>
+          <li>PDF 与 PPT 按页切块，<b>引用能落到具体第几页</b></li>
+          <li>拍照的板书由多模态模型转成文字，同样可被搜到</li>
+        </ul>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Step 2</p>
+        <h3>自动出题</h3>
+        <p class="dim">按你传进来的资料出题，不是随便凑一套。</p>
+        <ul class="mt-m">
+          <li>题目依据来自<b>你的资料</b>，不是模型自由发挥</li>
+          <li>上次做错的方向会<b>多出几道</b>，按错因出变式题</li>
+          <li>作答后能看<b>参考答案与关键步骤</b>，知道差在哪</li>
+        </ul>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Step 3</p>
+        <h3>结合知识库复习</h3>
+        <p class="dim">今天该练哪几题，系统排好，不用自己惦记。</p>
+        <ul class="mt-m">
+          <li>按<b>掌握度</b>与<b>到期时间</b>排「今日复习」</li>
+          <li>薄弱学科与近期误区一并汇总进来</li>
+          <li>复习时能直接翻回原文那一页，不用重新找</li>
+        </ul>
+      </div>
+    </div>
+    <div class="deck-footer"><span class="dim2">后面几页讲的是支撑这三件事的做法</span><span class="slide-number" data-current="3" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>这一页是全篇的主线</b>，后面所有技术都是为这三件事服务的。</p>
+      <p>要点在于<b>三件事是一条链</b>：周三能答出"第几页"，靠的是周一已经切好了片段；周日的题能"按错因出"，靠的是这周记下了错因。</p>
+      <p>（提示）如果评委问"这和现成的笔记软件有什么不一样"，答案在下一页。</p>
+    </aside>
+  </section>
+
+  <!-- 04 背景② 一周怎么用 -->
+  <section class="slide" data-title="背景：实际怎么用">
+    <p class="kicker">01 背景 · 实际是这样用的</p>
+    <h2 class="h2">一周里发生的事</h2>
+    <p class="lede mt-s">不是功能清单，是一个人的真实使用顺序。</p>
+    <div class="steps anim-stagger-list" data-anim-target>
+      <div class="step">
+        <div class="num">1</div>
+        <h4>周一 · 传讲义</h4>
+        <p>这周的课件、笔记、错题照片一次性丢进去，按学科分好。以后不用再翻各个平台找一份材料。</p>
+        <span class="tag">整理</span>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h4>周三 · 被问住了</h4>
+        <p>就着资料提问，答案标着出自哪份资料第几页，点开就能对。讲不清的地方当场记一条。</p>
+        <span class="tag">溯源</span>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h4>周五 · 自动出题</h4>
+        <p>按这周传的资料出题，做错的方向会多出几道；做完能看参考答案和关键步骤。</p>
+        <span class="tag">练习</span>
+      </div>
+      <div class="step">
+        <div class="num">4</div>
+        <h4>周日 · 复习排好</h4>
+        <p>到期题和薄弱学科自动排好，练完打个分，下次什么时候复习跟着掌握度走。</p>
+        <span class="tag">复盘</span>
+      </div>
+    </div>
+    <div class="card mt-l">
+      <div class="row"><div>
+        <h4>这条链上任何一步断了，后面的都接不上</h4>
+        <p class="dim">资料没切好，提问就定位不到页；错因没记下，出题就无从针对；掌握度没更新，复习就排不准。<b>下一页开始，技术就是围绕"别让链断在中间"展开的。</b></p>
+      </div></div>
+    </div>
+    <div class="deck-footer"><span class="dim2">背景段结束，技术段开始</span><span class="slide-number" data-current="4" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>用一周串起来讲，比抽象讲功能好懂。</b></p>
+      <p>周一传进去，周三问，周五出题，周日复习——<b>四步之间是有依赖的</b>，页面底部那句话就是引子。</p>
+      <p>所以下一页开始，技术要解决的就是<b>"别让这条链断在中间"</b>。</p>
+    </aside>
+  </section>
+
+  <!-- 05 技术① 回合编排 -->
+  <section class="slide" data-title="技术：回合编排">
+    <p class="kicker">02 技术 · 回合编排</p>
+    <h2 class="h2">一次学习回合，是画出来的一张图</h2>
+    <p class="lede mt-s">我们没有做成"问一句答一句"，而是把一回合拆成四个节点，每走一步都留一次档。</p>
+    <div class="grid g2 mt-l" style="align-items:start">
+      <div class="card anim-fade-left" data-anim="fade-left">
+        <h3>四个节点</h3>
+        <ul class="mt-m">
+          <li><b>route</b> — 先判这轮要干什么：讲解、练习、规划、检索、计算</li>
+          <li><b>plan</b> — 复杂任务才出计划，简单请求直接进模型，不浪费一轮规划</li>
+          <li><b>agent</b> — 模型推理，决定这一步该调哪个工具</li>
+          <li><b>tools</b> — 执行工具、把结果回填，再回到 agent 继续想</li>
+        </ul>
+        <p class="dim mt-m">节点与分支都写在图上，不藏在某个函数的 if 里。</p>
+      </div>
+      <div class="card anim-fade-right" data-anim="fade-right">
+        <h3>为什么要画成图</h3>
+        <ul class="mt-m">
+          <li>因为它<b>会中断</b> — 中途关页、下次进来要能从断的地方接着跑</li>
+          <li>因为它<b>要等人</b> — 写数据前必须停下来问一句，不能自己决定</li>
+          <li>因为它<b>会出错</b> — 哪一步出的问题要能查得到，而不是整段重跑</li>
+        </ul>
+        <p class="dim mt-m">实现上：<b>每个节点结束都落一次检查点</b>，状态存在库里，进程重启也不丢。</p>
+      </div>
+    </div>
+    <div class="row wrap mt-l">
+      <span class="pill">LangGraph 显式状态图</span>
+      <span class="pill">SQLite 检查点</span>
+      <span class="pill">中断 / 恢复</span>
+      <span class="pill">回合 trace 五层归因</span>
+    </div>
+    <div class="deck-footer"><span class="dim2">这是"断了能接着跑"和"写库前停下来问你"的共同技术前提</span><span class="slide-number" data-current="5" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>技术篇第一项。</b>关键不是用了什么框架，是<b>把一回合显式画出来</b>。</p>
+      <p>理由三条：它会中断、它要等人、它会出错。这三件事在一次性问答里没法处理。</p>
+      <p>实现上就是<b>每个节点结束落一次检查点</b>，状态存在库里。</p>
+      <p>（提示）这一页别展开太细，工具下一页专门讲。</p>
+    </aside>
+  </section>
+
+  <!-- 06 技术② 工具调用 -->
+  <section class="slide" data-title="技术：工具调用">
+    <p class="kicker">02 技术 · 工具调用</p>
+    <h2 class="h2">九个工具，模型想调哪个就调哪个</h2>
+    <p class="lede mt-s">工具是模型唯一能改变外部世界的入口，所以每个工具的契约都写死：名字、参数、例子、边界、错误行为。</p>
+    <div class="grid g2 mt-l anim-stagger-list" data-anim-target>
+      <div class="card">
+        <h4>查自己的东西</h4>
+        <p class="dim">跟"我自己的学习资料"有关的两条路。</p>
+        <ul class="mt-m">
+          <li><code>knowledge_search</code> — 查学科知识库，返回片段<b>带出处</b></li>
+          <li><code>mistake_search</code> — 查错题与误区记录，能按关键词过滤并统计同类错误频次</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>存进去</h4>
+        <p class="dim">写入的两个入口，都要过确认。</p>
+        <ul class="mt-m">
+          <li><code>save_note</code> — 把结论沉淀进某个学科库，<b>先弹确认再落库</b></li>
+          <li><code>write_file</code> — 写进文件工作区（Markdown / 文本 / 代码），同名会覆盖</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>看工作区</h4>
+        <p class="dim">让模型能看见用户自己放的文件。</p>
+        <ul class="mt-m">
+          <li><code>read_file</code> — 读取工作区里的一个文本文件</li>
+          <li><code>list_files</code> — 列出全部文件，按最近修改排序</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>问外面</h4>
+        <p class="dim">资料之外的部分，才走这条路。</p>
+        <ul class="mt-m">
+          <li><code>web_search</code> — 联网搜索（下一页细讲）</li>
+          <li><code>fetch_url</code> — 读取网页正文，自动去标签与脚本</li>
+          <li><code>calculator</code> — 计算数学表达式</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card mt-l">
+      <p><b>工具失败不炸回合。</b>单次超时 + 只对可重试错误做有限退避重试；还失败就转成一条普通工具消息告诉模型"这条路不通"，让它换条路走——整轮不会因此崩掉。</p>
+    </div>
+    <div class="deck-footer"><span class="dim2">工具数量与分工在代码里集中注册，模型的可用范围由下一页的权限决定</span><span class="slide-number" data-current="6" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>这一页讲"模型能干什么"。</b>九个工具分四类：查自己的、存进去、看工作区、问外面。</p>
+      <p>强调两点。第一，<b>每个工具的契约都写死</b>：名字、参数、例子、边界、错误行为——工具描述写不清楚，模型就会用错。第二，<b>工具失败不炸回合</b>：超时加有限重试，还失败就变成一条消息告诉模型换条路。</p>
+      <p>（提示）下一页讲权限，是这一页的延续。</p>
+    </aside>
+  </section>
+
+  <!-- 07 技术③ 工具权限 -->
+  <section class="slide" data-title="技术：工具权限">
+    <p class="kicker">02 技术 · 工具权限</p>
+    <h2 class="h2">看得见的工具，不等于跑得动的工具</h2>
+    <p class="lede mt-s">这是"AI 不会擅自改你的数据"这句话的技术兑现——它落在执行层，不落在提示词里。</p>
+    <div class="grid g2 mt-l" style="align-items:start">
+      <div class="card anim-fade-left" data-anim="fade-left">
+        <h3>第一层：模型看得见哪些</h3>
+        <ul class="mt-m">
+          <li><b>讲解 · 检索</b> — 全部工具都能用</li>
+          <li><b>练习</b> — 只给只读工具，练习时不允许写你的库</li>
+          <li><b>进度</b> — 不给任何工具</li>
+        </ul>
+        <p class="dim mt-m">按角色裁剪工具清单，不是靠提示词说"你不能用这个"。</p>
+      </div>
+      <div class="card anim-fade-right" data-anim="fade-right">
+        <h3>第二层：执行时放不放行</h3>
+        <ul class="mt-m">
+          <li><b>讲解 · 检索</b> — 放行；<b>写操作仍要经过人确认</b></li>
+          <li><b>练习</b> — 写操作直接拒绝，返回拒绝理由</li>
+          <li><b>进度</b> — 一律拦截</li>
+        </ul>
+        <p class="dim mt-m">即使模型想办法绕过清单，执行层也会挡下来。</p>
+      </div>
+    </div>
+    <div class="card mt-l">
+      <p><b>为什么两层都要有。</b>只做第一层，模型仍会说出被禁工具的名字然后调用失败；只做第二层，模型会一遍遍重试、白白烧轮次。两层一起做，"看得见"和"跑得动"才都对得上。</p>
+    </div>
+    <div class="deck-footer"><span class="dim2">还有一处：练习角色被拒写时，有回归测试断言"数据确实没被改"</span><span class="slide-number" data-current="7" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>这一页是我们产品承诺的技术兑现：AI 不会擅自改你的数据。</b></p>
+      <p>两层：<b>第一层决定模型看得见哪些工具，第二层决定执行时放不放行</b>。两层都必要——只做第一层，模型仍会说出被禁工具名然后失败；只做第二层，模型会反复重试。</p>
+      <p>还有一个细节：<b>写操作即使放行，也要经过人确认</b>——这就是下一页"停下来问一句"的来源。</p>
+    </aside>
+  </section>
+
+  <!-- 08 技术④ 检索 -->
+  <section class="slide" data-title="技术：检索">
+    <p class="kicker">02 技术 · 检索</p>
+    <h2 class="h2">中文资料难找，所以不只找一路</h2>
+    <p class="lede mt-s">四路不是堆料，每一路都对应一类实测出来的漏召回。</p>
+    <div class="grid g2 mt-l anim-stagger-list" data-anim-target>
+      <div class="card">
+        <h4>按字面找</h4>
+        <p class="dim">trigram 分词，中文按字面也能命中，不需要先分词。</p>
+        <p class="dim2 mt-s">局限：错一个字就漏</p>
+      </div>
+      <div class="card">
+        <h4>换个说法找</h4>
+        <p class="dim">走同义词表：本征值 → 特征值，queue → 队列，中英对照也在表里。</p>
+        <p class="dim2 mt-s">局限：靠词典，推断有噪声</p>
+      </div>
+      <div class="card">
+        <h4>短词兜底</h4>
+        <p class="dim">「秩」「队列」这种两个字，进不了 trigram 索引，单独走一路。</p>
+        <p class="dim2 mt-s">局限：按覆盖度排序，精度中等</p>
+      </div>
+      <div class="card">
+        <h4>按意思找</h4>
+        <p class="dim">字面全不同、意思相近仍能召回，走向量相似度。</p>
+        <p class="dim2 mt-s">局限：没有真实模型时不可靠</p>
+      </div>
+    </div>
+    <div class="card mt-l">
+      <p><b>技术上有个关键点：</b>这四路的分数单位不一样，不能直接相加，所以按名次加权融合（k=60）；融合完再补一层词面精排，看谁的原文里真的出现了你问的字、且出现在标题上。</p>
+      <p class="dim mt-s"><b>消融证据：</b>关掉精排，MRR 从 0.9714 掉到 0.9571，命中数不变——它改善的是排序，不是召回。35 道题里有 1 道是同义词题，接上真实向量模型后 35 道全对。</p>
+    </div>
+    <div class="deck-footer"><span class="dim2">引用能落到「第 N 页」，是这一层和下一层的共同产出</span><span class="slide-number" data-current="8" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>这一页讲检索。</b>四路各对应一类真实漏掉的查询：错字、同义词、两个字的专业词、换个说法问。</p>
+      <p>技术重点是：<b>四路分数单位不一样，不能直接相加</b>，所以按名次加权融合，再补一层词面精排。</p>
+      <p>证据是消融：<b>关掉精排 MRR 从 0.9714 掉到 0.9571</b>——它改善排序，不是召回。接真模型后 35 题全对。</p>
+    </aside>
+  </section>
+
+  <!-- 09 技术⑤ MCP -->
+  <section class="slide" data-title="技术：MCP">
+    <p class="kicker">02 技术 · MCP</p>
+    <h2 class="h2">接外部工具，用的是现成的标准</h2>
+    <p class="lede mt-s">MCP（Model Context Protocol）是连接 AI 应用与外部工具、数据源的一套开放标准，官方拿它类比 LSP。</p>
+    <div class="grid g2 mt-l" style="align-items:start">
+      <div class="card anim-fade-left" data-anim="fade-left">
+        <h3>我们做了什么</h3>
+        <ul class="mt-m">
+          <li><b>自己写了一个最小客户端</b> — stdio 上的 JSON-RPC，能启动外部 server、列出工具、调用工具、关闭</li>
+          <li><b>零外部依赖</b> — 不用装任何第三方 MCP 库，一个文件就能跑；缺的功能也不影响主流程</li>
+          <li><b>桥接进工具表</b> — 外部 server 的工具被发现后，转成模型能调用的工具直接注册进去</li>
+        </ul>
+      </div>
+      <div class="card anim-fade-right" data-anim="fade-right">
+        <h3>换来什么 / 代价</h3>
+        <ul class="mt-m">
+          <li><b>工具能即插即用</b> — 外部能力不用改我们的代码就能接进来</li>
+          <li><b>跨宿主可复用</b> — 别的 AI 应用也能用同一批 server</li>
+          <li><b>代价是只覆盖常用方法</b> — 完整规范还有采样、任务等扩展，我们没做，也暂时用不上</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card mt-l">
+      <p><b>为什么用现成标准，而不是自研协议：</b>自研协议没有生态，换个宿主就废掉了；MCP 已经是事实标准，接一次到处能用。<b>我们的取舍是：只做我们用得上的部分，别的明确说"没做"。</b></p>
+    </div>
+    <div class="deck-footer"><span class="dim2">外部工具接入不影响主流程：MCP 不可用时，系统照常工作</span><span class="slide-number" data-current="9" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>这一页讲 MCP。</b>先说它是什么：<b>连接 AI 应用和外部工具的一套标准</b>，官方拿它比作 LSP——以前每个编辑器都要自己实现每种语言的服务，接了 LSP 之后一次接入到处可用。</p>
+      <p>我们的做法是<b>自己写最小客户端</b>：好处零依赖、可控；代价是只覆盖常用方法，完整的规范里还有采样、任务这些扩展我们没做。</p>
+      <p>为什么不用现成库也不用自研：<b>自研没有生态，换宿主就废</b>；MCP 是事实标准，接一次到处能用。</p>
+    </aside>
+  </section>
+
+  <!-- 10 技术⑥ 联网搜索 -->
+  <section class="slide" data-title="技术：联网搜索">
+    <p class="kicker">02 技术 · 联网搜索</p>
+    <h2 class="h2">资料里没有的，才去外面找</h2>
+    <p class="lede mt-s">这是唯一一个会引入外部信息的能力，所以对它的约束也最严。</p>
+    <div class="grid g2 mt-l" style="align-items:start">
+      <div class="card anim-fade-left" data-anim="fade-left">
+        <h3>怎么用</h3>
+        <ul class="mt-m">
+          <li><b>一次给几个不同角度的问题</b> — 不是只搜一次，而是拆成 2–4 个角度各搜一遍，再把结果合起来。单一角度的搜索很容易被同一个来源占满</li>
+          <li><b>结果自动清洗</b> — 网页正文去掉标签和脚本，只留能读的文本</li>
+          <li><b>配套读页工具</b> — 搜到结果后可以再抓正文，不只看摘要</li>
+        </ul>
+      </div>
+      <div class="card anim-fade-right" data-anim="fade-right">
+        <h3>接了哪些源</h3>
+        <ul class="mt-m">
+          <li><b>DuckDuckGo · Tavily</b> — 通用搜索，海外内容多</li>
+          <li><b>必应中国 · 博查</b> — 中文内容更全</li>
+          <li><b>DeepSeek 内置搜索</b> — 接的是 DeepSeek 时自动启用，不用另配 key</li>
+        </ul>
+        <p class="dim mt-m">按配置自动选择，不需要用户逐个配。</p>
+      </div>
+    </div>
+    <div class="card mt-l">
+      <p><b>一条硬约束：</b>搜回来的内容一律标为「外部资料」，和用户自己传的资料分开——不然模型分不清哪句是"我说的"、哪句是"网上说的"，出错时也说不清责任。</p>
+    </div>
+    <div class="deck-footer"><span class="dim2">能力按需触发：用户资料里有答案时，不走联网这条路</span><span class="slide-number" data-current="10" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>这一页讲联网搜索。</b>定位很清楚：<b>用户自己的资料里没有的，才去外面找</b>。</p>
+      <p>做法上值得说：<b>不是只搜一次</b>，而是把问题拆成两到四个角度各搜一遍，再把结果合起来——单一角度很容易被同一个来源占满。</p>
+      <p>最重要的约束在页面底部：<b>搜回来的内容一律标成外部资料</b>，不和用户自己传的资料混在一起，不然模型分不清哪句是谁说的。</p>
+    </aside>
+  </section>
+
+  <!-- 11 应用与验证 -->
+  <section class="slide" data-title="应用与验证">
+    <div class="split">
+      <div class="col-img anim-fade-right" data-anim="fade-right">
+        <figure class="img-frame contain" style="--img-ratio:16/8">
+          <img src="img/ui-knowledge.png" alt="知识库页实拍">
+        </figure>
+        <p class="dim2 mt-s">知识库页实拍：左学科目录树 · 中资料列表 · 右可直接就着当前库提问</p>
+      </div>
+      <div class="col-text">
+        <p class="kicker">03 应用与验证</p>
+        <h2 class="h2">三件事在界面上是这样连起来的</h2>
+        <ul class="anim-stagger-list" data-anim-target>
+          <li><b>整理资料</b> — 传进来就按学科分好，PDF 能翻到第几页</li>
+          <li><b>自动出题</b> — 按资料出题，做错的记下错因</li>
+          <li><b>结合知识库复习</b> — 到期题和薄弱学科自动排好</li>
+          <li><b>过程留痕</b> — 每一步都能回看，出问题查得到</li>
+        </ul>
+        <div class="row wrap mt-m">
+          <span class="pill">7 个学科库</span>
+          <span class="pill">24 份资料</span>
+          <span class="pill">46 个片段</span>
+        </div>
+        <p class="dim mt-m">演示数据由脚本一键播种，可复现；真实使用需自己上传资料。</p>
+      </div>
+    </div>
+    <div class="deck-footer"><span class="dim2">验证：284 项自动测试（离线、零 API 消耗）· 35 道检索题 · 意图 15 句全对</span><span class="slide-number" data-current="11" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>这是真实界面，不是设计稿。</b>左边知识库页：学科目录树、资料列表、右侧可以直接就着当前这个库提问。</p>
+      <p>三个动作在界面上的位置是连着的：<b>传资料在知识库页、出题和练习在练习页、复习安排在今日复习和日程页</b>。</p>
+      <p>验证这块：<b>284 项自动测试全部离线、零 API 消耗</b>；检索 35 道题，意图 15 句。</p>
+      <p>（提示）被问"有真实用户吗"，如实说：目前是个人自用工具，演示数据是我们播种的。</p>
+    </aside>
+  </section>
+
+  <!-- 12 边界 -->
+  <section class="slide" data-title="边界与下一步">
+    <p class="kicker">04 边界与下一步</p>
+    <h2 class="h2">六项能力：两项达标，三项只做了一半，一项没做</h2>
+    <p class="lede mt-s">这一页是主动交代边界——写清楚缺什么，比被人问出来体面。</p>
+    <div class="card mt-l" style="padding:4px 12px">
+      <table class="t">
+        <thead><tr><th>能力项</th><th>状态</th><th>依据 / 还缺什么</th></tr></thead>
+        <tbody>
+          <tr><td>中断可恢复</td><td><b>达标</b></td><td>状态图 + 检查点 + 中断恢复，均有回归测试覆盖</td></tr>
+          <tr><td>检索准确 / 可追溯</td><td><b>达标</b></td><td>35 题考卷，接真实向量 35/35，引用精确到页</td></tr>
+          <tr><td>工具执行治理</td><td>一半</td><td>有双层权限与超时兜底，缺按参数与资源的细粒度约束</td></tr>
+          <tr><td>长上下文管理</td><td>一半</td><td>有抽取式摘要与预算控制，缺关键事实外置成结构化笔记</td></tr>
+          <tr><td>长期记忆</td><td>一半</td><td>按课程隔离、写入前确认，缺过期、替换与删除机制</td></tr>
+          <tr><td>任务级成功率评测</td><td>没做</td><td>现有考卷只测「找到没」「分类对不对」，不测「这次复习有没有用」</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="row wrap mt-l">
+      <span class="pill pill-accent">下一步 1 · 任务级成功率评测</span>
+      <span class="pill pill-accent">下一步 2 · 记忆的过期与删除</span>
+      <span class="pill pill-accent">下一步 3 · 更难的检索考卷</span>
+    </div>
+    <div class="deck-footer"><span class="dim2">三项都不需要换架构，都能在现有门禁里验证</span><span class="slide-number" data-current="12" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>这页是主动交代边界，我们希望它看起来体面。</b>六项能力：两项达标，三项只做了一半，一项没做。</p>
+      <p>三项没做全的分别是：工具的细粒度权限、上下文的结构化外置、记忆的过期与删除；完全没做的是<b>任务级评测</b>——我们现在的考卷只测"找到没""分类对不对"，不测"这次复习到底有没有用"。</p>
+      <p>下一步就按这个顺序补，<b>三项都不需要换架构</b>，在现有门禁里就能验证。</p>
+    </aside>
+  </section>
+
+  <!-- 13 收束 -->
+  <section class="slide center tc" data-title="收束">
+    <div style="max-width:980px;margin:0 auto">
+      <p class="kicker">05 收束</p>
+      <h1 class="h1 anim-fade-up" data-anim="fade-up" style="font-size:60px;line-height:1.3">
+        资料进去，题出来，<br>复习排好——<span class="gradient-text">就这三件事</span>
+      </h1>
+      <div class="divider-accent" style="margin:26px auto"></div>
+      <p class="lede" style="margin:0 auto">技术不是目的，是让这三件事靠得住的手段：找得到、出得准、复习排得对，<br>而且它不会偷偷改你的数据。</p>
+      <div class="grid g3 mt-l anim-stagger-list" data-anim-target style="text-align:left">
+        <div class="card"><h4>下一步 · 任务级评测</h4><p class="dim">从「找到没」升级到「这次复习有没有用」。</p></div>
+        <div class="card"><h4>下一步 · 记忆生命周期</h4><p class="dim">记错的东西能改、能删、过期会失效。</p></div>
+        <div class="card"><h4>下一步 · 更难的题库</h4><p class="dim">题太简单就看不出改动的好坏。</p></div>
+      </div>
+      <p class="dim2 mt-l">谢谢，欢迎提问　·　知迹 · 赛道十三</p>
+    </div>
+    <div class="deck-footer"><span class="dim2">284 项自动测试 · 35 道检索题 · 7 个功能页面</span><span class="slide-number" data-current="13" data-total="13"></span></div>
+    <aside class="notes">
+      <p><b>收尾只要一句。</b>资料进去，题出来，复习排好——就这三件事。</p>
+      <p>技术是手段：<b>找得到、出得准、复习排得对，而且不会偷偷改你的数据</b>。</p>
+      <p>还在补的三块已经写在上一页，我们不打算把它说成已经做完了。</p>
+      <p>（提示）问答最可能被问的三个问题：为什么用 LangGraph、权限为什么做两层、记忆为什么只做了一半。每个准备一段话。</p>
+    </aside>
+  </section>
+
+</div>
+
+<script src="assets/runtime.js"></script>
+</body>
+</html>
