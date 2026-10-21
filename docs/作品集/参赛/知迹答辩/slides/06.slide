@@ -2,103 +2,97 @@
 
   <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
   <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
-  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>03 · 关键实现 ① 检索</Text>
 
   <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128 }}>
-    <Text style={{ fontSize: 33, fontWeight: 'bold', color: '#0E3F8C' }}>用自己的资料回答，还告诉你「第几页」</Text>
-    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>第四个时刻：它凭什么觉得就是这一段——凭四条不同的找法，而不是一条</Text>
+    <Text style={{ fontSize: 31, fontWeight: 'bold', color: '#0E3F8C' }}>四路召回同时补上「中文短词」与「同义异名」两类漏召回</Text>
+    <Text style={{ fontSize: 15.5, color: '#4A5568', marginTop: 10 }}>四条通道不是堆料：每一条都对应一个实测过的漏召回场景，关掉任一条都能看到指标变化</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 190, width: 1128, height: 132, flexDirection: 'row' }}>
+  <Box style={{ position: 'absolute', left: 76, top: 186, width: 1128, height: 150, flexDirection: 'row' }}>
 
     <Box style={{ width: 256, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 13, color: '#8B97A8' }}>找法一</Text>
-      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>按字面找</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>你写「导数」，就直接搜这两个字。</Text>
-      <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>命中准，但怕错一个字</Text>
+      <Text style={{ fontSize: 12.5, color: '#8B97A8' }}>通道一</Text>
+      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>原查询全文</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>trigram 分词，中文也能命中</Text>
+      <Text style={{ fontSize: 12, color: '#D9534F', marginTop: 8 }}>局限：错一个字就漏</Text>
     </Box>
 
-    <Box style={{ width: 1, height: 110, background: '#E5E7EB', marginLeft: 16, marginRight: 16 }} />
+    <Box style={{ width: 1, height: 130, background: '#E5E7EB', marginLeft: 12, marginRight: 12 }} />
 
     <Box style={{ width: 256, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 13, color: '#8B97A8' }}>找法二</Text>
-      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>换个说法找</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>你问「本征值」，它知道资料里写的是「特征值」。</Text>
-      <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>救「同义不同词」</Text>
+      <Text style={{ fontSize: 12.5, color: '#8B97A8' }}>通道二</Text>
+      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>同义 / 中英扩写</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>本征值 → 特征值；queue → 队列</Text>
+      <Text style={{ fontSize: 12, color: '#D9534F', marginTop: 8 }}>局限：靠词典，推断有噪声</Text>
     </Box>
 
-    <Box style={{ width: 1, height: 110, background: '#E5E7EB', marginLeft: 16, marginRight: 16 }} />
+    <Box style={{ width: 1, height: 130, background: '#E5E7EB', marginLeft: 12, marginRight: 12 }} />
 
     <Box style={{ width: 256, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 13, color: '#8B97A8' }}>找法三</Text>
-      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>短词兜底</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>「秩」「队列」这种两个字，别的找法会漏。</Text>
-      <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>救「太短搜不到」</Text>
+      <Text style={{ fontSize: 12.5, color: '#8B97A8' }}>通道三</Text>
+      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>两字词 LIKE</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>「秩」「队列」进不了 trigram 索引</Text>
+      <Text style={{ fontSize: 12, color: '#D9534F', marginTop: 8 }}>局限：按覆盖度排序，精度中等</Text>
     </Box>
 
-    <Box style={{ width: 1, height: 110, background: '#E5E7EB', marginLeft: 16, marginRight: 16 }} />
+    <Box style={{ width: 1, height: 130, background: '#E5E7EB', marginLeft: 12, marginRight: 12 }} />
 
     <Box style={{ width: 256, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 13, color: '#8B97A8' }}>找法四</Text>
-      <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>按意思找</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.6, marginTop: 8 }}>一个字都不一样，但讲的是同一件事。</Text>
-      <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>救「换句话问」</Text>
+      <Text style={{ fontSize: 12.5, color: '#8B97A8' }}>通道四</Text>
+      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230', marginTop: 6 }}>向量语义</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>字面全不同、意思相近仍可召回</Text>
+      <Text style={{ fontSize: 12, color: '#D9534F', marginTop: 8 }}>局限：无真实模型时不可靠</Text>
     </Box>
 
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 340, width: 1128, height: 100, flexDirection: 'row', gap: 20 }}>
+  <Box style={{ position: 'absolute', left: 76, top: 356, width: 1128, height: 92, flexDirection: 'row', gap: 20 }}>
 
     <Box style={{ width: 554, flexDirection: 'column', borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
-      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>然后把四份结果「按名次」合并</Text>
-      <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.7, marginTop: 6 }}>
-        不能把四种分数直接相加——它们的单位根本不一样。只看各自排第几，再加权。
+      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>融合：只按名次加权，不把分数硬加</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65, marginTop: 6 }}>
+        关键词得分与余弦相似度单位不同，直接相加会让某一通道垄断结果。用加权名次融合（k=60），扩写通道降到 0.5。
       </Text>
     </Box>
 
     <Box style={{ width: 554, flexDirection: 'column', borderLeft: '3px solid #3D7BD9', paddingLeft: 14 }}>
-      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1A2230' }}>合并完再排一次序</Text>
-      <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.7, marginTop: 6 }}>
-        看谁的原文里真的出现了你问的字、且出现在标题上——把「看着像」的往下压。
+      <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>精排：融合后再按字面证据重排一次</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.65, marginTop: 6 }}>
+        原查询覆盖 0.50 / 扩写覆盖 0.15 / 标题命中 0.35；只调顺序，不增删候选。
       </Text>
     </Box>
 
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 458, width: 1128, height: 108, flexDirection: 'row', alignItems: 'center' }}>
-
-    <Box style={{ width: 250, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 40, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>35</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', marginTop: 6 }}>道检索题（配 21 篇资料）</Text>
-    </Box>
-
-    <Box style={{ width: 250, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 40, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>34</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', marginTop: 6 }}>道第一次就找对</Text>
-    </Box>
-
-    <Box style={{ width: 250, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 40, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>35</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', marginTop: 6 }}>道（接真实模型时全对）</Text>
-    </Box>
-
-    <Box style={{ width: 300, flexDirection: 'column', borderLeft: '1px solid #E5E7EB', paddingLeft: 18 }}>
-      <Text style={{ fontSize: 14, color: '#1A2230', lineHeight: 1.65 }}>
-        把最后一层排序关掉，成绩从 0.9714 掉到 0.9571 —— 这一层不是装饰。
-      </Text>
-    </Box>
-
+  <Box style={{ position: 'absolute', left: 76, top: 466, width: 1128, height: 40, flexDirection: 'row', alignItems: 'center', background: '#1E4FA8', borderRadius: 6, paddingLeft: 14 }}>
+    <Text style={{ fontSize: 12.5, fontWeight: 'bold', color: '#FFFFFF', width: 300 }}>消融口径（35 题 / 21 篇语料）</Text>
+    <Text style={{ fontSize: 12.5, fontWeight: 'bold', color: '#FFFFFF', width: 240 }}>Hit@3</Text>
+    <Text style={{ fontSize: 12.5, fontWeight: 'bold', color: '#FFFFFF', width: 240 }}>MRR</Text>
+    <Text style={{ fontSize: 12.5, fontWeight: 'bold', color: '#FFFFFF', width: 300 }}>说明</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 588, width: 1128, height: 50, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 14.5, color: '#FFFFFF' }}>
-      工程上叫：四路召回 + 加权名次融合（RRF）+ 词面精排；每一路都有它的「为什么」
-    </Text>
+  <Box style={{ position: 'absolute', left: 76, top: 510, width: 1128, height: 108, flexDirection: 'column' }}>
+
+    <Box style={{ flexDirection: 'row', height: 52, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 300 }}>开启精排（当前默认）</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1E4FA8', width: 240 }}>0.9714</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1E4FA8', width: 240 }}>0.9714</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', width: 300 }}>34 / 35 首次命中且全部排第 1</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 52, alignItems: 'center', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 300 }}>关闭精排（消融对照）</Text>
+      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 240 }}>0.9714</Text>
+      <Text style={{ fontSize: 13.5, color: '#D9534F', width: 240 }}>0.9571</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', width: 300 }}>命中数不变，排序质量下降</Text>
+    </Box>
+
   </Box>
 
   <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-    <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
-    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>06 / 10</Text>
+    <Text style={{ fontSize: 13, color: '#8B97A8' }}>口径：确定性词面向量下测得；接真实向量模型时 35 题全中。第 N 页出处见 p9</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>06 / 11</Text>
   </Box>
 
 </Slide>

@@ -2,70 +2,84 @@
 
   <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
   <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
-  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>01 · 背景与目标</Text>
 
   <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128 }}>
-    <Text style={{ fontSize: 33, fontWeight: 'bold', color: '#0E3F8C' }}>断了能接着聊，不用从头再问一遍</Text>
-    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>这是第一个「会出岔子的时刻」：中途关掉、网络断了，回来还在不在</Text>
+    <Text style={{ fontSize: 31, fontWeight: 'bold', color: '#0E3F8C' }}>三个时刻的共性缺口：产出无法复用，复习成本被迫翻倍</Text>
+    <Text style={{ fontSize: 15.5, color: '#4A5568', marginTop: 10 }}>问题不在「有没有工具」，而在「用完即弃」——讲义、结论、错因都没有留下可再用的形态</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 190, width: 560, height: 360, flexDirection: 'column' }}>
+  <Box style={{ position: 'absolute', left: 76, top: 190, width: 596, height: 396, flexDirection: 'column' }}>
 
-    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>打个比方</Text>
-    <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>打游戏都懂：存档、读档</Text>
+    <Text style={{ fontSize: 13.5, color: '#3D7BD9', letterSpacing: 1.5 }}>现状观察（一学期时间轴）</Text>
 
-    <Box style={{ position: 'relative', width: 520, height: 120, marginTop: 22 }}>
-      <Box style={{ position: 'absolute', left: 0, top: 52, width: 520, height: 10, background: '#E8EFF8', borderRadius: 5 }} />
-      <Box style={{ position: 'absolute', left: 150, top: 45, width: 24, height: 24, borderRadius: 12, background: '#1E4FA8' }} />
-      <Box style={{ position: 'absolute', left: 340, top: 45, width: 24, height: 24, borderRadius: 12, background: '#1E4FA8' }} />
-      <Text style={{ position: 'absolute', left: 108, top: 16, fontSize: 13, color: '#1E4FA8' }}>存档点一</Text>
-      <Text style={{ position: 'absolute', left: 298, top: 16, fontSize: 13, color: '#1E4FA8' }}>存档点二</Text>
-      <Text style={{ position: 'absolute', left: 0, top: 80, fontSize: 13, color: '#8B97A8' }}>开始</Text>
-      <Text style={{ position: 'absolute', left: 470, top: 80, fontSize: 13, color: '#8B97A8' }}>继续</Text>
-    </Box>
-
-    <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.8, marginTop: 6 }}>
-      每走完一步，它把「走到哪了」记一笔。你关掉页面、网断了，下次打开从这个点接着走，不用把前面重讲一遍。
-    </Text>
-
-  </Box>
-
-  <Box style={{ position: 'absolute', left: 700, top: 190, width: 504, height: 360, flexDirection: 'column' }}>
-
-    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>它是怎么做的</Text>
-
-    <Box style={{ flexDirection: 'column', marginTop: 8 }}>
-      <Box style={{ flexDirection: 'column', height: 108, borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
-        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 12 }}>一、你说一句</Text>
-        <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
-          它先判断这句话要干什么——是问知识点、要出题，还是让你查资料。
+    <Box style={{ flexDirection: 'column', marginTop: 10 }}>
+      <Box style={{ flexDirection: 'column', height: 118, borderLeft: '3px solid #1E4FA8', paddingLeft: 14, paddingTop: 8 }}>
+        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230' }}>上课中：讲义散在三处</Text>
+        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 6 }}>
+          课程平台、聊天记录、手机相册各存一半；同一页内容要翻三个地方才能凑齐。
         </Text>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>产出状态：不可检索</Text>
       </Box>
-      <Box style={{ flexDirection: 'column', height: 108, borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
-        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 12 }}>二、它自己决定下一步</Text>
-        <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
-          查什么、调哪个工具，是它自己选的；每选一次，就把进展存一次档。
+
+      <Box style={{ flexDirection: 'column', height: 118, borderLeft: '3px solid #1E4FA8', paddingLeft: 14, paddingTop: 8 }}>
+        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230' }}>写作业：结论留在对话里</Text>
+        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 6 }}>
+          问完就走，答案没有进入任何可检索的结构；同类问题下次从零再问一遍。
         </Text>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>产出状态：不可复用</Text>
       </Box>
-      <Box style={{ flexDirection: 'column', height: 108, borderLeft: '3px solid #D9534F', paddingLeft: 14 }}>
-        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1A2230', marginTop: 12 }}>三、要动你的数据，先停下</Text>
-        <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.65, marginTop: 8 }}>
-          存笔记、记错题这类操作，会停在那里等你点确认——这也是「存档」带来的能力。
+
+      <Box style={{ flexDirection: 'column', height: 118, borderLeft: '3px solid #D9534F', paddingLeft: 14, paddingTop: 8 }}>
+        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#D9534F' }}>期末：资料在、题没有</Text>
+        <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.65, marginTop: 6 }}>
+          只能重读讲义、重翻记录；练习量不足，薄弱点无法被定位。
         </Text>
+        <Text style={{ fontSize: 12.5, color: '#8B97A8', marginTop: 6 }}>产出状态：不可练</Text>
       </Box>
     </Box>
 
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 586, width: 1128, height: 50, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 14.5, color: '#FFFFFF' }}>
-      工程上叫：回合状态图 · 检查点（断点）· 中断后恢复（interrupt / resume）
+  <Box style={{ position: 'absolute', left: 712, top: 190, width: 492, height: 396, flexDirection: 'column' }}>
+
+    <Text style={{ fontSize: 13.5, color: '#3D7BD9', letterSpacing: 1.5 }}>由此定义四个可验证目标</Text>
+
+    <Box style={{ flexDirection: 'column', marginTop: 10 }}>
+
+      <Box style={{ flexDirection: 'column', height: 88, borderBottom: '1px solid #E5E7EB', paddingTop: 8 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>G1　中断后可无损续跑</Text>
+        <Text style={{ fontSize: 12.5, color: '#4A5568', lineHeight: 1.6, marginTop: 6 }}>判据：关页 / 断网后重新进入，能从未完成处继续</Text>
+      </Box>
+
+      <Box style={{ flexDirection: 'column', height: 88, borderBottom: '1px solid #E5E7EB', paddingTop: 8 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>G2　答案可追溯到具体页</Text>
+        <Text style={{ fontSize: 12.5, color: '#4A5568', lineHeight: 1.6, marginTop: 6 }}>判据：引用带「第 N 页」，原件可打开核对</Text>
+      </Box>
+
+      <Box style={{ flexDirection: 'column', height: 88, borderBottom: '1px solid #E5E7EB', paddingTop: 8 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>G3　数据不被越权修改</Text>
+        <Text style={{ fontSize: 12.5, color: '#4A5568', lineHeight: 1.6, marginTop: 6 }}>判据：所有写操作在执行层被拦，且在用户确认后落库</Text>
+      </Box>
+
+      <Box style={{ flexDirection: 'column', height: 88, paddingTop: 8 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>G4　改动好坏可被量化</Text>
+        <Text style={{ fontSize: 12.5, color: '#4A5568', lineHeight: 1.6, marginTop: 6 }}>判据：固定考卷 + 基线，掉分自动拦截</Text>
+      </Box>
+
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 600, width: 1128, height: 46, background: '#F0F5FC', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14, color: '#1E4FA8' }}>
+      四个目标与后文一一对应：G1 → p7，G2 → p6 与 p9，G3 → p7，G4 → p8 与 p10
     </Text>
   </Box>
 
   <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
     <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
-    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>03 / 10</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>03 / 11</Text>
   </Box>
 
 </Slide>

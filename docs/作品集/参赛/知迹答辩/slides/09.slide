@@ -2,68 +2,74 @@
 
   <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
   <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
-  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>04 · 实际使用与指标</Text>
 
   <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128 }}>
-    <Text style={{ fontSize: 33, fontWeight: 'bold', color: '#0E3F8C' }}>六件事：两件做好、三件半成、一件没做</Text>
-    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>这一页是给自己挑毛病——说清哪里还没做好，比说自己很强更可信</Text>
+    <Text style={{ fontSize: 31, fontWeight: 'bold', color: '#0E3F8C' }}>四步走完一个学习周期：入库、溯源、记错因、到期复习</Text>
+    <Text style={{ fontSize: 15.5, color: '#4A5568', marginTop: 10 }}>左图为系统真实界面（非设计稿）：7 个学科库、24 份资料、46 个可检索片段</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 192, width: 1128, height: 36, flexDirection: 'row', alignItems: 'center', background: '#F0F5FC', borderRadius: 6, paddingLeft: 14 }}>
-    <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#0E3F8C', width: 430 }}>事项</Text>
-    <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#0E3F8C', width: 110 }}>状态</Text>
-    <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#0E3F8C', width: 545 }}>依据 / 还差什么</Text>
-  </Box>
-
-  <Box style={{ position: 'absolute', left: 76, top: 232, width: 1128, height: 348, flexDirection: 'column' }}>
-
-    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
-      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>断了能接上（可恢复执行）</Text>
-      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1E4FA8', width: 110 }}>做好</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>状态图 + 断点存档；中断恢复有专门的测试</Text>
+  <Box style={{ position: 'absolute', left: 76, top: 190, width: 640 }}>
+    <Box style={{ width: 640, height: 288, border: '1px solid #D6DCE5', borderRadius: 6, overflow: 'hidden' }}>
+      <Image src="assets/ui-knowledge.png" style={{ width: 638, height: 286, objectFit: 'cover' }} />
     </Box>
-
-    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
-      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>找资料准（混合检索）</Text>
-      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1E4FA8', width: 110 }}>做好</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>35 道题考卷；接真实模型时 35 道全对</Text>
-    </Box>
-
-    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
-      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>动作可控（工具治理）</Text>
-      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#BA7517', width: 110 }}>半成</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>权限两道 + 超时兜底；还缺「按具体参数」的细权限</Text>
-    </Box>
-
-    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
-      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>长对话记得住（上下文压缩）</Text>
-      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#BA7517', width: 110 }}>半成</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>有 240 字纪要；还没做「关键事实外置成笔记」</Text>
-    </Box>
-
-    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
-      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>记得住人（长期记忆）</Text>
-      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#BA7517', width: 110 }}>半成</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>按课程分开存 + 写入前确认；缺「过期与删除」</Text>
-    </Box>
-
-    <Box style={{ flexDirection: 'row', alignItems: 'center', height: 58, paddingLeft: 14 }}>
-      <Text style={{ fontSize: 14.5, color: '#1A2230', width: 430 }}>整次会话算不算成功（任务级评测）</Text>
-      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#D9534F', width: 110 }}>没做</Text>
-      <Text style={{ fontSize: 13.5, color: '#4A5568', width: 545 }}>现在只测「找到没」「分类对不对」，不测「这轮有用没」</Text>
-    </Box>
-
-  </Box>
-
-  <Box style={{ position: 'absolute', left: 76, top: 596, width: 1128, height: 50, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 14.5, color: '#FFFFFF' }}>
-      所以下一步不是继续加功能，而是把第 5、6 件补上——一个决定「记得对」，一个决定「测得出」
+    <Text style={{ fontSize: 12, color: '#8B97A8', marginTop: 8 }}>
+      知识库页：左学科目录、中资料列表（PDF 与 Word 并列）、右可直接就着当前库提问
     </Text>
   </Box>
 
+  <Box style={{ position: 'absolute', left: 748, top: 190, width: 456, height: 336, flexDirection: 'column' }}>
+
+    <Box style={{ flexDirection: 'column', height: 82, borderLeft: '3px solid #1E4FA8', paddingLeft: 12, paddingTop: 4 }}>
+      <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>一、讲义入库</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', lineHeight: 1.6, marginTop: 5 }}>PDF / Word / PPT / Excel 秒传；板书照片经视觉转写后入库</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'column', height: 82, borderLeft: '3px solid #1E4FA8', paddingLeft: 12, paddingTop: 4 }}>
+      <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>二、就着资料提问</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', lineHeight: 1.6, marginTop: 5 }}>回答标注出自哪份资料、第几页；原件可内联打开核对</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'column', height: 82, borderLeft: '3px solid #1E4FA8', paddingLeft: 12, paddingTop: 4 }}>
+      <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>三、错题按错因归档</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', lineHeight: 1.6, marginTop: 5 }}>概念混淆 / 步骤遗漏 / 条件误读 / 计算失误 / 表述不清</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'column', height: 82, borderLeft: '3px solid #3D7BD9', paddingLeft: 12, paddingTop: 4 }}>
+      <Text style={{ fontSize: 14.5, fontWeight: 'bold', color: '#1A2230' }}>四、到期自动复盘</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', lineHeight: 1.6, marginTop: 5 }}>今日复习只列到期题与薄弱学科；日程负责"什么时候做"</Text>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 500, width: 1128, height: 24, flexDirection: 'row', alignItems: 'center', background: '#F0F5FC', borderRadius: 6, paddingLeft: 14 }}>
+    <Text style={{ fontSize: 12.5, fontWeight: 'bold', color: '#1E4FA8', width: 220 }}>演示数据规模</Text>
+    <Text style={{ fontSize: 12.5, color: '#4A5568', width: 280 }}>7 个学科库 / 24 份资料</Text>
+    <Text style={{ fontSize: 12.5, color: '#4A5568', width: 280 }}>46 个检索片段（全部带出处）</Text>
+    <Text style={{ fontSize: 12.5, color: '#4A5568', width: 320 }}>5 门课程 / 7 条误区 / 3 条日程</Text>
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 540, width: 1128, height: 70, flexDirection: 'row', gap: 20 }}>
+
+    <Box style={{ width: 554, flexDirection: 'column', borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1A2230' }}>可核验的出处</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', lineHeight: 1.65, marginTop: 5 }}>
+        PDF 与 PPT 按页切块，引用精确到「第 N 页」——这是"有据可查"与"看着像"的分界。
+      </Text>
+    </Box>
+
+    <Box style={{ width: 554, flexDirection: 'column', borderLeft: '3px solid #3D7BD9', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1A2230' }}>可复现的过程</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', lineHeight: 1.65, marginTop: 5 }}>
+        每个回合的步骤流与工具调用都留痕，可回放、可归因，不依赖演讲者记忆。
+      </Text>
+    </Box>
+
+  </Box>
+
   <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-    <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
-    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>09 / 10</Text>
+    <Text style={{ fontSize: 13, color: '#8B97A8' }}>截图取自演示数据（zhiji-demo --reset 可重建同一份数据）</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>09 / 11</Text>
   </Box>
 
 </Slide>

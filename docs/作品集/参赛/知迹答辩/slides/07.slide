@@ -2,79 +2,96 @@
 
   <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
   <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
-  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>03 · 关键实现 ② 执行边界</Text>
 
   <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128 }}>
-    <Text style={{ fontSize: 33, fontWeight: 'bold', color: '#0E3F8C' }}>改完有没有变笨，看指标，不看感觉</Text>
-    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>第五个时刻：改了一行代码，怎么知道没把原来好的地方弄坏</Text>
+    <Text style={{ fontSize: 31, fontWeight: 'bold', color: '#0E3F8C' }}>检查点负责「接着跑」，权限两层负责「改不了」</Text>
+    <Text style={{ fontSize: 15.5, color: '#4A5568', marginTop: 10 }}>这两件事都落在执行层：不是提示词嘱咐，而是流程上过不去</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 190, width: 600, height: 378, flexDirection: 'column' }}>
+  <Box style={{ position: 'absolute', left: 76, top: 190, width: 560, height: 270, flexDirection: 'column' }}>
 
-    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>打个比方 · 体检</Text>
+    <Text style={{ fontSize: 13.5, color: '#3D7BD9', letterSpacing: 1.5 }}>可恢复：三个必要件</Text>
 
-    <Box style={{ flexDirection: 'column', marginTop: 12 }}>
-      <Box style={{ flexDirection: 'column', height: 112, borderLeft: '3px solid #D9534F', paddingLeft: 14 }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#D9534F', marginTop: 10 }}>靠感觉</Text>
-        <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
-          「我觉得好像差不多」——改一个词、换个模型，就悄悄变差了，没人发现。
-        </Text>
+    <Box style={{ flexDirection: 'column', marginTop: 10 }}>
+      <Box style={{ flexDirection: 'column', height: 78, borderLeft: '3px solid #1E4FA8', paddingLeft: 12, paddingTop: 6 }}>
+        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>检查点：每步结束落一次状态</Text>
+        <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6, marginTop: 5 }}>存在 SQLite，与消息一起持久化，进程重启也不丢</Text>
       </Box>
-      <Box style={{ flexDirection: 'column', height: 112, borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1E4FA8', marginTop: 10 }}>靠一套固定指标 + 红线</Text>
-        <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
-          每次改完都跑同一套题，和上次的成绩比；掉出允许范围就报错，不让你提交。
-        </Text>
+      <Box style={{ flexDirection: 'column', height: 78, borderLeft: '3px solid #1E4FA8', paddingLeft: 12, paddingTop: 6 }}>
+        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>中断：写操作前主动暂停</Text>
+        <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6, marginTop: 5 }}>图停在中断点，等待用户确认，而非直接执行</Text>
       </Box>
-      <Box style={{ flexDirection: 'column', height: 112, borderLeft: '3px solid #3D7BD9', paddingLeft: 14 }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>所以我们有两套题</Text>
-        <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
-          一套看「代码有没有坏」，一套看「找资料准不准」，各自有各自的红线。
-        </Text>
+      <Box style={{ flexDirection: 'column', height: 78, borderLeft: '3px solid #1E4FA8', paddingLeft: 12, paddingTop: 6 }}>
+        <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2230' }}>恢复：从检查点继续</Text>
+        <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.6, marginTop: 5 }}>确认后按原路径续跑，无需重放整段对话</Text>
       </Box>
     </Box>
 
   </Box>
 
-  <Box style={{ position: 'absolute', left: 740, top: 190, width: 464, height: 378, flexDirection: 'column' }}>
+  <Box style={{ position: 'absolute', left: 700, top: 190, width: 504, height: 276, flexDirection: 'column' }}>
 
-    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>我们现在跑的三件事</Text>
+    <Text style={{ fontSize: 13.5, color: '#3D7BD9', letterSpacing: 1.5 }}>权限两层：看得见 ≠ 跑得动</Text>
 
-    <Box style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 14 }}>
-      <Text style={{ fontSize: 56, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>284</Text>
-      <Text style={{ fontSize: 14.5, color: '#4A5568', paddingBottom: 6, paddingLeft: 8 }}>项自动自测</Text>
+    <Box style={{ flexDirection: 'row', height: 34, alignItems: 'center', background: '#1E4FA8', borderRadius: 4, paddingLeft: 10, marginTop: 10 }}>
+      <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#FFFFFF', width: 120 }}>子角色</Text>
+      <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#FFFFFF', width: 190 }}>模型可见工具</Text>
+      <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#FFFFFF', width: 160 }}>执行层处置</Text>
     </Box>
-    <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.7, marginTop: 6 }}>
-      不联网、不花钱，改完就跑一遍——这是「代码没坏」的底线。
-    </Text>
 
-    <Box style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 18 }}>
-      <Text style={{ fontSize: 56, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1 }}>35</Text>
-      <Text style={{ fontSize: 14.5, color: '#4A5568', paddingBottom: 6, paddingLeft: 8 }}>道检索题</Text>
+    <Box style={{ flexDirection: 'row', height: 52, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 10 }}>
+      <Text style={{ fontSize: 12.5, color: '#1A2230', width: 120 }}>讲解 / 检索</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', width: 190 }}>全部工具</Text>
+      <Text style={{ fontSize: 12.5, color: '#1E4FA8', width: 160 }}>放行（写需确认）</Text>
     </Box>
-    <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.7, marginTop: 6 }}>
-      配 21 篇资料，覆盖同义词、中英混问、两个字短词这些真实情况。
-    </Text>
 
-    <Box style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 18 }}>
-      <Text style={{ fontSize: 56, fontWeight: 'bold', color: '#D9534F', lineHeight: 1 }}>0.05</Text>
-      <Text style={{ fontSize: 14.5, color: '#4A5568', paddingBottom: 6, paddingLeft: 8 }}>分的红线</Text>
+    <Box style={{ flexDirection: 'row', height: 52, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 10 }}>
+      <Text style={{ fontSize: 12.5, color: '#1A2230', width: 120 }}>练习</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', width: 190 }}>只读工具</Text>
+      <Text style={{ fontSize: 12.5, color: '#D9534F', width: 160 }}>写操作直接拒绝</Text>
     </Box>
-    <Text style={{ fontSize: 13.5, color: '#4A5568', lineHeight: 1.7, marginTop: 6 }}>
-      成绩掉超过 0.05 就报错——不是提醒，是直接拦下来。
+
+    <Box style={{ flexDirection: 'row', height: 52, alignItems: 'center', paddingLeft: 10 }}>
+      <Text style={{ fontSize: 12.5, color: '#1A2230', width: 120 }}>进度</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', width: 190 }}>无工具</Text>
+      <Text style={{ fontSize: 12.5, color: '#D9534F', width: 160 }}>一律拦截</Text>
+    </Box>
+
+    <Text style={{ fontSize: 12.5, color: '#8B97A8', lineHeight: 1.6, marginTop: 8 }}>
+      为什么必须两层：只遮列表，模型仍会说出被禁工具名而失败；只拦执行，模型会反复重试浪费轮数。
     </Text>
 
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 580, width: 1128, height: 50, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 14.5, color: '#FFFFFF' }}>
-      工程上叫：固定考卷 + 基线 + 容差 + 消融开关（关掉某一层，看成绩掉多少）
+  <Box style={{ position: 'absolute', left: 76, top: 470, width: 1128, height: 82, background: '#F0F5FC', borderRadius: 8, flexDirection: 'row', alignItems: 'center', paddingLeft: 20, paddingRight: 20 }}>
+
+    <Text style={{ fontSize: 12.5, color: '#3D7BD9', width: 78 }}>写操作</Text>
+    <Text style={{ fontSize: 13, color: '#1A2230', width: 150 }}>模型发起落库</Text>
+
+    <Text style={{ fontSize: 13, color: '#3D7BD9', width: 30 }}>→</Text>
+    <Text style={{ fontSize: 12.5, color: '#3D7BD9', width: 78 }}>第 2 步</Text>
+    <Text style={{ fontSize: 13, color: '#1A2230', width: 190 }}>图在中断点暂停</Text>
+
+    <Text style={{ fontSize: 13, color: '#3D7BD9', width: 30 }}>→</Text>
+    <Text style={{ fontSize: 12.5, color: '#3D7BD9', width: 78 }}>第 3 步</Text>
+    <Text style={{ fontSize: 13, color: '#1A2230', width: 190 }}>用户点确认</Text>
+
+    <Text style={{ fontSize: 13, color: '#3D7BD9', width: 30 }}>→</Text>
+    <Text style={{ fontSize: 12.5, color: '#3D7BD9', width: 78 }}>第 4 步</Text>
+    <Text style={{ fontSize: 13, color: '#1A2230', width: 170 }}>从检查点恢复并落库</Text>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 568, width: 1128, height: 46, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14, color: '#FFFFFF' }}>
+      证据：状态图 + 检查点 + 中断恢复均有回归测试；练习角色调用写工具时，执行层返回拒绝，数据未被修改
     </Text>
   </Box>
 
   <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
     <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
-    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>07 / 10</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>07 / 11</Text>
   </Box>
 
 </Slide>

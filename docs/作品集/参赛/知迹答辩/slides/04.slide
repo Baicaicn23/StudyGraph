@@ -2,80 +2,75 @@
 
   <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
   <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
-  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>赛道十三 · 智慧教育</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>02 · 技术选型与架构</Text>
 
   <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128 }}>
-    <Text style={{ fontSize: 33, fontWeight: 'bold', color: '#0E3F8C' }}>能看什么、能改什么，事先就划好了</Text>
-    <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 10 }}>第二个时刻：它想动手的时候，靠什么拦住——不是靠嘱咐它「别乱改」</Text>
+    <Text style={{ fontSize: 31, fontWeight: 'bold', color: '#0E3F8C' }}>选型原则是「零运维、可离线、可评测」，不是追新</Text>
+    <Text style={{ fontSize: 15.5, color: '#4A5568', marginTop: 10 }}>每一层都写清「承担什么」与「为什么不用更常见的替代方案」，便于评审追问</Text>
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 190, width: 560, height: 372, flexDirection: 'column' }}>
+  <Box style={{ position: 'absolute', left: 76, top: 186, width: 1128, height: 40, flexDirection: 'row', alignItems: 'center', background: '#1E4FA8', borderRadius: 6, paddingLeft: 14 }}>
+    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', width: 130 }}>层次</Text>
+    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', width: 250 }}>选型</Text>
+    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', width: 320 }}>承担什么</Text>
+    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', width: 390 }}>为什么不选更常见的替代方案</Text>
+  </Box>
 
-    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>打个比方 · 公司门禁有两道</Text>
+  <Box style={{ position: 'absolute', left: 76, top: 230, width: 1128, height: 354, flexDirection: 'column' }}>
 
-    <Box style={{ flexDirection: 'column', marginTop: 12 }}>
-      <Box style={{ flexDirection: 'column', height: 108, borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>第一道：名单</Text>
-        <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
-          不在名单上的门，它连「有这扇门」都不知道——工具列表按角色裁过，被禁的根本不出现。
-        </Text>
-      </Box>
-      <Box style={{ flexDirection: 'column', height: 108, borderLeft: '3px solid #1E4FA8', paddingLeft: 14 }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>第二道：钥匙</Text>
-        <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
-          就算它硬要开一扇没权限的门，真到执行那一步也会被拒——这一层它绕不过去。
-        </Text>
-      </Box>
-      <Box style={{ flexDirection: 'column', height: 108, borderLeft: '3px solid #3D7BD9', paddingLeft: 14 }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1A2230', marginTop: 10 }}>所以那句话成立</Text>
-        <Text style={{ fontSize: 14.5, color: '#4A5568', lineHeight: 1.7, marginTop: 8 }}>
-          「AI 不会擅自改你的数据」不是写在提示词里的请求，是流程上过不去。
-        </Text>
-      </Box>
+    <Box style={{ flexDirection: 'row', height: 58, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 130 }}>编排</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1E4FA8', width: 250 }}>LangGraph 显式状态图</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 320 }}>回合路由、工具循环、检查点、中断恢复</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 390 }}>自研状态机要重复实现断点与中断，成本更高</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 58, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 130 }}>服务</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1E4FA8', width: 250 }}>FastAPI + SSE</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 320 }}>流式下发步骤、回传人工确认结果</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 390 }}>同步框架难以做到「边算边推」，过程不可见</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 58, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 130 }}>存储</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1E4FA8', width: 250 }}>SQLite（FTS5 + 向量表）</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 320 }}>单文件承载全部业务数据与检索索引</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 390 }}>换 MySQL 会牺牲中文检索与离线演示，收益为零</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 58, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 130 }}>检索</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1E4FA8', width: 250 }}>trigram 全文 + 向量 + LIKE + 加权 RRF</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 320 }}>中文短词、同义异名、语义近似的多路覆盖</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 390 }}>纯向量会漏专有名词与两字词，纯关键词漏同义</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 58, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 130 }}>前端</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1E4FA8', width: 250 }}>Next.js 16（App Router）</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 320 }}>页面路由、流式渲染、交互态管理</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 390 }}>纯 SPA 处理流式与多页状态更绕</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 58, alignItems: 'center', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 130 }}>工具协议</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1E4FA8', width: 250 }}>MCP（自写 stdio 客户端）</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 320 }}>外部工具即插即用、跨宿主复用</Text>
+      <Text style={{ fontSize: 13, color: '#4A5568', width: 390 }}>自研协议没有生态，也谈不上复用</Text>
     </Box>
 
   </Box>
 
-  <Box style={{ position: 'absolute', left: 700, top: 190, width: 504, height: 372, flexDirection: 'column' }}>
-
-    <Text style={{ fontSize: 14, color: '#3D7BD9', letterSpacing: 1.5 }}>具体分三种处置</Text>
-
-    <Box style={{ flexDirection: 'column', marginTop: 12, gap: 12 }}>
-
-      <Box style={{ flexDirection: 'column', height: 96, background: '#F7F9FC', borderRadius: 8, padding: 14 }}>
-        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1E4FA8' }}>能读能算</Text>
-        <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.65, marginTop: 6 }}>
-          查你的资料、看你的错题、做一次计算——这些随时可以。
-        </Text>
-      </Box>
-
-      <Box style={{ flexDirection: 'column', height: 96, background: '#F7F9FC', borderRadius: 8, padding: 14 }}>
-        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1E4FA8' }}>只能读</Text>
-        <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.65, marginTop: 6 }}>
-          练习模式下不许往你的库里写东西；它连写的能力都没有。
-        </Text>
-      </Box>
-
-      <Box style={{ flexDirection: 'column', height: 96, background: '#F0F5FC', borderRadius: 8, padding: 14 }}>
-        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#D9534F' }}>要你签字</Text>
-        <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.65, marginTop: 6 }}>
-          存笔记、记错题之前，会停下来弹一句「要存吗」，你点了才写。
-        </Text>
-      </Box>
-
-    </Box>
-
-  </Box>
-
-  <Box style={{ position: 'absolute', left: 76, top: 590, width: 1128, height: 50, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 14.5, color: '#FFFFFF' }}>
-      工程上叫：工具权限双层——「模型看得见哪些」与「真正能不能跑」分开管
+  <Box style={{ position: 'absolute', left: 76, top: 596, width: 1128, height: 46, background: '#F0F5FC', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 14, color: '#1E4FA8' }}>
+      结果：整条链路可在离线状态跑通（测试与评测零 API 消耗），这是能反复验证的前提
     </Text>
   </Box>
 
   <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
     <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
-    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>04 / 10</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>04 / 11</Text>
   </Box>
 
 </Slide>

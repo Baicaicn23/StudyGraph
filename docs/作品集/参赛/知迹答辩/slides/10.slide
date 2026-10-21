@@ -1,78 +1,69 @@
-<Slide style={{ width: 1280, height: 720, background: '#0E3F8C', padding: 0, position: 'relative', overflow: 'hidden', fontFamily: 'PingFang SC' }}>
+<Slide style={{ width: 1280, height: 720, background: '#FFFFFF', padding: 0, position: 'relative', fontFamily: 'PingFang SC' }}>
 
-  <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 6, background: '#3D7BD9' }} />
+  <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 64, background: '#1E4FA8' }} />
+  <Text style={{ position: 'absolute', left: 76, top: 21, fontSize: 15, color: '#C9D8EF', letterSpacing: 1 }}>知迹 · 答辩汇报</Text>
+  <Text style={{ position: 'absolute', left: 1010, top: 21, width: 194, textAlign: 'right', fontSize: 15, color: '#C9D8EF' }}>05 · 边界与下一步</Text>
 
-  <Box style={{ position: 'absolute', left: 76, top: 88, width: 1060, flexDirection: 'column' }}>
-    <Text style={{ fontSize: 15, color: '#8FB2E0', letterSpacing: 1.2 }}>最后一句</Text>
-    <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 1.6, marginTop: 14 }}>
-      让 AI 真正帮上忙，靠的不是它多聪明，而是它每一步都留痕、能被拦住、也能被复算。
+  <Box style={{ position: 'absolute', left: 76, top: 92, width: 1128 }}>
+    <Text style={{ fontSize: 31, fontWeight: 'bold', color: '#0E3F8C' }}>六项能力：两项达标、三项部分达成、一项未做</Text>
+    <Text style={{ fontSize: 15.5, color: '#4A5568', marginTop: 10 }}>主动列出未达标项与判据，便于评审核对；不以「已完成」口径描述半成品</Text>
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 186, width: 1128, height: 34, flexDirection: 'row', alignItems: 'center', background: '#F0F5FC', borderRadius: 6, paddingLeft: 14 }}>
+    <Text style={{ fontSize: 12.5, fontWeight: 'bold', color: '#0E3F8C', width: 420 }}>能力项</Text>
+    <Text style={{ fontSize: 12.5, fontWeight: 'bold', color: '#0E3F8C', width: 110 }}>状态</Text>
+    <Text style={{ fontSize: 12.5, fontWeight: 'bold', color: '#0E3F8C', width: 555 }}>依据 / 尚缺什么</Text>
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 224, width: 1128, height: 336, flexDirection: 'column' }}>
+
+    <Box style={{ flexDirection: 'row', height: 56, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 420 }}>中断可恢复</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1E4FA8', width: 110 }}>达标</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', width: 555 }}>状态图 + 检查点 + 中断恢复，均有回归测试</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 56, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 420 }}>检索准确性 / 可追溯</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#1E4FA8', width: 110 }}>达标</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', width: 555 }}>35 题考卷；接真实向量 35/35；引用精确到页</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 56, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 420 }}>工具执行治理</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#BA7517', width: 110 }}>部分</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', width: 555 }}>有双层权限与超时兜底；缺按参数 / 按资源的细粒度约束</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 56, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 420 }}>长上下文管理</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#BA7517', width: 110 }}>部分</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', width: 555 }}>有抽取式摘要与预算控制；缺关键事实外置成结构化笔记</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 56, alignItems: 'center', borderBottom: '1px solid #E5E7EB', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 420 }}>长期记忆</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#BA7517', width: 110 }}>部分</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', width: 555 }}>按课程隔离、写入前确认；缺过期、替换与删除机制</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 56, alignItems: 'center', paddingLeft: 14 }}>
+      <Text style={{ fontSize: 13.5, color: '#1A2230', width: 420 }}>任务级成功率评测</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: 'bold', color: '#D9534F', width: 110 }}>未做</Text>
+      <Text style={{ fontSize: 12.5, color: '#4A5568', width: 555 }}>现有考卷只测「找到没 / 分类对不对」，不测「本次会话是否达成目标」</Text>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', left: 76, top: 576, width: 1128, height: 46, background: '#0E3F8C', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 13.5, color: '#FFFFFF' }}>
+      下一步优先级：① 任务级成功率评测（先有尺子）② 记忆生命周期 ③ 更难的检索考卷；均可在现有门禁内验证
     </Text>
-    <Box style={{ width: 96, height: 2, background: '#3D7BD9', marginTop: 20 }} />
   </Box>
 
-  <Box style={{ position: 'absolute', left: 76, top: 288, width: 1128, height: 186, flexDirection: 'row' }}>
-
-    <Box style={{ width: 336, height: 186, flexDirection: 'column', borderTop: '2px solid #3D7BD9', paddingTop: 14 }}>
-      <Text style={{ fontSize: 13, color: '#8FB2E0' }}>下一步 · 一</Text>
-      <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#FFFFFF', marginTop: 8 }}>把题出得更难</Text>
-      <Text style={{ fontSize: 13.5, color: '#B9CCE8', lineHeight: 1.7, marginTop: 10 }}>
-        现在的自测题太容易，考不出差别；题不难，后面改什么都看不出好坏。
-      </Text>
-    </Box>
-
-    <Box style={{ width: 60 }} />
-
-    <Box style={{ width: 336, height: 186, flexDirection: 'column', borderTop: '2px solid #3D7BD9', paddingTop: 14 }}>
-      <Text style={{ fontSize: 13, color: '#8FB2E0' }}>下一步 · 二</Text>
-      <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#FFFFFF', marginTop: 8 }}>让记忆能忘掉</Text>
-      <Text style={{ fontSize: 13.5, color: '#B9CCE8', lineHeight: 1.7, marginTop: 10 }}>
-        记住的东西要能改、能删、过期会失效——不然会一直用错的旧偏好回答你。
-      </Text>
-    </Box>
-
-    <Box style={{ width: 60 }} />
-
-    <Box style={{ width: 336, height: 186, flexDirection: 'column', borderTop: '2px solid #3D7BD9', paddingTop: 14 }}>
-      <Text style={{ fontSize: 13, color: '#8FB2E0' }}>下一步 · 三</Text>
-      <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#FFFFFF', marginTop: 8 }}>测「这轮有没有用」</Text>
-      <Text style={{ fontSize: 13.5, color: '#B9CCE8', lineHeight: 1.7, marginTop: 10 }}>
-        从「找到没」升级到「一次完整使用有没有达成目标」，这才是用户真正关心的。
-      </Text>
-    </Box>
-
-  </Box>
-
-  <Box style={{ position: 'absolute', left: 76, top: 502, width: 1128, height: 44, flexDirection: 'row', alignItems: 'center' }}>
-    <Text style={{ fontSize: 17, color: '#FFFFFF' }}>谢谢，欢迎提问</Text>
-    <Text style={{ fontSize: 13.5, color: '#8FB2E0', paddingLeft: 24 }}>下面是可复跑的证据</Text>
-  </Box>
-
-  <Box style={{ position: 'absolute', left: 76, top: 556, width: 1128, height: 88, background: 'rgba(255, 255, 255, 0.07)', borderRadius: 8, flexDirection: 'row', alignItems: 'center', paddingLeft: 24 }}>
-
-    <Box style={{ width: 300, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>284 项</Text>
-      <Text style={{ fontSize: 12.5, color: '#B9CCE8', marginTop: 4 }}>自动自测，离线可跑</Text>
-    </Box>
-
-    <Box style={{ width: 1, height: 46, background: '#3D7BD9', marginLeft: 12, marginRight: 22 }} />
-
-    <Box style={{ width: 300, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>35 道</Text>
-      <Text style={{ fontSize: 12.5, color: '#B9CCE8', marginTop: 4 }}>检索题，接真模型全对</Text>
-    </Box>
-
-    <Box style={{ width: 1, height: 46, background: '#3D7BD9', marginLeft: 12, marginRight: 22 }} />
-
-    <Box style={{ width: 300, flexDirection: 'column' }}>
-      <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' }}>7 个</Text>
-      <Text style={{ fontSize: 12.5, color: '#B9CCE8', marginTop: 4 }}>功能页面，全部可用</Text>
-    </Box>
-
-  </Box>
-
-  <Box style={{ position: 'absolute', bottom: 0, left: 0, width: 1280, height: 56, background: 'rgba(255, 255, 255, 0.07)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 76, paddingRight: 76 }}>
-    <Text style={{ fontSize: 14, color: '#C9D8EF' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
-    <Text style={{ fontSize: 14, color: '#C9D8EF' }}>10 / 10</Text>
+  <Box style={{ position: 'absolute', left: 76, bottom: 24, width: 1128, height: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Text style={{ fontSize: 13, color: '#8B97A8' }}>知迹 · 基于大模型智能体的 AI 教育学习系统</Text>
+    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0E3F8C' }}>10 / 11</Text>
   </Box>
 
 </Slide>
