@@ -104,3 +104,8 @@ uv run python scripts/ppt_postprocess.py \
 - **校验**：`officecli validate deck.pptx`（文本溢出/格式不一致）。
 - ⚠️ **写入前必须关掉 WPS / PowerPoint 里的该文件**：被打开时编辑器持有写句柄，
   命令会报 "Updated" 但**不落盘**（页名写不进去、文件修改时间不变）。脚本已内置占用检测。
+- ⚠️ **用 `slidep upsert-dsl` 重灌某页后，要重跑一次 `ppt_postprocess.py`**：重灌是整页替换，
+  刚写好的页名会被一起冲掉。**改单个字优先用 OfficeCLI 定点改**（不重灌、不会掉页名）。
+- ⚠️ **OfficeCLI 写 pptx 必须用常驻模式**：`officecli open` → 多次 `set` → `officecli close`。
+  一次性 `set` 进程退出**不落盘**（报 "Updated" 但文件没变）。验收要看 **zip 内 XML**，
+  不要信 `get` 的返回（它可能读的是内存状态）。

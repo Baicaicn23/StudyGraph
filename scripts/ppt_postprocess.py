@@ -14,6 +14,9 @@
 前置：已安装 OfficeCLI（单二进制，无需 Office / LibreOffice / python-pptx）。
     curl -fsSL https://raw.githubusercontent.com/iOfficeAI/OfficeCLI/main/install.sh | bash
 
+⚠️ **用 `slidep upsert-dsl` 重灌某页后，必须重跑一次本脚本**：重灌会整页替换，
+   该页刚写好的页名会被一起冲掉。
+
 ⚠️ **写入前必须关闭 WPS / PowerPoint 里的该文件**：文件被打开时编辑器持有写句柄，
    命令会报 "Updated" 但**不会落盘**（页名写不进去，文件修改时间不变）。
 
@@ -69,6 +72,27 @@ def is_locked(ppt: Path) -> bool:
     return "wpsoffice" in out or "Microsoft PowerPoint" in out or "soffice" in out
 
 
+
+def _names_on_disk(ppt: Path, titles: dict[str, str]) -> set[str]:
+    """直接读 pptx 内的 XML，确认页名真的写进了文件（而不是只在内存里）。"""
+
+    import zipfile
+
+    found: set[str] = set()
+    try:
+        with zipfile.ZipFile(ppt) as archive:
+            for name in archive.namelist():
+                if not (name.startswith("ppt/slides/slide") and name.endswith(".xml")):
+                    continue
+                xml = archive.read(name).decode("utf-8")
+                for index, title in titles.items():
+                    if title in xml:
+                        found.add(index)
+    except (OSError, zipfile.BadZipFile):
+        return set()
+    return found
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="答辩 PPT 交付后处理")
     parser.add_argument("--ppt", type=Path, default=DEFAULT_DECK, help="目标 pptx")
@@ -94,27 +118,28 @@ def main() -> int:
             print(f"  第 {index:>2} 页 name = {title}")
         return 0
 
+    # ⚠️ 必须用**常驻模式**（open → 多次 set → close）：一次性 `set` 进程退出时
+    # 不会把内存里的改动落盘，命令照样报 "Updated"，但文件内容不变
+    # （症状：文件修改时间不动、zip 内 XML 里搜不到页名）。
+    _run([cli, "open", str(ppt)])
     failed = []
     for index, title in sorted(titles.items(), key=lambda kv: int(kv[0])):
         code, out = _run([cli, "set", str(ppt), f"/slide[{index}]", "--prop", f"name={title}"])
         if code != 0 or "Updated" not in out:
             failed.append((index, out[:120]))
+    _run([cli, "close", str(ppt)])
 
-    code, out = _run([cli, "get", str(ppt), "/slide[1]", "--depth", "0", "--json"])
-    landed = False
-    if code == 0:
-        try:
-            data = json.loads(out)
-            landed = bool(data["data"]["results"][0].get("format", {}).get("name"))
-        except (ValueError, KeyError, IndexError):
-            landed = False
+    # 验收以**文件内容**为准，不信 get 的返回（它可能读的是内存状态）
+    landed = _names_on_disk(ppt, titles)
+    missing = [i for i in titles if str(i) not in landed]
 
-    if failed or not landed:
+    if failed or missing:
         print("✗ 写页名失败：")
         for index, reason in failed:
             print(f"   第 {index} 页：{reason}")
-        if not landed:
-            print("   复查发现页名未落盘（文件可能被占用或被覆盖）")
+        if missing:
+            print(f"   复查 zip 内容：这些页的页名没进文件 → {missing}")
+            print("   （文件被占用时写入不落盘；或未用常驻模式 close）")
         return 1
 
     print(f"✓ 已写入 {len(titles)} 页的页名")
