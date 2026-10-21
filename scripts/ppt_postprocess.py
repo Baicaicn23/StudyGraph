@@ -48,7 +48,8 @@ def _officecli() -> str:
                 return str(candidate)
         raise SystemExit(
             "找不到 officecli。请先安装：\n"
-            "  curl -fsSL https://raw.githubusercontent.com/iOfficeAI/OfficeCLI/main/install.sh | bash"
+            "  curl -fsSL https://raw.githubusercontent.com/iOfficeAI/"
+            "OfficeCLI/main/install.sh | bash"
         )
     return found
 

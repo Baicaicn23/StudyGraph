@@ -87,36 +87,22 @@ uv run zhiji-demo --reset                    # 播种演示数据（含 assets/d
 - ❌ 思考强度选择 UI / 自定义模型 / 模型切换（思考恒 max）
 - ❌ 对话跨项目移动（记忆按 project_id 隔离）
 
-## 答辩 PPT：生成 + 交付后处理（2026-10-21 起）
+## 答辩 PPT 与插图（2026-10-21 起）
 
-**当前生成方式已从 slidep 换成 kami**（`tw93/kami`，MIT）：设计系统更好（纸感 + 衬线 +
-细线表），且直接产出**原生可编辑 pptx**（python-pptx）。
+**旧的答辩 PPT 已全部删除**（`知迹答辩/` kami 版、`知迹答辩-web/` html-ppt-skill 版，
+两者视觉风格都被用户否决）。当前状态是：**内容结构与逐页配图作业单已完成，成稿待制作**。
 
 ```bash
-cd docs/作品集/参赛/知迹答辩
-# 1) 生成（依赖 python-pptx + pillow，用 uv 临时装，不污染应用 venv）
-uv run --with python-pptx --with pillow python kami_slides.py --out 知迹答辩.pptx
-# 2) 交付后处理：写页名 → 出总览图 → 校验
-uv run python scripts/ppt_postprocess.py --ppt docs/作品集/参赛/知迹答辩/知迹答辩.pptx \
-  --render /tmp/deck-grid.png
+# 论文级方法示意图（SVG 源 + 高清 PNG）—— 改文案后重跑即可
+uv run python scripts/make_overview_figure.py --png
+# → docs/作品集/插图/知迹方法总览/知迹-方法总览.{svg,png}
 ```
 
-- **内容唯一数据源**：`kami_slides.py` 里的 `main()`（页序与文案）；页名单独在
-  `slide_titles.json`，两处都要改。
-- **`slides/*.slide` 是 v3 蓝版源文件，已归档**（slidep / SlideDSL 路线）。当前交付件不再由它生成；
-  需要回退蓝版时从 git 取：`git show <commit>:docs/作品集/参赛/知迹答辩/知迹答辩.pptx`。
-- **python-pptx 两个必踩的坑**（kami_slides.py 里已修）：
-  ① `run.font.name` 只写 `a:latin`（西文），**中文要显式写 `a:ea` / `a:cs`**，
-  否则中文落到查看器默认字体，换机器就变样；
-  ② `Inches()` 收英寸，**别把已是 EMU 的值再套一层**（会溢出 schema 上限，渲染看不出来，
-  只有 `officecli validate` 能查出 `MaxInclusive`）。
-- **字体**：本机无思源宋体，用 macOS 自带 `Songti SC`；Windows / WPS 会替换为宋体（同为衬线）。
-  换字体要同时看 `a:latin` 与 `a:ea`。
-- **OfficeCLI 写 pptx 必须常驻模式**：`officecli open` → 多次 `set` → `officecli close`。
-  一次性 `set` **不落盘**；`get` 读内存会**假成功**——验收要看 **zip 内 XML**。
-  ⚠️ 文件被 WPS / PowerPoint 打开时写入不落盘（`ppt_postprocess.py` 已内置占用检测）。
-- **改单个字优先用 OfficeCLI 定点改**（不重灌、不掉页名）：
-  `officecli query deck.pptx 'textbox' --compact --find 关键词` → 拿路径 →
-  `officecli set deck.pptx '<path>' --prop text="..."`（记得 open/close）。
-- **改完先看总览图**：`officecli view deck.pptx screenshot --grid 3 -o out.png` → 一张图看完 11 页。
+- **插图必须手写 SVG，不能用生图模型** —— 这类图要清晰中文标注，模型写中文必糊。
+  生成器纯 stdlib，Chrome `--headless=new --no-sandbox` 栅格化（旧的 `--headless` 会 SIGTRAP）。
+- **PPT 逐页配图作业单**：`docs/作品集/参赛/知迹答辩-插图交接文档.md`（16 页），
+  含每页的可复制文案、配图需求、中英生图提示词、排版建议、视觉统一规范。
+  后续若有人接着做 PPT，**页序以该文档为准，不要另起一套**。
+- 用户偏好（已否决的别再做）：kami 纸感学术风「太空、留白多」→ 走**明亮浅色调**；
+  插图要**3D 写实 / 摄影级质感**，不要扁平矢量示意图；**全篇不出现人物**。
 
