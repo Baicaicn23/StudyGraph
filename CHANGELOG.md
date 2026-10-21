@@ -3,6 +3,29 @@
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 的格式；
 里程碑（M1~M14）按功能批划分，未发布的小改动并入当前批次。
 
+## [M14.7] — 2026-10-21 · 答辩 PPT 改用 kami 设计系统重做
+
+用户指定 `tw93/kami` 重做答辩 PPT。Kami 是面向 AI 智能体的「文档与演示排版」Skill：
+模板 + 版式规则 + 渲染脚本 + 交付门禁 + MCP，核心是 HTML 中间格式，可导出
+PDF / PNG / **原生可编辑 PPTX**（python-pptx）。MIT 许可。
+
+- **新增** `docs/作品集/参赛/知迹答辩/kami_slides.py`：派生自 kami 的 `slides.py`
+  （保留上游版权声明），填入本项目 11 页内容，并补三个 kami 模板没有的版式
+  ——**细线表格页 / 左右分栏页 / 截图页**（答辩三样都要用）。
+- **交付件已换成 kami 版**：11 页 / 168 KB / 羊皮纸底 + 墨蓝衬线 + 细线表，
+  页名 11/11 落盘，`officecli validate` 无错。v3 蓝版源文件（`slides/*.slide`）保留归档，
+  可随时从 git 回退。
+- **修掉两个 python-pptx 的坑**（渲染看不出来，只有 validate / 换机器才暴露）：
+  ① `run.font.name` 只写 `a:latin`（西文），**中文必须显式写 `a:ea` / `a:cs`**，
+  否则中文落到查看器默认字体，换机器就变样；
+  ② `Inches()` 收英寸，**不能把已是 EMU 的值再套一层**（溢出 schema 上限，
+  `officecli validate` 报 `MaxInclusive`）。
+- **字体决策**：本机无思源宋体 → 改用 macOS 自带 `Songti SC`；Windows / WPS 会替换为宋体
+  （同为衬线，风格一致）。这是"交付件字体必须在评审电脑上存在"的取舍。
+- **Kami 的规范直接生效**：不设章节分隔页、每页只一个证据形态、标题连读成论证、
+  表格不上色不加竖线、截图做视觉锚点且配"增加事实"的图注。
+- 文档同步：AGENTS.md（生成流程换成 kami）、使用指南、交接文档、本 STORY 全文重写。
+
 ## [M14.6] — 2026-10-21 · 引入 OfficeCLI 做 PPT 交付后处理
 
 调研 10 个 PPT / 设计工具（见 `docs/调研/PPT与设计工具选型调研.md`）后选定 **OfficeCLI**：

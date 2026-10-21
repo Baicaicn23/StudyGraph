@@ -111,3 +111,18 @@
 - reveal.js：https://github.com/hakimel/reveal.js ｜ impress.js：https://github.com/impress/impress.js
 - carbon：https://github.com/carbon-app/carbon ｜ open-design：https://github.com/nexu-io/open-design
 - frontend-slides：https://github.com/zarazhangrui/frontend-slides ｜ guizang-ppt-skill：https://github.com/op7418/guizang-ppt-skill
+
+---
+
+## 附：调研结论已落地（2026-10-21）
+
+用户指定 `tw93/kami` 后，**它被采纳为答辩 PPT 的生成管线**（`kami_slides.py` → 原生可编辑 pptx），
+与调研中"模板/设计系统路线优于自己拼版式"的判断一致。补充两条落地后才发现的事实：
+
+- **Kami 的 PPTX 走 python-pptx**，其默认字体名只作用于西文（`a:latin`），中文要显式写
+  `a:ea` / `a:cs`——否则换台机器中文就变样。这是"模板给了你设计系统，但没给你跨机器的字体安全"。
+- ** Kami 自带 `TsangerJinKai02` 中文字体仅限个人免费使用**，商业使用需另行授权；
+  本项目因此改用系统自带 `Songti SC`，避免把授权风险带进参赛材料。
+
+本项目最终的工具组合：**kami（生成与设计系统）+ OfficeCLI（后处理与自查）**，
+两者都本地可跑、不依赖生成式 API。

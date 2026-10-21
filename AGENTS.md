@@ -87,25 +87,36 @@ uv run zhiji-demo --reset                    # 播种演示数据（含 assets/d
 - ❌ 思考强度选择 UI / 自定义模型 / 模型切换（思考恒 max）
 - ❌ 对话跨项目移动（记忆按 project_id 隔离）
 
-## PPT 交付后处理（OfficeCLI，2026-10-21 起）
-答辩 PPT 由 `slidep` 生成后还有三件后处理，用 `scripts/ppt_postprocess.py` 一条命令做完：
+## 答辩 PPT：生成 + 交付后处理（2026-10-21 起）
+
+**当前生成方式已从 slidep 换成 kami**（`tw93/kami`，MIT）：设计系统更好（纸感 + 衬线 +
+细线表），且直接产出**原生可编辑 pptx**（python-pptx）。
+
 ```bash
-uv run python scripts/ppt_postprocess.py \
-  --ppt docs/作品集/参赛/知迹答辩/知迹答辩.pptx --render /tmp/deck-grid.png
+cd docs/作品集/参赛/知迹答辩
+# 1) 生成（依赖 python-pptx + pillow，用 uv 临时装，不污染应用 venv）
+uv run --with python-pptx --with pillow python kami_slides.py --out 知迹答辩.pptx
+# 2) 交付后处理：写页名 → 出总览图 → 校验
+uv run python scripts/ppt_postprocess.py --ppt docs/作品集/参赛/知迹答辩/知迹答辩.pptx \
+  --render /tmp/deck-grid.png
 ```
-- **写页名**：`.slide` 生成的标题是普通文本框，**不是 PowerPoint 标题占位符** → 大纲视图里
-  11 页标题全空白。脚本按 `slide_titles.json` 写入 slide name，文件自带可读大纲。
-  ⚠️ **别用 `add --type placeholder --prop phType=title` 补占位符**：它会继承版式的巨大黑色
-  标题框，直接盖住我们自己的标题（已实测）。
-- **出总览自查**：`officecli view deck.pptx screenshot --grid 3 -o out.png` → 一张图看完 11 页
-  版式。**比逐页 VLM 视觉检查快且不受限流影响**，改完 PPT 先看这张。
-- **定点改字**：`officecli query deck.pptx 'textbox' --compact --find 关键词` 拿到路径 →
-  `officecli set deck.pptx '/slide[2]/shape[@id=106]' --prop text="新文字"` → **不用重灌整页**。
-- **校验**：`officecli validate deck.pptx`（文本溢出/格式不一致）。
-- ⚠️ **写入前必须关掉 WPS / PowerPoint 里的该文件**：被打开时编辑器持有写句柄，
-  命令会报 "Updated" 但**不落盘**（页名写不进去、文件修改时间不变）。脚本已内置占用检测。
-- ⚠️ **用 `slidep upsert-dsl` 重灌某页后，要重跑一次 `ppt_postprocess.py`**：重灌是整页替换，
-  刚写好的页名会被一起冲掉。**改单个字优先用 OfficeCLI 定点改**（不重灌、不会掉页名）。
-- ⚠️ **OfficeCLI 写 pptx 必须用常驻模式**：`officecli open` → 多次 `set` → `officecli close`。
-  一次性 `set` 进程退出**不落盘**（报 "Updated" 但文件没变）。验收要看 **zip 内 XML**，
-  不要信 `get` 的返回（它可能读的是内存状态）。
+
+- **内容唯一数据源**：`kami_slides.py` 里的 `main()`（页序与文案）；页名单独在
+  `slide_titles.json`，两处都要改。
+- **`slides/*.slide` 是 v3 蓝版源文件，已归档**（slidep / SlideDSL 路线）。当前交付件不再由它生成；
+  需要回退蓝版时从 git 取：`git show <commit>:docs/作品集/参赛/知迹答辩/知迹答辩.pptx`。
+- **python-pptx 两个必踩的坑**（kami_slides.py 里已修）：
+  ① `run.font.name` 只写 `a:latin`（西文），**中文要显式写 `a:ea` / `a:cs`**，
+  否则中文落到查看器默认字体，换机器就变样；
+  ② `Inches()` 收英寸，**别把已是 EMU 的值再套一层**（会溢出 schema 上限，渲染看不出来，
+  只有 `officecli validate` 能查出 `MaxInclusive`）。
+- **字体**：本机无思源宋体，用 macOS 自带 `Songti SC`；Windows / WPS 会替换为宋体（同为衬线）。
+  换字体要同时看 `a:latin` 与 `a:ea`。
+- **OfficeCLI 写 pptx 必须常驻模式**：`officecli open` → 多次 `set` → `officecli close`。
+  一次性 `set` **不落盘**；`get` 读内存会**假成功**——验收要看 **zip 内 XML**。
+  ⚠️ 文件被 WPS / PowerPoint 打开时写入不落盘（`ppt_postprocess.py` 已内置占用检测）。
+- **改单个字优先用 OfficeCLI 定点改**（不重灌、不掉页名）：
+  `officecli query deck.pptx 'textbox' --compact --find 关键词` → 拿路径 →
+  `officecli set deck.pptx '<path>' --prop text="..."`（记得 open/close）。
+- **改完先看总览图**：`officecli view deck.pptx screenshot --grid 3 -o out.png` → 一张图看完 11 页。
+
