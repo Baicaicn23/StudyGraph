@@ -1,6 +1,7 @@
 # 知迹答辩 · HTML 演示版
 
-用 [html-ppt-skill](https://github.com/lewislulu/html-ppt-skill)（MIT）生成的 13 页答辩演示。
+用 [html-ppt-skill](https://github.com/lewislulu/html-ppt-skill)（MIT）生成的 16 页答辩演示。
+结构：封面 / 目录 / 背景 2 页 / **技术 9 页（一项一页）** / 应用与验证 / 边界与下一步 / 收束。
 **这一版是新的独立产物**，与同目录上级的 `知迹答辩/`（python-pptx 生成的原生可编辑 pptx）是两套并列方案。
 
 ## 怎么用
@@ -19,9 +20,9 @@
 | 文件 | 说明 |
 | --- | --- |
 | `index.html` | **可编辑源文件**——改文案、改版式都在这里改 |
-| `知迹答辩.pptx` | 13 页 16:9，**每页为整页渲染图**（版式 100% 还原；PowerPoint 里不能直接改字，要改回 HTML 改完重新导出） |
-| `知迹答辩.pdf` | 13 页，打印与分发用 |
-| `png/index_01..13.png` | 每页 1920×1080 渲染图（PPTX / PDF 的来源） |
+| `知迹答辩.pptx` | 16 页 16:9，**每页为整页渲染图**（版式 100% 还原；PowerPoint 里不能直接改字，要改回 HTML 改完重新导出） |
+| `知迹答辩.pdf` | 16 页，打印与分发用 |
+| `png/index_01..16.png` | 每页 1920×1080 渲染图（PPTX / PDF 的来源） |
 | `assets/` | 主题、排版、动画、运行时（来自上游 skill，MIT） |
 | `img/ui-knowledge.png` | 知识库页实拍（第 11 页用） |
 
