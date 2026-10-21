@@ -6,69 +6,73 @@
         <Text style={{ fontSize: 15, color: '#C9DDF5' }}>Agent 工程化实践</Text>
     </Box>
     <Box style={{ position: 'absolute', top: 0, right: 40, height: 56, flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>边界 · 诚实清单</Text>
+        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>证据 · 怎么判断今天没比昨天变笨</Text>
     </Box>
     <Box style={{ position: 'absolute', top: 56, left: 40, width: 1200, height: 92, flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>六项能力：两项达标，三项一半，一项没做</Text>
-        <Text style={{ fontSize: 19, color: '#4A5568' }}>把没做的说出来，比多做一点更有用 —— 这是下一步的排序依据</Text>
+        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>怎么证明它没坏</Text>
+        <Text style={{ fontSize: 19, color: '#4A5568' }}>不是「我觉得挺准」，是每次改动都能复跑同一份考卷</Text>
     </Box>
 
-<Box style={{ position: 'absolute', top: 186, left: 40, width: 1200, height: 54, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 5, flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 18 }}>
-                <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#0E3F8C', width: 244 }}>中断可恢复</Text>
-                <Box style={{ width: 72, height: 30, background: '#1E4FA8', borderRadius: 4, justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>达标</Text>
-                </Box>
-                <Text style={{ fontSize: 16, color: '#4A5568', flex: 1 }}>状态图 + 检查点 + 中断恢复，孤儿线程级联清理</Text>
+    <Box style={{ position: 'absolute', top: 168, left: 40, width: 1200, height: 218, flexDirection: 'row', gap: 16 }}>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 10, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#0E3F8C' }}>固定考卷</Text>
+            <Box style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                <Text style={{ fontSize: 54, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1.05 }}>35</Text>
+                <Text style={{ fontSize: 19, color: '#4A5568', marginBottom: 7 }}>题检索 + 15 句意图</Text>
             </Box>
-<Box style={{ position: 'absolute', top: 250, left: 40, width: 1200, height: 54, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 5, flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 18 }}>
-                <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#0E3F8C', width: 244 }}>检索准确可追溯</Text>
-                <Box style={{ width: 72, height: 30, background: '#1E4FA8', borderRadius: 4, justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>达标</Text>
-                </Box>
-                <Text style={{ fontSize: 16, color: '#4A5568', flex: 1 }}>35 题考卷，真实向量 35/35，引用精确到页</Text>
+            <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.6 }}>每题标注正确片段，覆盖同义换词与短词考点</Text>
+        </Box>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 10, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#0E3F8C' }}>基线门禁</Text>
+            <Box style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                <Text style={{ fontSize: 54, fontWeight: 'bold', color: '#1E4FA8', lineHeight: 1.05 }}>0.05</Text>
+                <Text style={{ fontSize: 19, color: '#4A5568', marginBottom: 7 }}>容差</Text>
             </Box>
-<Box style={{ position: 'absolute', top: 314, left: 40, width: 1200, height: 54, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 5, flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 18 }}>
-                <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#0E3F8C', width: 244 }}>工具执行治理</Text>
-                <Box style={{ width: 72, height: 30, background: '#E5B54B', borderRadius: 4, justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>一半</Text>
-                </Box>
-                <Text style={{ fontSize: 16, color: '#4A5568', flex: 1 }}>有双层权限、超时退避、并发与失败转消息；缺参数级约束</Text>
+            <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.6 }}>掉出容差，命令返回非零 —— 能进提交前检查</Text>
+        </Box>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 10, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#0E3F8C' }}>当前水平</Text>
+            <Box style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                <Text style={{ fontSize: 54, fontWeight: 'bold', color: '#0E3F8C', lineHeight: 1.05 }}>0.9714</Text>
+                <Text style={{ fontSize: 19, color: '#4A5568', marginBottom: 7 }}>Hit@3 = MRR</Text>
             </Box>
-<Box style={{ position: 'absolute', top: 378, left: 40, width: 1200, height: 54, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 5, flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 18 }}>
-                <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#0E3F8C', width: 244 }}>长上下文管理</Text>
-                <Box style={{ width: 72, height: 30, background: '#E5B54B', borderRadius: 4, justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>一半</Text>
-                </Box>
-                <Text style={{ fontSize: 16, color: '#4A5568', flex: 1 }}>有抽取式摘要与预算控制；缺关键事实外置成结构化笔记</Text>
-            </Box>
-<Box style={{ position: 'absolute', top: 442, left: 40, width: 1200, height: 54, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 5, flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 18 }}>
-                <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#0E3F8C', width: 244 }}>长期记忆</Text>
-                <Box style={{ width: 72, height: 30, background: '#E5B54B', borderRadius: 4, justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>一半</Text>
-                </Box>
-                <Text style={{ fontSize: 16, color: '#4A5568', flex: 1 }}>按课程隔离、写入前确认；缺过期、替换与删除机制</Text>
-            </Box>
-<Box style={{ position: 'absolute', top: 506, left: 40, width: 1200, height: 54, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 5, flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 18 }}>
-                <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#0E3F8C', width: 244 }}>任务级成功率评测</Text>
-                <Box style={{ width: 72, height: 30, background: '#D9534F', borderRadius: 4, justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>没做</Text>
-                </Box>
-                <Text style={{ fontSize: 16, color: '#4A5568', flex: 1 }}>考卷只测「找到没」「分类对不对」，不测「复习有没有用」</Text>
-            </Box>
-    <Box style={{ position: 'absolute', top: 162, left: 40, width: 1200, flexDirection: 'row', gap: 18, paddingBottom: 6 }}>
-        <Text style={{ fontSize: 16, color: '#8B97A8', width: 244, paddingLeft: 20 }}>能力项</Text>
-        <Text style={{ fontSize: 16, color: '#8B97A8', width: 72, textAlign: 'center' }}>状态</Text>
-        <Text style={{ fontSize: 16, color: '#8B97A8', flex: 1 }}>依据 / 还缺什么</Text>
+            <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.6 }}>意图准确率 1.0；接真实向量 35 题全中</Text>
+        </Box>
     </Box>
 
-    <Box style={{ position: 'absolute', top: 578, left: 40, width: 1200, height: 58, background: '#E8EFF8', borderRadius: 6, flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 12 }}>
-        <Text style={{ fontSize: 18, color: '#0E3F8C', fontWeight: 'bold' }}>下一步排序：</Text>
-        <Text style={{ fontSize: 18, color: '#0E3F8C' }}>① 任务级成功率评测　② 记忆的过期与删除　③ 更难的检索考卷</Text>
+    <Box style={{ position: 'absolute', top: 404, left: 40, width: 1200, height: 232, flexDirection: 'row', gap: 16 }}>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 10 }}>
+            <Text style={{ fontSize: 23, fontWeight: 'bold', color: '#0E3F8C' }}>消融：机制有用，当场可见</Text>
+            <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                <Box style={{ background: '#1E4FA8', borderRadius: 6, padding: '9px 16px' }}>
+                    <Text style={{ fontSize: 25, fontWeight: 'bold', color: '#FFFFFF', fontFamily: 'SF Mono, Menlo, monospace' }}>0.9714</Text>
+                </Box>
+                <Text style={{ fontSize: 19, color: '#8B97A8' }}>→</Text>
+                <Box style={{ background: '#D9534F', borderRadius: 6, padding: '9px 16px' }}>
+                    <Text style={{ fontSize: 25, fontWeight: 'bold', color: '#FFFFFF', fontFamily: 'SF Mono, Menlo, monospace' }}>0.9571</Text>
+                </Box>
+                <Text style={{ fontSize: 15, color: '#4A5568', flex: 1 }}>关掉词面精排，MRR 立刻掉下来 —— 不需要「我觉得更好」</Text>
+            </Box>
+            <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.65 }}>
+                评测用确定性向量（同版本任何人跑出同样分数），有基线 JSON 与容差门禁。
+            </Text>
+        </Box>
+        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 20, gap: 10 }}>
+            <Text style={{ fontSize: 23, fontWeight: 'bold', color: '#0E3F8C' }}>但还有测不出来的</Text>
+            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.7 }}>
+                目前只能测「找到没」和「分类对不对」，<b>测不了「这次复习到底有没有用」</b>。
+            </Text>
+            <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 5, padding: 12, justifyContent: 'center' }}>
+                <Text style={{ fontSize: 14, color: '#0E3F8C', lineHeight: 1.6 }}>
+                    下一步要补任务级成功率，并用 pass^k 看稳定性 —— 报 pass@1 会把「偶尔能成」包装成「稳定可用」。
+                </Text>
+            </Box>
+        </Box>
     </Box>
 
     <Box style={{ position: 'absolute', top: 648, left: 40, width: 1200, height: 56, background: '#E8EFF8', borderTop: '2px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 12 }}>
         <Box style={{ width: 4, height: 24, background: '#1E4FA8' }} />
-        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>另外四项也标为「计划中」：多用户与数据隔离、在线监控聚合面板、Reranker 重排、反思式自我批判</Text>
+        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>评测的价值不在分数高，在<b>分数掉了能立刻知道</b> —— 这是它能进 CI 的前提</Text>
     </Box>
 
     <Box style={{ position: 'absolute', bottom: 8, left: 40, flexDirection: 'row', alignItems: 'center' }}>

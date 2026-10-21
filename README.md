@@ -268,7 +268,7 @@ data/              SQLite 库 + 附件 + 备份（Git 忽略）
 | **AI 编码 Agent 入口（命令 / 硬规则 / 坑）** | [AGENTS.md](AGENTS.md) |
 | 接手开发 / 交给下一个 Agent | [交接文档](docs/交接文档.md) |
 | 参加竞赛：申报材料与合规文件 | [作品集/参赛/](docs/作品集/参赛/README.md) |
-| 做答辩 PPT / 插图 | [插图交接文档](docs/作品集/参赛/知迹答辩-插图交接文档.md) |
+| 做答辩 PPT / 插图 | [答辩 PPT 交付说明](docs/作品集/参赛/知迹答辩/README.md) |
 | 看版本之间改了什么 | [更新日志](CHANGELOG.md) |
 
 ---

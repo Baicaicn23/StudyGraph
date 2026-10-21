@@ -62,3 +62,7 @@ select = ["E", "F", "I", "W", "UP", "B"]
 "scripts/build_demo_materials.py" = ["E501"]
 # 图生成器：SVG 坐标与文案成对出现，硬折行会把「x, y, 文本」拆散，反而难读难改。
 "scripts/make_overview_figure.py" = ["E501"]
+# 幻灯片生成器：主体是长串 JSX（style={{ ... }}），折行会破坏标签结构。
+# UP031（% → f-string）必须忽略：JSX 里到处是花括号，用 f-string 要把每个 { 写成 {{，
+# 几百行下来极易写错一个就整文件语法错。% 格式化只认 %s，完全不碰花括号。
+"scripts/build_slides.py" = ["E501", "UP031"]

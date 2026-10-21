@@ -6,99 +6,68 @@
         <Text style={{ fontSize: 15, color: '#C9DDF5' }}>Agent 工程化实践</Text>
     </Box>
     <Box style={{ position: 'absolute', top: 0, right: 40, height: 56, flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>解法 ② · 可拦截</Text>
+        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>解法 · 一次提问，七道关</Text>
     </Box>
     <Box style={{ position: 'absolute', top: 56, left: 40, width: 1200, height: 92, flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>九个工具，模型能调哪个由系统决定</Text>
-        <Text style={{ fontSize: 19, color: '#4A5568' }}>schema 层 + 执行层双道判定 —— 越权在写下去之前就被拦下</Text>
+        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>第一关 · 看得懂意图</Text>
+        <Text style={{ fontSize: 19, color: '#4A5568' }}>先判这是哪一类问题 —— 判错了，检索和权限都会跟着错</Text>
     </Box>
 
-    <Box style={{ position: 'absolute', top: 160, left: 40, width: 380, height: 476, flexDirection: 'column', gap: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0E3F8C' }}>双层权限：两道都得过</Text>
-        <Box style={{ background: '#E8EFF8', borderRadius: 6, padding: 16, gap: 6 }}>
-            <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#0E3F8C' }}>第一层 · schema</Text>
-            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.65 }}>按角色裁剪工具表，禁用的工具根本不出现在提示词里</Text>
-        </Box>
-        <Box style={{ background: '#E8EFF8', borderRadius: 6, padding: 16, gap: 6 }}>
-            <Text style={{ fontSize: 19, fontWeight: 'bold', color: '#0E3F8C' }}>第二层 · 执行</Text>
-            <Text style={{ fontSize: 15, color: '#4A5568', lineHeight: 1.65 }}>is_tool_allowed 逐次判定，模型硬发被禁工具也执行不了</Text>
-        </Box>
-        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 6, padding: 14, gap: 6 }}>
-            <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#D9534F' }}>为什么两道都要</Text>
-            <Text style={{ fontSize: 14, color: '#4A5568', lineHeight: 1.65 }}>只做 schema 层，模型仍可能「说出」被禁工具名并失败；只做执行层，模型会反复尝试、白耗轮数。MCP 工具用 mcp_ 前缀兜底 —— 动态注册的名字没法枚举，只能按前缀拦。</Text>
-        </Box>
+<Box style={{ position: 'absolute', top: 72, right: 40, background: '#1E4FA8', borderRadius: 6, padding: '7px 14px', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>第 1 关</Text>
+        <Box style={{ width: 1, height: 14, background: '#5B8FD9' }} />
+        <Text style={{ fontSize: 15, color: '#C9DDF5' }}>看得懂意图</Text>
     </Box>
-
-    <Box style={{ position: 'absolute', top: 160, left: 440, width: 800, height: 476 }}>
-        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#0E3F8C', marginBottom: 8 }}>九个工具：查 · 存 · 问外面</Text>
-        <Box style={{ position: 'absolute', top: 30, left: 0, width: 188, height: 80, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 12, justifyContent: 'center', gap: 3 }}>
-                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Box style={{ width: 4, height: 16, background: '#1E4FA8' }} />
-                    <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1E4FA8' }}>查</Text>
-                </Box>
-                <Text style={{ fontSize: 14, color: '#1A2230', fontFamily: 'SF Mono, Menlo, monospace' }}>knowledge_search</Text>
+    <Box style={{ position: 'absolute', top: 168, left: 40, width: 1200, height: 468, flexDirection: 'row', gap: 20 }}>
+        <Box style={{ width: 460, height: '100%' }}><Box style={{ background: '#1B2A44', borderRadius: 8, padding: 13, gap: 8, height: '100%' }}>
+            <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Box style={{ width: 8, height: 8, borderRadius: 4, background: '#5B8FD9' }} />
+                <Text style={{ fontSize: 14, color: '#8FB4E8', fontFamily: 'SF Mono, Menlo, monospace' }}>application/routing.py:61 / :132</Text>
             </Box>
-<Box style={{ position: 'absolute', top: 30, left: 200, width: 188, height: 80, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 12, justifyContent: 'center', gap: 3 }}>
-                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Box style={{ width: 4, height: 16, background: '#1E4FA8' }} />
-                    <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1E4FA8' }}>查</Text>
+            <Text style={{ fontSize: 13, color: '#E3ECFA', lineHeight: 1.52, fontFamily: 'SF Mono, Menlo, monospace', flex: 1 }}>def classify(text: str) -&gt; tuple[str, float]:<br />    # 判断意图，返回 (意图, 置信度)<br />    ...<br />    return best_intent, best_score<br /><br />AGENT_PROFILES: dict[str, AgentProfile] = &#123;<br />    'tutor':    AgentProfile(...),<br />    'practice': AgentProfile(...),   # 只读<br />    'progress': AgentProfile(<br />        deny_all=True, ...),       # 一个工具都不给<br />&#125;</Text>
+        </Box></Box>
+        <Box style={{ flex: 1, height: '100%' }}>    <Box style={{ position: 'absolute', top: 0, left: 0, width: 700, height: 468, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 18, gap: 12 }}>
+        <Text style={{ fontSize: 21, fontWeight: 'bold', color: '#0E3F8C' }}>六类意图，四个角色</Text>
+        <Box style={{ flex: 1, flexDirection: 'row', gap: 12 }}>
+            <Box style={{ width: 236, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 12, gap: 8 }}>
+                <Text style={{ fontSize: 14, color: '#8B97A8' }}>classify(text)</Text>
+                <Box style={{ gap: 5, marginTop: 4 }}>
+                    <Text style={{ fontSize: 15, color: '#1A2230' }}>讲解　检索　练习</Text>
+                    <Text style={{ fontSize: 15, color: '#1A2230' }}>进度　计算　闲聊</Text>
                 </Box>
-                <Text style={{ fontSize: 14, color: '#1A2230', fontFamily: 'SF Mono, Menlo, monospace' }}>mistake_search</Text>
-            </Box>
-<Box style={{ position: 'absolute', top: 30, left: 400, width: 188, height: 80, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 12, justifyContent: 'center', gap: 3 }}>
-                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Box style={{ width: 4, height: 16, background: '#1E4FA8' }} />
-                    <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1E4FA8' }}>查</Text>
+                <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 4, padding: 8, justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 13, color: '#0E3F8C' }}>识别错了，后面全是错的</Text>
                 </Box>
-                <Text style={{ fontSize: 14, color: '#1A2230', fontFamily: 'SF Mono, Menlo, monospace' }}>read_file</Text>
             </Box>
-<Box style={{ position: 'absolute', top: 122, left: 0, width: 188, height: 80, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 12, justifyContent: 'center', gap: 3 }}>
-                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Box style={{ width: 4, height: 16, background: '#0E3F8C' }} />
-                    <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#0E3F8C' }}>存</Text>
+            <Box style={{ width: 24, justifyContent: 'center', alignItems: 'center' }}>
+                <Box style={{ width: 18, height: 3, background: '#1E4FA8' }} />
+                <Box style={{ width: 9, height: 9, background: '#1E4FA8', borderRadius: 2, transform: 'rotate(45deg)' }} />
+            </Box>
+            <Box style={{ flex: 1, gap: 8 }}>
+                <Box style={{ background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 5, padding: 10, gap: 2 }}>
+                    <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#0E3F8C' }}>tutor 讲解</Text>
+                    <Text style={{ fontSize: 13, color: '#8B97A8' }}>可读可写</Text>
                 </Box>
-                <Text style={{ fontSize: 14, color: '#1A2230', fontFamily: 'SF Mono, Menlo, monospace' }}>save_note</Text>
-            </Box>
-<Box style={{ position: 'absolute', top: 122, left: 200, width: 188, height: 80, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 12, justifyContent: 'center', gap: 3 }}>
-                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Box style={{ width: 4, height: 16, background: '#0E3F8C' }} />
-                    <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#0E3F8C' }}>存</Text>
+                <Box style={{ background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 5, padding: 10, gap: 2 }}>
+                    <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#0E3F8C' }}>practice 练习</Text>
+                    <Text style={{ fontSize: 13, color: '#8B97A8' }}>只读，不给写工具</Text>
                 </Box>
-                <Text style={{ fontSize: 14, color: '#1A2230', fontFamily: 'SF Mono, Menlo, monospace' }}>write_file</Text>
-            </Box>
-<Box style={{ position: 'absolute', top: 122, left: 400, width: 188, height: 80, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 12, justifyContent: 'center', gap: 3 }}>
-                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Box style={{ width: 4, height: 16, background: '#1E4FA8' }} />
-                    <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1E4FA8' }}>查</Text>
+                <Box style={{ background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 5, padding: 10, gap: 2 }}>
+                    <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#0E3F8C' }}>progress 进度</Text>
+                    <Text style={{ fontSize: 13, color: '#8B97A8' }}>deny_all，一个工具都没有</Text>
                 </Box>
-                <Text style={{ fontSize: 14, color: '#1A2230', fontFamily: 'SF Mono, Menlo, monospace' }}>list_files</Text>
             </Box>
-<Box style={{ position: 'absolute', top: 214, left: 0, width: 188, height: 80, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 12, justifyContent: 'center', gap: 3 }}>
-                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Box style={{ width: 4, height: 16, background: '#3D7BD9' }} />
-                    <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#3D7BD9' }}>外面</Text>
-                </Box>
-                <Text style={{ fontSize: 14, color: '#1A2230', fontFamily: 'SF Mono, Menlo, monospace' }}>web_search</Text>
-            </Box>
-<Box style={{ position: 'absolute', top: 214, left: 200, width: 188, height: 80, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 12, justifyContent: 'center', gap: 3 }}>
-                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Box style={{ width: 4, height: 16, background: '#3D7BD9' }} />
-                    <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#3D7BD9' }}>外面</Text>
-                </Box>
-                <Text style={{ fontSize: 14, color: '#1A2230', fontFamily: 'SF Mono, Menlo, monospace' }}>fetch_url</Text>
-            </Box>
-<Box style={{ position: 'absolute', top: 214, left: 400, width: 188, height: 80, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 12, justifyContent: 'center', gap: 3 }}>
-                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Box style={{ width: 4, height: 16, background: '#3D7BD9' }} />
-                    <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#3D7BD9' }}>外面</Text>
-                </Box>
-                <Text style={{ fontSize: 14, color: '#1A2230', fontFamily: 'SF Mono, Menlo, monospace' }}>calculator</Text>
-            </Box>
+        </Box>
+        <Box style={{ background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 6, padding: 12, gap: 4 }}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#0E3F8C' }}>顺带解决了第三关的一半</Text>
+            <Text style={{ fontSize: 13, color: '#4A5568', lineHeight: 1.55 }}>权限跟着角色走 —— 讲题的角色不给写文件的工具，练题的角色只给读的工具</Text>
+        </Box>
+    </Box></Box>
     </Box>
 
     <Box style={{ position: 'absolute', top: 648, left: 40, width: 1200, height: 56, background: '#E8EFF8', borderTop: '2px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 12 }}>
         <Box style={{ width: 4, height: 24, background: '#1E4FA8' }} />
-        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>权限是执行层的硬判定，不是提示词里的一句请求</Text>
+        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>意图识别不是「小功能」，它是后面所有权限与检索策略的前提</Text>
     </Box>
 
     <Box style={{ position: 'absolute', bottom: 8, left: 40, flexDirection: 'row', alignItems: 'center' }}>

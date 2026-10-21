@@ -1,86 +1,87 @@
 <Slide style={{ width: 1280, height: 720, position: 'relative', background: '#FFFFFF', fontFamily: 'PingFang SC, Hiragino Sans GB, sans-serif' }}>
-    {/* A 页眉 */}
     <Box style={{ position: 'absolute', top: 0, left: 0, width: 1280, height: 56, background: '#1E4FA8' }} />
     <Box style={{ position: 'absolute', top: 0, left: 40, height: 56, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
         <Text style={{ fontSize: 17, color: '#FFFFFF', fontWeight: 'bold' }}>知迹</Text>
-        <Box style={{ width: 1, height: 16, background: '#5B8FD6' }} />
+        <Box style={{ width: 1, height: 16, background: '#5B8FD9' }} />
         <Text style={{ fontSize: 15, color: '#C9DDF5' }}>Agent 工程化实践</Text>
     </Box>
     <Box style={{ position: 'absolute', top: 0, right: 40, height: 56, flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>问题 · Agent 从能跑到能用的三道坎</Text>
+        <Text style={{ fontSize: 14, color: '#A9C6EF' }}>情景 · 一个学生的普通一周</Text>
     </Box>
-
-    {/* B 标题块 */}
     <Box style={{ position: 'absolute', top: 56, left: 40, width: 1200, height: 92, flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
-        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>
-            Agent 从能跑到能用，差的不是模型
-        </Text>
-        <Text style={{ fontSize: 19, color: '#4A5568' }}>
-            大模型让「做出来」变容易，让「敢上线」变困难 —— 差的是系统设计
-        </Text>
+        <Text style={{ fontSize: 34, fontWeight: 'bold', color: '#0E3F8C' }}>一个学生的一周，三个动作</Text>
+        <Text style={{ fontSize: 19, color: '#4A5568' }}>先不谈技术。这是知迹被使用的样子 —— 四个动作，一周</Text>
     </Box>
 
-    {/* C 内容区：三栏 */}
-    <Box style={{ position: 'absolute', top: 156, left: 40, width: 1200, height: 480, flexDirection: 'row', gap: 20 }}>
-        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 24, flexDirection: 'column', gap: 14 }}>
-            <Box style={{ width: 48, height: 48, background: '#1E4FA8', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ fontSize: 26, color: '#FFFFFF', fontWeight: 'bold' }}>1</Text>
-            </Box>
-            <Text style={{ fontSize: 27, fontWeight: 'bold', color: '#0E3F8C' }}>可恢复</Text>
-            <Text style={{ fontSize: 16, color: '#4A5568', lineHeight: 1.7 }}>
-                一次会话跨几十次工具调用，崩在第 7 步时，前 6 步的代价归零吗？
-            </Text>
-            <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 5, padding: '12px 14px', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 15, color: '#0E3F8C', lineHeight: 1.65 }}>
-                    需要显式状态机 + 持久化检查点，而不是把状态堆在消息列表里
-                </Text>
-            </Box>
+    <Box style={{ position: 'absolute', top: 172, left: 40, width: 1200, height: 336, flexDirection: 'column', gap: 20 }}>
+        <Box style={{ flexDirection: 'row', alignItems: 'center', height: 30 }}>
+            <Box style={{ width: 10, height: 10, borderRadius: 5, background: '#1E4FA8' }} />
+            <Box style={{ flex: 1, height: 3, background: '#C9DDF5' }} />
+            <Box style={{ width: 10, height: 10, borderRadius: 5, background: '#1E4FA8' }} />
+            <Box style={{ flex: 1, height: 3, background: '#C9DDF5' }} />
+            <Box style={{ width: 10, height: 10, borderRadius: 5, background: '#1E4FA8' }} />
+            <Box style={{ flex: 1, height: 3, background: '#C9DDF5' }} />
+            <Box style={{ width: 10, height: 10, borderRadius: 5, background: '#1E4FA8' }} />
         </Box>
-
-        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 24, flexDirection: 'column', gap: 14 }}>
-            <Box style={{ width: 48, height: 48, background: '#1E4FA8', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ fontSize: 26, color: '#FFFFFF', fontWeight: 'bold' }}>2</Text>
+        <Box style={{ flex: 1, flexDirection: 'row', gap: 20 }}>
+            <Box style={{ flex: 1, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 8, padding: 18, gap: 10 }}>
+                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Box style={{ width: 52, height: 30, background: '#1E4FA8', borderRadius: 4, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>周一</Text>
+                    </Box>
+                    <Text style={{ fontSize: 25, fontWeight: 'bold', color: '#0E3F8C' }}>传讲义</Text>
+                </Box>
+                <Box style={{ height: 2, background: '#E8EFF8' }} />
+                <Text style={{ fontSize: 16, color: '#4A5568', lineHeight: 1.75 }}>《高数》《四级》《数据结构》<br />三份资料进知识库</Text>
             </Box>
-            <Text style={{ fontSize: 27, fontWeight: 'bold', color: '#0E3F8C' }}>可拦截</Text>
-            <Text style={{ fontSize: 16, color: '#4A5568', lineHeight: 1.7 }}>
-                模型说「要写库」，谁在它真的写下去之前拦一下？
-            </Text>
-            <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 5, padding: '12px 14px', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 15, color: '#0E3F8C', lineHeight: 1.65 }}>
-                    提示词劝告挡不住越权工具调用，必须在执行层判定
-                </Text>
+<Box style={{ flex: 1, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 8, padding: 18, gap: 10 }}>
+                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Box style={{ width: 52, height: 30, background: '#3D7BD9', borderRadius: 4, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>周三</Text>
+                    </Box>
+                    <Text style={{ fontSize: 25, fontWeight: 'bold', color: '#0E3F8C' }}>提个问</Text>
+                </Box>
+                <Box style={{ height: 2, background: '#E8EFF8' }} />
+                <Text style={{ fontSize: 16, color: '#4A5568', lineHeight: 1.75 }}>「拉格朗日中值定理的条件是什么」<br />要求给出处</Text>
             </Box>
-        </Box>
-
-        <Box style={{ flex: 1, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, padding: 24, flexDirection: 'column', gap: 14 }}>
-            <Box style={{ width: 48, height: 48, background: '#1E4FA8', borderRadius: 6, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ fontSize: 26, color: '#FFFFFF', fontWeight: 'bold' }}>3</Text>
+<Box style={{ flex: 1, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 8, padding: 18, gap: 10 }}>
+                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Box style={{ width: 52, height: 30, background: '#0E3F8C', borderRadius: 4, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>周五</Text>
+                    </Box>
+                    <Text style={{ fontSize: 25, fontWeight: 'bold', color: '#0E3F8C' }}>出点题</Text>
+                </Box>
+                <Box style={{ height: 2, background: '#E8EFF8' }} />
+                <Text style={{ fontSize: 16, color: '#4A5568', lineHeight: 1.75 }}>按讲义出题，昨天做错的方向<br />多出几道变式题</Text>
             </Box>
-            <Text style={{ fontSize: 27, fontWeight: 'bold', color: '#0E3F8C' }}>可度量</Text>
-            <Text style={{ fontSize: 16, color: '#4A5568', lineHeight: 1.7 }}>
-                改了一行检索逻辑，怎么知道它没让效果悄悄变差？
-            </Text>
-            <Box style={{ flex: 1, background: '#E8EFF8', borderRadius: 5, padding: '12px 14px', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 15, color: '#0E3F8C', lineHeight: 1.65 }}>
-                    「感觉变好了」可能只是随机波动，需要固定考卷与基线
-                </Text>
+<Box style={{ flex: 1, background: '#FFFFFF', border: '1px solid #D6DCE5', borderRadius: 8, padding: 18, gap: 10 }}>
+                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Box style={{ width: 52, height: 30, background: '#4FB3A4', borderRadius: 4, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>周日</Text>
+                    </Box>
+                    <Text style={{ fontSize: 25, fontWeight: 'bold', color: '#0E3F8C' }}>练一下</Text>
+                </Box>
+                <Box style={{ height: 2, background: '#E8EFF8' }} />
+                <Text style={{ fontSize: 16, color: '#4A5568', lineHeight: 1.75 }}>打开今日复习做三道<br />自评完，明天的题自己排好</Text>
             </Box>
         </Box>
     </Box>
 
-    {/* 底部结论条 */}
+    <Box style={{ position: 'absolute', top: 528, left: 40, width: 1200, height: 92, background: '#F7F9FC', border: '1px solid #D6DCE5', borderRadius: 8, flexDirection: 'row', alignItems: 'center', padding: '0 24px', gap: 18 }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0E3F8C' }}>四件事，四个动作：</Text>
+        <Text style={{ fontSize: 18, color: '#4A5568', flex: 1 }}>资料进得来　·　问题问得清　·　题目出得准　·　复习排得对</Text>
+        <Text style={{ fontSize: 16, color: '#8B97A8' }}>听着都是小事 —— 下一页看第三件为什么最难</Text>
+    </Box>
+
     <Box style={{ position: 'absolute', top: 648, left: 40, width: 1200, height: 56, background: '#E8EFF8', borderTop: '2px solid #1E4FA8', flexDirection: 'row', alignItems: 'center', padding: '0 20px', gap: 12 }}>
         <Box style={{ width: 4, height: 24, background: '#1E4FA8' }} />
-        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>
-            这三件事都不是模型能力问题，是系统设计问题 —— 知迹选了一个具体领域，把三道坎都过了一遍
-        </Text>
+        <Text style={{ fontSize: 19, color: '#0E3F8C', fontWeight: 'bold' }}>这四件事看着都顺，但第三件有个说不清的问题 —— 下一页说它</Text>
     </Box>
 
-    {/* D 页脚 */}
-    <Box style={{ position: 'absolute', bottom: 24, left: 40, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+    <Box style={{ position: 'absolute', bottom: 8, left: 40, flexDirection: 'row', alignItems: 'center' }}>
         <Text style={{ fontSize: 14, color: '#8B97A8' }}>知迹 · 赛道十三 · 智慧教育</Text>
     </Box>
-    <Box style={{ position: 'absolute', bottom: 24, right: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+    <Box style={{ position: 'absolute', bottom: 8, right: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         <Text style={{ fontSize: 15, color: '#1E4FA8', fontWeight: 'bold' }}>02</Text>
         <Text style={{ fontSize: 14, color: '#8B97A8' }}>/ 16</Text>
     </Box>
