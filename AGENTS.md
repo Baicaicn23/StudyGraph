@@ -106,9 +106,10 @@ uv run python scripts/make_overview_figure.py --png
   - **数字永远不交给生图模型**（错一位就是编造数据），留在 PPT 里叠。
 - Chrome headless 必须 `--headless=new --no-sandbox`（旧的 `--headless` 会 SIGTRAP）。
 - **PPT 配套文档**（`docs/作品集/参赛/知迹答辩/`）：
-  `STORY.md`（叙事 + 页间过渡句 + 数字口径）/ `DESIGN.md`（视觉规范）/
-  `assets/配图提示词.md`（只需生 2 张氛围图）/ `README.md`（交付说明与改稿方法）。
-  后续若有人接着做 PPT，**页序与文案以 `STORY.md` 为准，不要另起一套**。
+  `README.md`（视觉规范 + 数据口径 + 追问备答）/
+  `assets/配图提示词.md`（只需生 2 张氛围图）；
+  任务执行书在 `docs/作品集/参赛/知迹答辩-任务执行书.md`。
+  后续若有人接着做 PPT，**先读任务执行书**，页序不要另起一套。
 - 用户偏好（已否决的别再做）：kami 纸感学术风「太空、留白多」→ 走**明亮浅色调**；
   插图要**3D 写实 / 摄影级质感**，不要扁平矢量示意图；**全篇不出现人物**。
 
