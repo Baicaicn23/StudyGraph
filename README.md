@@ -8,6 +8,10 @@
 
 `LangGraph` 编排 · `FastAPI` + `SQLite` · `Next.js 16`
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](pyproject.toml)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](frontend/package.json)
+
 </div>
 
 ---

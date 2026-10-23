@@ -2,7 +2,7 @@
 """知迹答辩 PPT · slides_maker 构建脚本
 
 风格：`consulting` 预设（白底 · 行动结论式标题 · 藏蓝→翠绿渐变顶线 · 5 色语义契约）
-叙事：痛点故事 → 产品定位 → 流程 → 两个硬核亮点 → 工程数据 → 边界 → Roadmap
+叙事：痛点 → 定位 → 两个应用场景 → 真实界面 → 工程三条线 → 边界 → Roadmap
 
 用法：
     python3 build_deck.py                # 生成 pptx
@@ -19,6 +19,7 @@ sys.path.insert(0, str(SKILL / "scripts"))
 
 import deckkit as dk  # noqa: E402
 import presets  # noqa: E402
+from pptx.enum.shapes import PP_PLACEHOLDER as _PH  # noqa: E402
 
 OUT = Path("docs/作品集/参赛/知迹答辩")
 ASSETS = OUT / "assets"
@@ -49,6 +50,8 @@ BG = C((255, 255, 255))
 MUTE = C((89, 98, 112))          # 4.5:1 on light
 LIGHT = C((242, 246, 250))
 LINE = C((214, 222, 232))
+TINT = C((238, 244, 249))      # 中性浅底（断链图节点）
+PRI = NAVY                    # 断链图节点左条/文字
 
 W, H = 13.333, 7.5          # 英寸（16:9）
 M = 0.62                    # 左右安全边距
@@ -62,6 +65,21 @@ dk.set_ground(BG)
 
 def slide():
     return dk.add_slide(prs)
+
+
+# ---- 字号温和提升（1.10×）：对齐 editable-research-ppt 的可读性标准 ----
+SCALE = 1.10
+_orig_text = dk.text
+
+
+def _scaled_text(slide, x, y, w, h, paras, **kw):
+    scaled = []
+    for p_ in paras:
+        scaled.append([(t, round(sz * SCALE, 1), *rest) for (t, sz, *rest) in p_])
+    return _orig_text(slide, x, y, w, h, scaled, **kw)
+
+
+dk.text = _scaled_text
 
 
 def para(runs, size=14, color=INK, bold=False, ls=None):
@@ -102,7 +120,7 @@ def head(s, title, kicker="", accent=NAVY):
 FLOOR = 6.80          # 内容区底边（页脚安全线之上）
 
 
-def foot(s, n, total=11, note=""):
+def foot(s, n, total=18, note=""):
     """页脚：细分隔线 + 左侧标签 + 右侧页码。"""
     dk.hrule(s, M, H - 0.46, CW, color=LINE, weight=0.012)
     dk.text(s, M, H - 0.38, CW * 0.6, 0.22,
@@ -113,10 +131,48 @@ def foot(s, n, total=11, note=""):
             align=dk.PP_ALIGN.RIGHT)
 
 
+def dfoot(s, n, total=18):
+    """深色页的页脚：字色反过来，否则在深蓝上几乎看不见。"""
+    dk.hrule(s, M, H - 0.46, CW, color=C((38, 62, 90)), weight=0.012)
+    dk.text(s, M, H - 0.38, CW * 0.6, 0.22,
+            [para("知迹 · 赛道十三 · 智慧教育", 9, C((128, 154, 184)))])
+    dk.text(s, W - M - 1.2, H - 0.38, 1.2, 0.22,
+            [[(f"{n:02d}", 10, C((122, 226, 198)), True, False, dk.FONT),
+              (f" / {total}", 9, C((128, 154, 184)), False, False, dk.FONT)]],
+            align=dk.PP_ALIGN.RIGHT)
+
+
+def divider(s, num, section, headline, lead, chips, n, pages=""):
+    """章节页：深蓝底 + 大号章节序号 + 一句导语 + 本章小标题 + 本节页码区间。"""
+    dk.box(s, 0, 0, W, H, fill=C((14, 32, 61)))
+    dk.box(s, 0, 0, W, 0.06, fill=C((30, 120, 104)))
+    dk.text(s, M + 0.10, 1.16, 3.2, 1.40, [para(num, 88, C((48, 112, 152)), True)])
+    dk.text(s, M + 0.14, 2.78, 6.4, 0.34, [para(section, 19, C((122, 226, 198)), True)])
+    dk.text(s, M + 0.14, 3.26, 8.55, 1.20,
+            [para(headline, 32, C((255, 255, 255)), True)], line_spacing=1.20)
+    dk.text(s, M + 0.14, 4.56, 8.55, 0.90,
+            [para(lead, 14.5, C((170, 192, 218)))], line_spacing=1.50)
+    tx = M + 0.14
+    for c in chips:
+        cwid = pill_width(c, 10.5, 0.46)
+        dk.box(s, tx, 5.86, cwid, 0.38, fill=None, line=C((58, 100, 128)),
+               line_w=0.9, round=True, r=0.19)
+        dk.text(s, tx, 5.91, cwid, 0.28, [para(c, 10.5, C((186, 216, 232)), True)],
+                align=dk.PP_ALIGN.CENTER, anchor=dk.MSO_ANCHOR.MIDDLE)
+        tx += cwid + 0.16
+    if pages:
+        dk.box(s, 9.52, 2.62, 0.014, 3.30, fill=C((40, 66, 96)))
+        dk.text(s, 9.82, 2.74, 2.6, 0.24, [para("本 节", 10, C((128, 154, 184)), True)])
+        dk.text(s, 9.82, 3.02, 2.9, 0.62, [para(pages, 34, C((255, 255, 255)), True)])
+        dk.text(s, 9.82, 3.74, 2.6, 0.24,
+                [para(f"{len(chips)} 个小节", 10, C((128, 154, 184)))])
+    dfoot(s, n)
+
+
 def insight(s, x, y, w, label, hero, txt, accent=NAVY):
     """结论条：左侧竖条 + 一句 so-what。"""
     h = 0.72
-    dk.box(s, x, y, w, h, fill=LIGHT, round=True, r=0.06)
+    dk.box(s, x, y, w, h, fill=LIGHT, round=True, r=0.07)
     dk.box(s, x, y, 0.055, h, fill=accent)
     dk.text(s, x + 0.24, y + 0.10, w - 0.45, 0.22, [para(label, 10, accent, True)])
     dk.text(s, x + 0.24, y + 0.33, w - 0.45, 0.32, [para(hero, 14, INK, True)])
@@ -145,7 +201,7 @@ def card(s, x, y, w, h, title, lines, accent=NAVY, num=""):
 def figure_slot(s, x, y, w, h, caption, tag):
     """图位：留白 + 虚线框 + 说明（图片生成后替换此框）。"""
     dk.box(s, x, y, w, h, fill=C((250, 251, 252)), line=C((140, 152, 168)), line_w=1.0,
-           round=True, r=0.08)
+           round=True, r=0.07)
     dk.text(s, x, y + h / 2 - 0.30, w, 0.30, [para(tag, 13, C((120, 132, 148)), True)],
             align=dk.PP_ALIGN.CENTER)
     dk.text(s, x + 0.3, y + h / 2 + 0.02, w - 0.6, 0.46,
@@ -153,219 +209,370 @@ def figure_slot(s, x, y, w, h, caption, tag):
             align=dk.PP_ALIGN.CENTER)
 
 
+FONT_FILE = "/System/Library/Fonts/Hiragino Sans GB.ttc"
+
+
+def pill_width(txt, size=9.5, pad=0.42):
+    """胶囊标签宽度 = 文字实宽 + 左右内边距（PIL 量真宽，避免长标签被截）。"""
+    from PIL import ImageFont
+    try:
+        f = ImageFont.truetype(FONT_FILE, int(size * 6))
+        return f.getlength(txt) / 6 / 72 + pad
+    except OSError:
+        return len(txt) * size / 72 + pad
+
+
 # ================================================================ 01 封面
 
 s = slide()
 dk.box(s, 0, 0, W, H, fill=C((14, 32, 61)))
 dk.box(s, 0, 0, W, 0.16, fill=NAVY)
-# 右侧氛围图位
-figure_slot(s, 7.55, 0.16, W - 7.55, H - 0.16,
-            "封面氛围图 · 浅色调书桌场景（待生成，见 assets/配图提示词.md）",
-            "p01-cover-desk.png")
 
-dk.text(s, M + 0.12, 1.30, 6.0, 0.26,
+# 右半幅：真实桌面场景。图片左缘已由 scripts/prep_cover_image.py 烘焙成深蓝渐变，
+# 与本页背景同色，接缝处是渐变而不是一刀切。
+PIC_X = 7.55
+dk.picture(s, str(ASSETS / "p01-cover-desk.png"), PIC_X, 0.16, W - PIC_X, H - 0.16,
+           fit="cover", alt="")
+
+dk.text(s, M + 0.12, 1.54, 6.0, 0.26,
         [para("全国大学生数字媒体科技作品及创意竞赛 · 赛道十三 · 智慧教育", 12, C((160, 195, 230)), True)])
-dk.text(s, M + 0.12, 1.80, 6.2, 1.10, [para("知迹", 62, C((255, 255, 255)), True)])
-dk.box(s, M + 0.12, 3.00, 1.50, 0.036, fill=C((30, 110, 100)))
-dk.box(s, M + 1.62, 3.00, 0.90, 0.036, fill=EMERALD)
-dk.text(s, M + 0.12, 3.28, 6.0, 1.30,
-        [para("一个不乱编的个人学习 Agent", 30, C((255, 255, 255)), True)], line_spacing=1.16)
-dk.text(s, M + 0.12, 4.14, 6.0, 0.90,
-        [[("资料进去，题出来，复习排好。", 15, C((205, 220, 240)), False, False, dk.FONT),
-          ("每句结论都能点回你上传的那一页。", 15, C((150, 205, 182)), True, False, dk.FONT)]],
-        line_spacing=1.40)
+dk.text(s, M + 0.12, 1.96, 6.2, 1.24, [para("知迹", 62, C((255, 255, 255)), True)])
+dk.box(s, M + 0.12, 3.18, 1.50, 0.036, fill=C((30, 110, 100)))
+dk.box(s, M + 1.62, 3.18, 0.90, 0.036, fill=EMERALD)
+SUBT = C((122, 226, 198))          # 「言必有据」的亮青绿
+dk.text(s, M + 0.12, 3.46, 6.75, 0.66,
+        [[("一个", 26, C((255, 255, 255)), True, False, dk.FONT),
+          ("会整理、会出题", 26, SUBT, True, False, dk.FONT),
+          ("的学习 Agent", 26, C((255, 255, 255)), True, False, dk.FONT)]],
+        line_spacing=1.20)
+dk.text(s, M + 0.12, 4.32, 5.62, 0.95,
+        [[("喂入资料，自动出题，闭环复习。", 15.5, C((205, 220, 240)), False, False, dk.FONT)],
+         [("它记得你错在哪，也知道明天让你练什么。", 15.5, C((150, 205, 182)), True, False, dk.FONT)]],
+        line_spacing=1.42)
 
-dk.box(s, M + 0.12, 5.42, 0.045, 0.66, fill=EMERALD)
-dk.text(s, M + 0.32, 5.44, 6.0, 0.28,
-        [para("LangGraph 状态图 · 四路混合检索 · 人在环写入确认", 12, C((205, 220, 240)), True)])
-dk.text(s, M + 0.32, 5.74, 6.0, 0.26,
-        [para("284 项自动测试全绿 · 检索 35 题 Hit@3 = MRR = 0.9714", 11, C((165, 185, 212)))])
+# 技术底座：三个胶囊标签（替代原来两行长文本，避免左栏挤成一坨）
+tx = M + 0.12
+for tag in ("LangGraph 状态机", "四路混合检索", "284 项自动化测试"):
+    tw = pill_width(tag)
+    dk.box(s, tx, 5.66, tw, 0.34, fill=C((24, 47, 82)), line=C((58, 106, 126)),
+           line_w=0.75, round=True, r=0.17)
+    dk.text(s, tx, 5.66 + 0.075, tw, 0.19,
+            [para(tag, 9.5, C((178, 210, 228)), True)], align=dk.PP_ALIGN.CENTER)
+    tx += tw + 0.14
 
 # ================================================================ 02 痛点与破局
 
 s = slide()
-y = head(s, "它答得很顺，我一翻书，它连定理条件都记错了",
-         "痛点 · 期末周的一次翻车")
+y = head(s, "最聪明的 AI，也做不了你的「专属私教」",
+         "痛点 · 不是 AI 不聪明，是这些活它不干")
 
-# 左侧：真实情景（小李的一周，具体动作与细节）
+# 左侧：纯痛点场景（不出现知迹的任何功能，否则和「翻车」的标题自相矛盾）
+WARN = C((197, 106, 82))
 story = [
-    ("周一晚上",
-     "期末周，网盘里堆着一百多份讲义和历年卷。我把三门课的资料拖进知迹，"
-     "它没急着读，只把文件存好，等我点「解析入库」才动手切页。"),
-    ("周三下午",
-     "我在对话框问「拉格朗日中值定理的条件是什么」。它答得挺顺，"
-     "句末还贴了个小小的 [P12]。我点了一下，界面直接跳回讲义第 12 页那张原图。"),
-    ("周五晚上",
-     "我让它按讲义的难度出几道题。答错一道，我顺手记下「概念混淆」这个错因，"
-     "掌握度就悄悄降了一档。可第二天我打开题库，那道题的变式还在那儿等我。"),
+    ("周一", "网盘囤了 100 多页独家复习提纲，没索引，等于没存。"),
+    ("周三", "问通用 AI 考点，答得顺畅，可用的不是我们教材的定义，还得自己翻书核一遍。"),
+    ("周五", "做错核心题，下周同类型再考，没有复习机制，照错不误。"),
 ]
 ty = y + 0.06
-for t, d in story:
-    dk.box(s, M, ty, 0.05, 1.06, fill=CORAL)
-    dk.text(s, M + 0.28, ty, 6.6, 0.30, [para(t, 16, INK, True)])
-    body(s, M + 0.28, ty + 0.36, 6.6, d, 13, SLATE, ls=1.48)
-    ty += 1.28
+for i, (t, d) in enumerate(story):
+    # 竖线把三段串成一条时间轴（最后一段不画）
+    if i < len(story) - 1:
+        dk.box(s, M + 0.153, ty + 0.25, 0.014, 1.38 - 0.30, fill=C((228, 222, 216)))
+    # 时间轴节点：一个小圆点就够了，比红感叹号克制（渲染器的圆角半径有上限，大圆会变圆角方块）
+    dk.box(s, M + 0.093, ty + 0.115, 0.135, 0.135, fill=WARN, round=True, r=0.068)
+    dk.text(s, M + 0.48, ty, 6.1, 0.32, [para(t, 17, INK, True)])
+    body(s, M + 0.48, ty + 0.40, 6.1, d, 15, SLATE, ls=1.50)
+    ty += 1.38
 
-# 右侧：三个断点（从上面的经历里抽出来）
+# 右侧：一条断掉的链（资料 → 题 → 复习），断口就是上面三段经历
 rx = M + 7.10
 rw = CW - 7.10
-dk.text(s, rx, y + 0.06, rw, 0.28, [para("那几次翻车，坏在三处", 16, INK, True)])
-gaps = [
-    ("资料多，找不到", "一百多份讲义堆着，没有索引就等于没存", GOLD),
-    ("AI 答得流畅，却会错", "它说得越顺，越难看出哪句是编的", CORAL),
-    ("错题记了也白记", "下次出题不看你错在哪，等于没改", NAVY),
+dk.text(s, rx, y + 0.06, rw, 0.28, [para("断在哪，一看就明白", 16, INK, True)])
+chain = [
+    ("资料", "囤了 100 页，没索引", TINT, PRI),
+    ("变不成题", None, None, None),
+    ("题目", "网上找，对不上讲义", TINT, PRI),
+    ("进不了复习", None, None, None),
+    ("复习", "做完就忘，没人排", TINT, PRI),
 ]
-gy = y + 0.48
-for name, desc, c in gaps:
-    dk.box(s, rx, gy, rw, 0.94, fill=BG, line=LINE, line_w=0.9, round=True, r=0.07)
-    dk.box(s, rx, gy, 0.05, 0.94, fill=c)
-    dk.text(s, rx + 0.26, gy + 0.18, rw - 0.5, 0.28, [para(name, 16, c, True)])
-    dk.text(s, rx + 0.26, gy + 0.52, rw - 0.5, 0.32, [para(desc, 12, SLATE)])
-    gy += 1.06
+cy = y + 0.44
+for label, sub, tint, ink in chain:
+    if sub is None:                      # 断口：细线 + 红圈 ✕ + 短句
+        dk.box(s, rx + 0.44, cy + 0.02, 0.03, 0.50, fill=C((228, 222, 216)))
+        dk.box(s, rx + 0.30, cy + 0.08, 0.32, 0.32, fill=C((255, 255, 255)), line=WARN,
+               line_w=1.1, round=True, r=0.16)
+        dk.text(s, rx + 0.30, cy + 0.13, 0.32, 0.22, [para("✕", 11, WARN, True)],
+                align=dk.PP_ALIGN.CENTER)
+        dk.text(s, rx + 0.80, cy + 0.14, rw - 0.9, 0.26, [para(label, 13.5, WARN, True)])
+        cy += 0.56
+    else:
+        dk.box(s, rx, cy, rw, 0.72, fill=tint, line=LINE, line_w=0.9, round=True, r=0.07)
+        dk.box(s, rx, cy, 0.08, 0.72, fill=PRI)
+        dk.text(s, rx + 0.28, cy + 0.10, rw - 0.5, 0.28, [para(label, 17, ink, True)])
+        dk.text(s, rx + 0.28, cy + 0.40, rw - 0.5, 0.26, [para(sub, 13, SLATE)])
+        cy += 0.86
 
-# 底部：横贯的破局结论（浅色系 + 缩窄，位置在内容之下，不遮挡上方任何元素）
-by = 6.60
-dk.box(s, M, by, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.8, round=True, r=0.05)
-dk.box(s, M, by, 0.045, 0.40, fill=C((30, 133, 108)))
-dk.text(s, M + 0.24, by + 0.105, 1.0, 0.20, [para("破局点", 9.5, C((30, 110, 92)), True)])
-dk.text(s, M + 1.30, by + 0.10, 5.0, 0.24,
-        [para("把三件事接起来", 13, C((24, 38, 33)), True)])
-dk.text(s, M + 6.40, by + 0.11, CW - 6.6, 0.20,
-        [para("不是造一个更大的工具，是让「资料 → 题 → 复习」这条线自己转起来。",
-              10.5, C((58, 72, 66)))])
-dk.text(s, W - M - 2.9, by + 0.11, 2.6, 0.20,
-        [para("知迹只做这些，做到能核验", 10.5, C((30, 110, 92)), True)])
+# 底部：整页唯一的重色横带。链条全篇统一为「资料 → 错题 → 复习」
+by = 6.26
+BH = 0.74
+dk.box(s, M, by, CW, BH, fill=C((21, 118, 99)), round=True, r=0.07)
+dk.box(s, M, by, 0.055, BH, fill=C((146, 214, 194)))
+MINT = C((206, 240, 228))
+WHITE = C((255, 255, 255))
+
+dk.text(s, M + 0.26, by + 0.13, 1.1, 0.20, [para("破局点", 9.5, MINT, True)])
+dk.text(s, M + 1.26, by + 0.20, CW - 3.35, 0.36,
+        [[("把「资料 → 错题 → 复习」", 16.5, WHITE, True, False, dk.FONT),
+          ("这条断掉的线，接起来。", 16.5, MINT, True, False, dk.FONT)]])
 foot(s, 2)
 
-# ================================================================ 03 产品定位
+# ================================================================ 章节 01：它做什么
 
 s = slide()
-y = head(s, "知迹只死磕这三件：接上了，答案才谈得上可靠",
-         "定位 · 一个克制的单品")
+divider(s, "01", "这一章：它做什么",
+        "一个 Agent 能在学习里，替你做多少事？",
+        "不是多一个聊天窗口。是把整理资料、出题、盯复习这三件事，从你手里接过去。",
+        ["定位：会动手的 Agent", "场景 ① 知识库整理", "场景 ② 出题与复习"], 3, "04 — 06")
 
+# ================================================================ 04 产品定位
+
+s = slide()
+y = head(s, "不只是聊天框：它自己整理、自己出题、自己盯",
+         "定位 · 会动手的 Agent，不是会聊天的对话框")
+
+
+def glyph(s, kind, x, y, d, color):
+    """三个卡片图标：文件夹 / 靶心 / 日历。全部用几何形状画，不用 emoji（跨端渲染不可控）。"""
+    if kind == "folder":
+        dk.box(s, x, y + 0.01, 0.10, 0.045, fill=color, round=True, r=0.015)
+        dk.box(s, x, y + 0.045, d, 0.155, fill=None, line=color, line_w=1.1,
+               round=True, r=0.02)
+        for i in range(2):
+            dk.box(s, x + 0.045, y + 0.085 + i * 0.045, d - 0.09, 0.018,
+                   fill=color, round=True, r=0.009)
+    elif kind == "target":
+        dk.box(s, x, y, d, d, fill=None, line=color, line_w=1.2, round=True, r=d / 2)
+        dk.box(s, x + 0.06, y + 0.06, d - 0.12, d - 0.12, fill=None, line=color,
+               line_w=0.9, round=True, r=(d - 0.12) / 2)
+        dk.box(s, x + d / 2 - 0.03, y + d / 2 - 0.03, 0.06, 0.06, fill=color,
+               round=True, r=0.03)
+    else:  # calendar
+        for tx in (0.05, 0.155):
+            dk.box(s, x + tx, y - 0.005, 0.025, 0.05, fill=color, round=True, r=0.012)
+        dk.box(s, x, y + 0.03, d, 0.185, fill=None, line=color, line_w=1.1,
+               round=True, r=0.03)
+        dk.box(s, x + 0.005, y + 0.075, d - 0.01, 0.02, fill=color)
+        for tx in (0.045, 0.105, 0.165):
+            dk.box(s, x + tx, y + 0.13, 0.026, 0.026, fill=color, round=True, r=0.006)
+
+
+EMER_TXT = C((22, 112, 92))
 three = [
-    ("整理你的资料", "讲义、课件、笔记、拍照的板书传进来，按学科分好；"
-     "PDF 能翻到第几页，图片由多模态模型转成文字。", NAVY, "1"),
-    ("盯着你的错题", "错题记上「概念混淆 / 步骤遗漏 / 条件误读」这样的错因，"
-     "下次出题时它真的按错因加重。", EMERALD, "2"),
-    ("结合你的库出题", "题只从你自己的资料里出，答完自评，"
-     "掌握度变了，后面的复习安排跟着变。", GOLD, "3"),
+    ("私人定制的知识库问答", "folder", NAVY, C((238, 244, 249)), [
+        [("讲义/笔记传进去，按学科归好。它既懂通用知识，更懂你这一门课；"
+          "想核对原话，点 ", 12.5, SLATE, False, False, dk.FONT),
+         ("[P12]", 11.5, NAVY, True, False, dk.MONO),
+         (" 就跳到第 12 页。", 12.5, SLATE, False, False, dk.FONT)],
+    ]),
+    ("基于私有库的自动出题机", "target", EMERALD, C((238, 247, 243)), [
+        [("不要网上烂大街的题库。只从你的讲义出题，"
+          "几百页死资料变成一场模拟考。", 12.5, SLATE, False, False, dk.FONT)],
+    ]),
+    ("死咬不放的错题追踪器", "calendar", GOLD, C((252, 249, 239)), [
+        [("不只记错题，更记错因。根据薄弱点自动生成", 12.5, SLATE, False, False, dk.FONT),
+         ("变式题", 12.5, INK, True, False, dk.FONT),
+         ("，配合间隔重复，直到真正掌握。", 12.5, SLATE, False, False, dk.FONT)],
+    ]),
 ]
 cw3 = (CW - 0.44) / 3
 cx = M
-for title, desc, c, num in three:
-    card(s, cx, y + 0.04, cw3, 2.55, title, [], accent=c, num=num)
-    body(s, cx + 0.22, y + 0.86, cw3 - 0.44, desc, 12.5, SLATE, ls=1.38)
+for title, kind, c, tint, paras_ in three:
+    dk.box(s, cx, y + 0.04, cw3, 2.44, fill=BG, line=LINE, line_w=0.9, round=True, r=0.07)
+    dk.box(s, cx + 0.02, y + 0.06, cw3 - 0.04, 0.05, fill=c)
+    dk.box(s, cx + 0.24, y + 0.28, 0.50, 0.50, fill=tint, line=c, line_w=0.75,
+           round=True, r=0.11)
+    glyph(s, kind, cx + 0.24 + 0.10, y + 0.28 + 0.10, 0.30, c)
+    dk.text(s, cx + 0.24, y + 0.94, cw3 - 0.44, 0.34, [para(title, 15.5, INK, True)])
+    th = dk.measure_text([(title, True)], cw3 - 0.44, 15.5, font=dk.FONT, line_spacing=1.15)
+    by_ = y + 0.94 + max(th, 0.30) + 0.14
+    dk.text(s, cx + 0.24, by_, cw3 - 0.44, 2.44 - (by_ - y - 0.04) - 0.12,
+            paras_, line_spacing=1.46)
     cx += cw3 + 0.22
 
-# 为什么不做大而全
-by = y + 2.80
-dk.box(s, M, by, CW, 1.28, fill=C((248, 250, 252)), line=LINE, line_w=0.9, round=True, r=0.08)
-dk.text(s, M + 0.28, by + 0.18, 3.2, 0.28,
-        [para("为什么不做成「什么都有」的平台", 15, INK, True)])
-body(s, M + 0.28, by + 0.52, CW - 0.56,
-     "每一多一个功能，就多一条可能出错的路径。而这个项目要证明的恰恰是「输出可信」。"
-     "所以它只做单机、单用户、三个动作，做到底。技术上也不是拼装："
-     "权限、恢复、评测这三件事，都是围着「让答案可被核验」设计的。",
-     12.5, SLATE, ls=1.38)
+# 为什么不做大而全：金句 + 支撑点（关键词标绿，评委扫一眼就能看到工程深度）
+by = y + 2.66
+dk.box(s, M, by, CW, 1.86, fill=C((248, 250, 252)), line=LINE, line_w=0.9, round=True, r=0.07)
+dk.text(s, M + 0.30, by + 0.20, CW - 0.6, 0.28,
+        [para("为什么不做「大而全」的平台", 15, INK, True)])
+dk.text(s, M + 0.30, by + 0.56, CW - 0.6, 0.30,
+        [para("因为多一个功能，就多一条出错的路径。", 16, INK, True)])
+dk.text(s, M + 0.30, by + 0.98, CW - 0.6, 0.34,
+        [[("所以鉴权、多租户这类外围功能主动不做，把工程精力全压在 ", 12.5, SLATE, False, False, dk.FONT),
+          ("工具双层权限", 12.5, EMER_TXT, True, False, dk.FONT),
+          ("、", 12.5, SLATE, False, False, dk.FONT),
+          ("HITL 写入确认", 12.5, EMER_TXT, True, False, dk.FONT),
+          ("、", 12.5, SLATE, False, False, dk.FONT),
+          ("284 项自动化评测", 12.5, EMER_TXT, True, False, dk.FONT),
+          (" 上。", 12.5, SLATE, False, False, dk.FONT)]],
+        line_spacing=1.40)
+dk.text(s, M + 0.30, by + 1.42, CW - 0.6, 0.30,
+        [para("所有技术设计只为一件事：让答案可核验。", 13.5, C((30, 110, 92)), True)])
 # 底部结论条（浅色系 + 缩窄；位置在内容最低点之下，不遮挡上方任何元素）
 ib = 6.60
-dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.8, round=True, r=0.05)
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
-dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("破局点", 9.5, C((30, 110, 92)), True)])
-dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("不是造一个更大的工具，是让「资料 → 题 → 复习」这条线自己转起来。", 11, C((38, 52, 46)), True)])
-foot(s, 3)
-
-# ================================================================ 04 核心流程
-
-s = slide()
-y = head(s, "换成知迹之后，这四周是这样过的",
-         "流程 · 传资料 → 问问题 → 记错因 → 出变式题 → 排复习")
-
-steps = [
-    ("周一", "传讲义", "三份 PDF 和课件照片拖进去。\n系统不急着读，先落盘，"
-     "等你点「解析入库」才按页切块建索引。", NAVY),
-    ("周三", "提个问", "「拉格朗日中值定理的条件是什么？」\n"
-     "句末贴一个 [P12]，点一下跳回第 12 页原图；\n资料里没有的，走联网并标明是外部资料。", EMERALD),
-    ("周五", "记错因", "答错一道。不只是看答案，\n顺手记下「概念混淆」这个错因 ——\n下次出题就按它加重。", GOLD),
-    ("周日", "排复习", "今日复习自动推那道错题的变式，\n明天的日程也一并排好。", CORAL),
-]
-sw = (CW - 0.66) / 4
-sx = M
-for i, (d, t, desc, c) in enumerate(steps):
-    if i:
-        dk.arrow(s, sx - 0.20, y + 1.34, 0.14, 0.14, color=C((150, 162, 178)), direction="right")
-    dk.box(s, sx, y + 0.16, sw, 2.60, fill=BG, line=LINE, line_w=0.9, round=True, r=0.07)
-    dk.box(s, sx, y + 0.16, sw, 0.05, fill=c)
-    dk.text(s, sx + 0.22, y + 0.40, sw - 0.44, 0.24, [para(d, 11, c, True)])
-    dk.text(s, sx + 0.22, y + 0.68, sw - 0.44, 0.30, [para(t, 17, INK, True)])
-    dk.text(s, sx + 0.22, y + 1.10, sw - 0.44, 1.50,
-            [[(ln, 12, SLATE, False, False, dk.FONT)] for ln in desc.split("\n")],
-            line_spacing=1.40)
-    sx += sw + 0.22
-
-# 下半：这一步到底解决了什么
-dy = y + 3.02
-dk.text(s, M, dy, 5.0, 0.26, [para("四个动作连起来，中间没有断点", 15, INK, True)])
-dk.box(s, M, dy + 0.36, CW, 1.10, fill=C((250, 251, 252)), line=LINE, line_w=0.9, round=True, r=0.08)
-dk.text(s, M + 0.28, dy + 0.54, 3.2, 0.28,
-        [para("资料 → 题 → 复习", 20, C((30, 110, 100)), True)])
-dk.text(s, M + 3.90, dy + 0.50, CW - 4.2, 0.72,
-        [para("传进来的资料决定题从哪来，题做错在哪决定下次练什么，"
-              "自评的高低决定掌握度涨还是跌。存资料的不管错题、讲题的不管下次还错不错 —— "
-              "知迹把这三件事接成了一件事。", 13, SLATE)], line_spacing=1.40)
-# 底部结论条（浅色系 + 缩窄；位置在内容最低点之下，不遮挡上方任何元素）
-ib = 6.60
-dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.8, round=True, r=0.05)
-dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
-dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("流程", 9.5, C((30, 110, 92)), True)])
-dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("每一步都知道自己依据什么、结果存在哪、下次还练不练。", 11, C((38, 52, 46)), True)])
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("定位", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22,
+        [para("克制不是少做，是把「资料 → 错题 → 复习」每一环都做到能核验。",
+              11, C((38, 52, 46)), True)])
 foot(s, 4)
 
-# ================================================================ 05 真实界面
+# ================================================================ 05 场景一：知识库整理
+
+
+def step_row(s, x, y0, w, num, title, desc, accent=NAVY, tint=None):
+    tint = tint or C((241, 246, 250))
+    """带序号的一步：圆角序号片 + 标题 + 说明。"""
+    dk.box(s, x, y0, 0.42, 0.42, fill=tint, line=accent, line_w=0.9, round=True, r=0.09)
+    dk.text(s, x, y0 + 0.095, 0.42, 0.24, [para(num, 12.5, accent, True)],
+            align=dk.PP_ALIGN.CENTER)
+    dk.text(s, x + 0.60, y0 - 0.02, w - 0.60, 0.30, [para(title, 15.5, INK, True)])
+    body(s, x + 0.60, y0 + 0.36, w - 0.60, desc, 12.5, SLATE, ls=1.42)
+
+
+def before_after(s, x, y0, w, pairs, step=1.40, ch=0.82):
+    """以前 / 现在 对照：左灰右绿。y0 = 第一行顶部（和左侧步骤行同一基线）。"""
+    cw2 = (w - 0.18) / 2
+    dk.text(s, x, y0 - 0.36, cw2, 0.26, [para("以前", 11, MUTE, True)])
+    dk.text(s, x + cw2 + 0.18, y0 - 0.36, cw2, 0.26, [para("现在", 11, EMERALD, True)])
+    ry = y0
+    for before, after in pairs:
+        dk.text(s, x, ry, cw2, ch, [para(before, 11.5, MUTE)], line_spacing=1.36,
+                anchor=dk.MSO_ANCHOR.MIDDLE)
+        dk.box(s, x + cw2 + 0.18, ry, cw2, ch, fill=C((240, 247, 243)),
+               line=C((206, 226, 216)), line_w=0.9, round=True, r=0.07)
+        dk.text(s, x + cw2 + 0.34, ry, cw2 - 0.32, ch,
+                [para(after, 11.5, C((24, 46, 38)), True)], line_spacing=1.36,
+                anchor=dk.MSO_ANCHOR.MIDDLE)
+        ry += step
+
 
 s = slide()
-y = head(s, "这些不是示意图，是跑起来的真实界面",
-         "界面 · 知识库页与练习页")
+y = head(s, "100 份散资料，拖进去就是一座能查的库",
+         "应用场景 ① · 知识库的整理与构建")
 
-shots = [
-    ("知识库页", "资料进来后的样子：按学科分好库，文档可点开读，解析状态一眼可见。",
-     ASSETS / "ui-knowledge.png", NAVY),
-    ("练习页", "做题、记错因、自评、掌握度与复习安排，都在同一页里。",
-     ASSETS / "ui-practice.png", EMERALD),
-]
-SHOT_W = 5.86
-px = M
-for name, desc, path, c in shots:
-    dk.box(s, px, y + 0.08, SHOT_W, 0.34, fill=c, round=True, r=0.05)
-    dk.text(s, px + 0.20, y + 0.135, SHOT_W - 0.4, 0.24, [para(name, 13, C((255, 255, 255)), True)])
-    dk.picture(s, str(path), px, y + 0.52, SHOT_W, 2.64, fit="contain")
-    dk.text(s, px, y + 3.28, SHOT_W, 0.44, [para(desc, 12.5, SLATE)], line_spacing=1.38)
-    px += SHOT_W + 0.37
+LW = 5.60
+for i, (num, t, d) in enumerate([
+    ("1", "传资料", "PDF、Word、PPT、拍照的板书都能直接拖进去。先落盘，不急着读。"),
+    ("2", "解析入库", "点一下才开始切：PDF 按页切块、抽出文字，损坏的文件挡在门外。"),
+    ("3", "自动归档", "按学科归到库里，每份资料多少字、解析到哪一步，都看得见。"),
+]):
+    step_row(s, M, y + 0.10 + i * 1.58, LW, num, t, d)
 
-# 底部：为什么放真图（横向条）
-wy = y + 3.86
-dk.box(s, M, wy, CW, 0.98, fill=C((250, 251, 252)), line=LINE, line_w=0.9, round=True, r=0.08)
-dk.box(s, M, wy, 0.05, 0.98, fill=EMERALD)
-dk.text(s, M + 0.28, wy + 0.16, 2.4, 0.26, [para("放真图的原因", 15, INK, True)])
-dk.text(s, M + 2.90, wy + 0.16, CW - 3.2, 0.68,
-        [para("这是我自己跑起来的界面，不是设计稿。答辩时如果评委问「界面是你画的还是真做的」，"
-              "把这两张推过去比任何解释都省事。左边是知识库 —— 资料按学科分好，每份文档都能点开看解析到哪一页；"
-              "右边是练习页 —— 题、错因、掌握度、复习安排都在里面，连着上一页那四步。",
-              12, SLATE)], line_spacing=1.40)
-# 底部结论条（浅色系 + 缩窄；位置在内容最低点之下，不遮挡上方任何元素）
+RX = M + LW + 0.63
+rx = M + LW + 0.63
+rw = CW - LW - 0.63
+dk.picture(s, str(ASSETS / "ui-fig-1.png"), rx, y + 0.06, rw, rw / 1.48,
+           fit="cover", alt="")
+dk.box(s, rx, y + 0.06, rw, rw / 1.48, fill=None, line=C(LINE), line_w=0.9)
+dk.text(s, rx, y + 0.06 + rw / 1.48 + 0.14, rw, 0.28,
+        [para("库里长这样：每份资料带字数与解析状态。", 12.5, SLATE)])
+dk.text(s, rx, y + 0.06 + rw / 1.48 + 0.48, rw, 0.30,
+        [[("以前：翻七层找一份。", 12.5, MUTE, False, False, dk.FONT),
+          ("现在：搜一句话。", 12.5, EMERALD, True, False, dk.FONT)]], line_spacing=1.30)
+
+# 底部结论条
 ib = 6.60
-dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.8, round=True, r=0.05)
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
-dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("流程", 9.5, C((30, 110, 92)), True)])
-dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("上面那四步，都在这两个页面里发生。", 11, C((38, 52, 46)), True)])
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("场景 ①", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22,
+        [para("整理一次，往后每次出题、每次复习，都在这座库上跑。", 11, C((38, 52, 46)), True)])
 foot(s, 5)
+
+# ================================================================ 06 场景二：自动出题与复习
+
+s = slide()
+y = head(s, "题不用自己找：按你的讲义出，按你的错因加重",
+         "应用场景 ② · 自动出题与复习安排")
+
+LW = 5.60
+for i, (num, t, d) in enumerate([
+    ("1", "出题", "从你的库里检索片段，按难度分基础、进阶、迁移三档。"),
+    ("2", "记错因", "答错就选一个错因：概念混淆、步骤遗漏、条件误读。"),
+    ("3", "出变式", "同一个考点换个条件再出一遍，做对为止。"),
+    ("4", "排复习", "掌握度 0–100，间隔 0 / 1 / 3 / 7 天，今天练哪几道系统定。"),
+]):
+    step_row(s, M, y + 0.10 + i * 1.10, LW, num, t, d)
+
+RX = M + LW + 0.63
+rx = M + LW + 0.63
+rw = CW - LW - 0.63
+dk.picture(s, str(ASSETS / "ui-fig-3.png"), rx, y + 0.06, rw, rw / 1.48,
+           fit="cover", alt="")
+dk.box(s, rx, y + 0.06, rw, rw / 1.48, fill=None, line=C(LINE), line_w=0.9)
+dk.text(s, rx, y + 0.06 + rw / 1.48 + 0.14, rw, 0.28,
+        [para("练习页长这样：错因、自评、掌握度都在一页。", 12.5, SLATE)])
+dk.text(s, rx, y + 0.06 + rw / 1.48 + 0.48, rw, 0.30,
+        [[("以前：错题抄本子上。", 12.5, MUTE, False, False, dk.FONT),
+          ("现在：掌握度降一档，明天找上门。", 12.5, EMERALD, True, False, dk.FONT)]], line_spacing=1.30)
+
+# 底部结论条
+ib = 6.60
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
+dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("场景 ②", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22,
+        [para("出题不看运气：你错在哪，下次就多练哪。", 11, C((38, 52, 46)), True)])
+foot(s, 6)
+
+# ================================================================ 章节 02：凭什么做到
+
+s = slide()
+divider(s, "02", "这一章：凭什么做到",
+        "这些能力不是提示词堆出来的，是系统工程",
+        "检索、权限、测试三条线，让「它会自动做」变成「你敢让它做」。",
+        ["真实界面", "四路检索", "一回合", "工具与 MCP", "记忆", "动手管控", "284 项测试"], 7, "08 — 14")
+
+# ================================================================ 08 真实界面
+
+s = slide()
+y = head(s, "所见即所得：这不是设计稿，是跑起来的界面",
+         "界面 · 三张实机截图")
+
+figs = [
+    ("①", "assets/ui-fig-1.png", "资料按学科归好，每份文档带字数与解析状态；\n点开就能读原文。"),
+    ("②", "assets/ui-fig-2.png", "今日该复习哪几道已经排好，\n答完直接进下一题。"),
+    ("③", "assets/ui-fig-3.png", "答完自评一次，掌握度当场变化；\n下次出题按它加重。"),
+]
+PW, PH, GAP = 3.70, 2.50, 0.33
+px = M
+for num, img, cap in figs:
+    dk.box(s, px, y + 0.16, 0.34, 0.30, fill=NAVY, round=True, r=0.05)
+    dk.text(s, px, y + 0.205, 0.34, 0.22, [para(num, 10.5, C((255, 255, 255)), True)],
+            align=dk.PP_ALIGN.CENTER)
+    dk.picture(s, str(ASSETS / img.split("/")[-1]), px, y + 0.56, PW, PH,
+               fit="cover", alt="")
+    dk.box(s, px, y + 0.56, PW, PH, fill=None, line=C((196, 206, 218)), line_w=0.9)
+    dk.text(s, px, y + 3.16, PW, 0.62, [para(cap, 12, SLATE)], line_spacing=1.40)
+    px += PW + GAP
+
+dk.text(s, M, y + 3.94, CW, 0.24,
+        [para("来源：知迹 v0.9 实机截图（2026-10-22），未用任何设计稿替换。", 10.5, MUTE)])
+
+ib = 6.60
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
+dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("界面", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22,
+        [para("界面上的每一个按钮，背后都有真实的后端 API 和状态机在支撑。", 11, C((38, 52, 46)), True)])
+foot(s, 8)
 
 # ================================================================ 05 亮点一：治幻觉
 
 s = slide()
-y = head(s, "它不乱编的底气：四路同时去找，答案里的每一句都能点回原页",
-         "硬核亮点 ① · 答得准")
+y = head(s, "不迷信黑盒：四路混合检索，答案只从你的库里来",
+         "工程 ① · 它凭什么「懂你的课」")
 
 # 左：四路
 dk.text(s, M, y + 0.04, 5.4, 0.28, [para("四路并行召回：中文资料没有单一找法", 15, INK, True)])
@@ -377,7 +584,7 @@ routes = [
 ]
 ry = y + 0.42
 for name, note, w, c in routes:
-    dk.box(s, M, ry, 5.30, 0.62, fill=BG, line=LINE, line_w=0.9, round=True, r=0.06)
+    dk.box(s, M, ry, 5.30, 0.62, fill=BG, line=LINE, line_w=0.9, round=True, r=0.07)
     dk.box(s, M, ry, 0.05, 0.62, fill=c)
     dk.text(s, M + 0.24, ry + 0.10, 2.5, 0.24, [para(name, 13.5, INK, True)])
     dk.text(s, M + 0.24, ry + 0.34, 2.7, 0.22, [para(note, 11, MUTE)])
@@ -388,17 +595,20 @@ for name, note, w, c in routes:
     dk.text(s, M + 4.52, ry + 0.20, 0.7, 0.24, [para(w, 12, c, True)])
     ry += 0.72
 
-dk.box(s, M, ry + 0.04, 5.30, 0.72, fill=C((238, 245, 242)), round=True, r=0.06)
+dk.box(s, M, ry + 0.04, 5.30, 0.72, fill=C((238, 245, 242)), round=True, r=0.07)
 dk.text(s, M + 0.22, ry + 0.16, 4.9, 0.26,
         [para("加权 RRF 融合（k=60）→ 词面精排 → top-k 片段", 13, EMERALD, True)])
 dk.text(s, M + 0.22, ry + 0.44, 4.9, 0.24,
         [para("扩写路是推断出来的，权重就该低于字面命中", 11, SLATE)])
+dk.text(s, M, ry + 0.92, 5.30, 0.44,
+        [para("纯向量检索对专业术语容易「懂个大概」，四路互补才够准。",
+              11, MUTE)], line_spacing=1.40)
 
 # 右：出处 + 数据
 rx = M + 5.72
 rw = CW - 5.72
-dk.text(s, rx, y + 0.04, rw, 0.28, [para("每条片段都带着自己的页码", 15, INK, True)])
-dk.box(s, rx, y + 0.42, rw, 1.72, fill=C((250, 251, 252)), line=LINE, line_w=0.9, round=True, r=0.08)
+dk.text(s, rx, y + 0.04, rw, 0.28, [para("切到页：每道题都说得清从哪一段来", 15, INK, True)])
+dk.box(s, rx, y + 0.42, rw, 1.72, fill=C((250, 251, 252)), line=LINE, line_w=0.9, round=True, r=0.07)
 for i, (pg, seg) in enumerate([("P12", "片段 1"), ("P12", "片段 2"), ("P07", "片段 3")]):
     bx = rx + 0.24 + i * 1.44
     dk.box(s, bx, y + 0.62, 0.62, 0.30, fill=NAVY, round=True, r=0.04)
@@ -408,24 +618,24 @@ for i, (pg, seg) in enumerate([("P12", "片段 1"), ("P12", "片段 2"), ("P07",
     dk.text(s, bx, y + 1.12, 1.30, 0.24, [para(seg, 11, INK, True)], align=dk.PP_ALIGN.CENTER)
     dk.text(s, bx, y + 1.38, 1.30, 0.24, [para("可跳回原页", 9.5, MUTE)], align=dk.PP_ALIGN.CENTER)
 dk.text(s, rx + 0.24, y + 2.26, rw - 0.48, 0.24,
-        [para("整篇 PDF 切成一个片段，引用就只能指向「整篇」，答案对不对就无从核验", 10.5, MUTE)])
+        [para("整篇不切，题就只能笼统地「来自这份资料」；切到页，才知道考的是哪一段", 10.5, MUTE)])
 
-dk.kpi_card(s, rx, y + 2.52, rw, 1.30, "检索考卷（35 题 / 21 篇语料）", "0.9714",
+dk.kpi_card(s, rx, y + 2.52, rw, 1.52, "检索考卷（35 题 / 21 篇语料）", "0.9714",
             sub="Hit@3 = MRR　·　接真实向量 35 题全中",
-            accent=EMERALD, ink=INK, mute=SLATE, value_size=32, label_size=11)
+            accent=EMERALD, ink=C((10, 148, 117)), mute=SLATE, value_size=48, label_size=11)
 # 底部结论条（浅色系 + 缩窄；位置在内容最低点之下，不遮挡上方任何元素）
 ib = 6.60
-dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.8, round=True, r=0.05)
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
-dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("亮点 ① · 答得准", 9.5, C((30, 110, 92)), True)])
-dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("找得到、说得清出处。可模型接下来要动手，这还只是回答问题。", 11, C((38, 52, 46)), True)])
-foot(s, 6)
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("工程 ① · 检索", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("答案先在你的资料里找；资料里没有的，才联网并标明来源。", 11, C((38, 52, 46)), True)])
+foot(s, 9)
 
-# ================================================================ 06 亮点二：Agent 架构
+# ================================================================ 10 工程②：一回合怎么跑
 
 s = slide()
-y = head(s, "答得准只是第一步：它要动手时，权限和写库都得由系统说了算",
-         "硬核亮点 ② · 管得住")
+y = head(s, "一回合四个节点：判意图、拆步骤、调工具、回填",
+         "工程 ② · 一回合怎么跑")
 
 # 状态图
 nodes = [("START", C((246, 248, 250)), INK), ("route", NAVY, C((255, 255, 255))),
@@ -434,58 +644,202 @@ nodes = [("START", C((246, 248, 250)), INK), ("route", NAVY, C((255, 255, 255)))
 nw, nh, gap = 1.42, 0.72, 0.42
 nx = M
 for i, (label, fill, tc) in enumerate(nodes):
-    dk.box(s, nx, y + 0.30, nw, nh, fill=fill, line=NAVY, line_w=1.0, round=True, r=0.07)
-    dk.text(s, nx, y + 0.50, nw, 0.30, [para(label, 14, tc, True)], align=dk.PP_ALIGN.CENTER)
+    dk.box(s, nx, y + 0.24, nw, nh, fill=fill, line=NAVY, line_w=1.0, round=True, r=0.07)
+    dk.text(s, nx, y + 0.44, nw, 0.30, [para(label, 14, tc, True)], align=dk.PP_ALIGN.CENTER)
     if i < len(nodes) - 1:
-        dk.arrow(s, nx + nw + 0.05, y + 0.60, gap - 0.10, 0.14,
+        dk.arrow(s, nx + nw + 0.05, y + 0.54, gap - 0.10, 0.14,
                  color=C((130, 145, 165)), direction="right")
     nx += nw + gap
-dk.text(s, M, y + 1.14, 5.0, 0.24,
+dk.text(s, M, y + 1.08, 5.6, 0.24,
         [para("application/graph.py · build_graph　·　上面这一行就是真的代码", 10.5, MUTE)])
 
 # 回环标注
-dk.box(s, M + 0.30, y + 1.44, 3.5, 0.34, fill=C((240, 246, 252)), round=True, r=0.05)
-dk.text(s, M + 0.30, y + 1.51, 3.5, 0.24,
+dk.box(s, M + 0.30, y + 1.38, 3.5, 0.34, fill=C((240, 246, 252)), round=True, r=0.05)
+dk.text(s, M + 0.30, y + 1.45, 3.5, 0.24,
         [para("tools → agent　结果回填（最多 6 轮）", 10.5, NAVY, True)], align=dk.PP_ALIGN.CENTER)
 
-# 三道管控
-ty = y + 1.94
-guards = [
-    ("schema 层", "按角色裁剪工具表，禁用的工具不出现在提示词里", NAVY),
-    ("执行层", "is_tool_allowed 逐次判定，模型硬发被禁工具也执行不了", EMERALD),
-    ("人在环", "写操作 interrupt() 等确认，点取消就到此结束", CORAL),
+# 三个节点各自的职责
+phases = [
+    ("route · 先判意图", "六类：讲解 / 查资料 / 出题 / 计算 / 看进度 / 闲聊。"
+     "15 句标注样本，准确率 1.0。", NAVY),
+    ("plan · 再拆步骤", "先拆成可执行的步骤，再决定每步调哪个工具，"
+     "不靠临场发挥。", EMERALD),
+    ("上下文 · 有预算", "上限 24 条；超了先摘要成 240 字，但最近 14 条永远原样保留。", GOLD),
 ]
-gw = (CW - 0.36) / 3
-gx = M
-for name, desc, c in guards:
-    dk.box(s, gx, ty, gw, 1.16, fill=BG, line=LINE, line_w=0.9, round=True, r=0.07)
-    dk.box(s, gx, ty, gw, 0.05, fill=c)
-    dk.text(s, gx + 0.22, ty + 0.20, gw - 0.44, 0.28, [para(name, 15, c, True)])
-    dk.text(s, gx + 0.22, ty + 0.52, gw - 0.44, 0.52, [para(desc, 12, SLATE)], line_spacing=1.34)
-    gx += gw + 0.18
+pw = (CW - 0.36) / 3
+px = M
+for name, desc, c in phases:
+    dk.box(s, px, y + 1.94, pw, 1.76, fill=BG, line=LINE, line_w=0.9, round=True, r=0.07)
+    dk.box(s, px, y + 1.94, pw, 0.05, fill=c)
+    dk.text(s, px + 0.24, y + 2.16, pw - 0.48, 0.28, [para(name, 15, c, True)])
+    dk.text(s, px + 0.24, y + 2.52, pw - 0.48, 1.00, [para(desc, 12.5, SLATE)],
+            line_spacing=1.42)
+    px += pw + 0.18
 
-insight(s, M, ty + 1.34, CW, "所以",
+dk.text(s, M, y + 3.86, 8.4, 0.24,
+        [para("application/context.py · compact_messages　·　摘要与保留策略就这几行", 10.5, MUTE)])
+ib = 6.60
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
+dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("工程 ② · 框架", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22,
+        [para("框架不是黑盒：每个节点都有名字、有位置，也能被单独测。", 11, C((38, 52, 46)), True)])
+foot(s, 10)
+
+# ================================================================ 11 工程③：工具与 MCP
+
+s = slide()
+y = head(s, "它能动的手一共九件，还能从 MCP 接进来",
+         "工程 ③ · 它能动的手")
+
+tools = [
+    ("knowledge_search", "查你的资料", NAVY),
+    ("mistake_search", "翻你的错题", NAVY),
+    ("calculator", "算式子", NAVY),
+    ("save_note", "把结论存成笔记", EMERALD),
+    ("web_search", "联网查公开网页", GOLD),
+    ("fetch_url", "读一个网页正文", GOLD),
+    ("write_file", "写工作区文件", CORAL),
+    ("read_file", "读工作区文件", CORAL),
+    ("list_files", "列工作区文件", CORAL),
+]
+tw, th = 2.28, 1.02
+gx, gy = M, y + 0.30
+for i, (name, note, c) in enumerate(tools):
+    col, row = i % 3, i // 3
+    bx = gx + col * (tw + 0.18)
+    by_ = gy + row * (th + 0.18)
+    dk.box(s, bx, by_, tw, th, fill=BG, line=LINE, line_w=0.9, round=True, r=0.07)
+    dk.box(s, bx, by_, 0.05, th, fill=c)
+    dk.text(s, bx + 0.20, by_ + 0.16, tw - 0.34, 0.26,
+            [[(name, 11, INK, True, False, dk.MONO)]])
+    dk.text(s, bx + 0.20, by_ + 0.50, tw - 0.34, 0.26, [para(note, 11, SLATE)])
+
+# 右侧：MCP 桥
+mx = M + 3 * (tw + 0.18) + 0.14
+mw = CW - (mx - M)
+dk.box(s, mx, y + 0.30, mw, 3.10, fill=C((248, 250, 252)), line=LINE, line_w=0.9,
+       round=True, r=0.07)
+dk.text(s, mx + 0.26, y + 0.50, mw - 0.52, 0.30, [para("MCP 桥：外部工具接进来", 15, INK, True)])
+dk.text(s, mx + 0.26, y + 0.86, mw - 0.52, 0.28,
+        [para("community server 也能变成它的手", 11, MUTE)])
+for i, ln in enumerate([
+        "从 inputSchema 自动生成参数模型，不用手写包装",
+        "工具名加 mcp_<server>_<tool> 前缀，不跟内置撞",
+        "server 起不来不阻塞启动，MCP 是可选增强"]):
+    dk.box(s, mx + 0.26, y + 1.28 + i * 0.72, 0.06, 0.06, fill=EMERALD, round=True, r=0.03)
+    dk.text(s, mx + 0.44, y + 1.16 + i * 0.72, mw - 0.72, 0.58,
+            [para(ln, 11.5, SLATE)], line_spacing=1.36)
+
+dk.text(s, M, y + 4.02, 7.2, 0.24,
+        [para("工具表是可枚举的：模型只能从这九个里挑，加工具要改代码，不能自己发明。",
+              11, MUTE)])
+
+ib = 6.60
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
+dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("工程 ③ · 工具", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22,
+        [para("资料里没有的才联网，回来标明来源 URL；只放行公网地址。", 11, C((38, 52, 46)), True)])
+foot(s, 11)
+
+# ================================================================ 12 工程④：记忆
+
+s = slide()
+y = head(s, "记住你错在哪，也记住下次该练什么",
+         "工程 ④ · 它记得什么")
+
+layers = [
+    ("资料层", "知识库", "每份资料切到页，检索时带着页码一起返回。", NAVY),
+    ("学习状态层", "错题 / 错因 / 掌握度 / 排期", "答错一次就落库，下一次出题直接拿它算权重。", EMERALD),
+    ("对话层", "上下文摘要 + 长期记忆", "超预算先摘要，最近 14 条原样保留；长期记忆按课程隔离。", GOLD),
+]
+ly = y + 0.30
+for name, sub, desc, c in layers:
+    dk.box(s, M, ly, 7.30, 1.24, fill=BG, line=LINE, line_w=0.9, round=True, r=0.07)
+    dk.box(s, M, ly, 0.06, 1.24, fill=c)
+    dk.text(s, M + 0.26, ly + 0.18, 1.5, 0.26, [para(name, 10.5, c, True)])
+    dk.text(s, M + 1.70, ly + 0.14, 5.30, 0.30, [para(sub, 15, INK, True)])
+    dk.text(s, M + 1.70, ly + 0.56, 5.30, 0.52, [para(desc, 12, SLATE)], line_spacing=1.36)
+    ly += 1.38
+
+# 右侧：隔离与确认
+mx = M + 7.52
+mw = CW - 7.52
+dk.box(s, mx, y + 0.30, mw, 3.60, fill=C((248, 250, 252)), line=LINE, line_w=0.9, round=True, r=0.07)
+dk.text(s, mx + 0.26, y + 0.50, mw - 0.52, 0.30, [para("两层护栏", 15, INK, True)])
+for i, (t, d) in enumerate([
+        ("按课程隔离", "记忆挂在 project_id 下，换一门课不会串味"),
+        ("写入前确认", "任何写操作都 interrupt() 等你点头，不悄悄改")]):
+    dk.text(s, mx + 0.26, y + 0.96 + i * 1.34, mw - 0.52, 0.28, [para(t, 13, EMERALD, True)])
+    dk.text(s, mx + 0.26, y + 1.28 + i * 1.34, mw - 0.52, 0.86,
+            [para(d, 11.5, SLATE)], line_spacing=1.36)
+
+ib = 6.60
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
+dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("工程 ④ · 记忆", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22,
+        [para("短板也在这：过期、替换、删除三种状态还没做，写在体检报告里。", 11, C((38, 52, 46)), True)])
+foot(s, 12)
+
+# ================================================================ 13 工程⑤：动手之前
+
+s = slide()
+y = head(s, "会动手，不等于乱动手：权限和写库都由系统说了算",
+         "工程 ⑤ · 动手之前，谁说了算")
+
+gates = [
+    ("模型提议", "agent 想调某个工具", C((246, 248, 250))),
+    ("schema 白名单", "禁用的工具不进提示词", C((238, 245, 242))),
+    ("执行层判定", "is_tool_allowed 逐次查，硬发也拦得住", C((240, 246, 252))),
+    ("人在环", "写操作 interrupt() 等确认，取消就结束", C((252, 243, 239))),
+]
+gw = 2.62
+gx = M
+for i, (name, desc, fill) in enumerate(gates):
+    dk.box(s, gx, y + 0.34, gw, 1.80, fill=fill, line=LINE, line_w=0.9, round=True, r=0.07)
+    dk.text(s, gx + 0.22, y + 0.52, gw - 0.44, 0.28, [para(f"0{i + 1}", 10.5, MUTE, True)])
+    dk.text(s, gx + 0.22, y + 0.82, gw - 0.44, 0.28, [para(name, 14, INK, True)])
+    dk.text(s, gx + 0.22, y + 1.18, gw - 0.44, 0.80, [para(desc, 11, SLATE)], line_spacing=1.34)
+    if i < len(gates) - 1:
+        dk.arrow(s, gx + gw + 0.02, y + 1.16, 0.22, 0.14, color=C((132, 146, 166)), direction="right")
+    gx += gw + 0.26
+dk.text(s, M, y + 2.26, CW, 0.26,
+        [para("→ 只有这四道都过了，工具才真的执行；任何一道拦下，这一回合就地停住。", 11.5, MUTE)])
+
+# 一个真会发生的例子
+ey = y + 2.58
+dk.box(s, M, ey, CW, 1.06, fill=C((250, 251, 252)), line=LINE, line_w=0.9, round=True, r=0.07)
+dk.box(s, M, ey, 0.05, 1.06, fill=CORAL)
+dk.text(s, M + 0.28, ey + 0.18, 3.0, 0.26, [para("举个真会发生的例子", 12.5, INK, True)])
+dk.text(s, M + 0.28, ey + 0.50, CW - 0.56, 0.46,
+        [para("它想覆盖你的一份笔记：write_file 在工具表里，但执行前会 interrupt() 弹给你确认；"
+              "你点取消，文件一个字节都不动。", 12, SLATE)], line_spacing=1.36)
+
+insight(s, M, y + 3.80, CW, "所以",
         "「AI 不改你的数据」是承诺，不是请求",
         "写在提示词里模型可以忘，写在 interrupt() 里它跑不掉。这就是可拦截。", EMERALD)
-# 底部结论条（浅色系 + 缩窄；位置在内容最低点之下，不遮挡上方任何元素）
+
 ib = 6.60
-dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.8, round=True, r=0.05)
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
-dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("亮点 ② · 管得住", 9.5, C((30, 110, 92)), True)])
-dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("答得准 + 管得住 = 敢信。接下来要证明的是：它今天没比昨天变笨。", 11, C((38, 52, 46)), True)])
-foot(s, 7)
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("工程 ⑤ · 权限", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22,
+        [para("四道闸门全部在代码里，不是提示词里的请求。", 11, C((38, 52, 46)), True)])
+foot(s, 13)
 
 # ================================================================ 07 工程稳健性
 
 s = slide()
-y = head(s, "284 项测试全绿不是因为功能简单，是因为架构让每一层都能单独测",
-         "工程稳健性 · 数据说话")
+y = head(s, "284 项测试全绿，是因为每一层都能单独测",
+         "工程 ⑥ · 这些结论可复现")
 
 kpis = [
     ("284", "项", "自动测试", "全 Mock，零 API 消耗", NAVY),
     ("0.9714", "", "检索 Hit@3 = MRR", "35 题考卷 · 真实向量 35/35", EMERALD),
     ("1.0", "", "意图识别准确率", "15 句标注样本 · 六类意图", EMERALD),
-    ("0", "处", "占位实现", "全仓无 TODO / 空壳", GOLD),
+    ("0", "处", "占位实现", "全仓无占位实现", GOLD),
 ]
 kw = (CW - 0.54) / 4
 kx = M
@@ -514,7 +868,7 @@ for name, desc, c in layers:
 rx = M + 5.86
 rw = CW - 5.86
 dk.text(s, rx, y + 1.94, rw, 0.28, [para("为什么这能测", 15, INK, True)])
-dk.box(s, rx, y + 2.16, rw, 1.10, fill=C((248, 250, 252)), line=LINE, line_w=0.9, round=True, r=0.08)
+dk.box(s, rx, y + 2.16, rw, 1.10, fill=C((248, 250, 252)), line=LINE, line_w=0.9, round=True, r=0.07)
 dk.text(s, rx + 0.26, y + 2.30, rw - 0.52, 0.26,
         [para("domain 层全是纯函数", 13.5, EMERALD, True)])
 dk.text(s, rx + 0.26, y + 2.58, rw - 0.52, 0.62,
@@ -531,150 +885,147 @@ dk.text(s, rx + 1.90, y + 3.72, rw - 2.1, 0.24,
         [para("0.9714 → 0.9571　当场可见", 10, SLATE)])
 # 底部结论条（浅色系 + 缩窄；位置在内容最低点之下，不遮挡上方任何元素）
 ib = 6.60
-dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.8, round=True, r=0.05)
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
-dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("亮点 ②", 9.5, C((30, 110, 92)), True)])
-dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("写在提示词里模型可以忘，写在 interrupt() 里它跑不掉。", 11, C((38, 52, 46)), True)])
-foot(s, 8)
-
-# ================================================================ 08 边界
-
-s = slide()
-y = head(s, "六项能力：两项达标，三项一半，一项没做 —— 说清楚比多做一点更有用",
-         "客观认知 · 我的体检报告")
-
-items = [
-    ("中断可恢复", "达标", EMERALD, "状态图 + 检查点 + 中断恢复，孤儿线程级联清理"),
-    ("检索准确可追溯", "达标", EMERALD, "35 题考卷，真实向量 35/35，引用精确到页"),
-    ("工具执行治理", "一半", GOLD, "有双层权限、超时退避、并发与失败转消息；缺参数级约束"),
-    ("长上下文管理", "一半", GOLD, "有抽取式摘要与预算控制；缺关键事实外置"),
-    ("长期记忆", "一半", GOLD, "按课程隔离、写入前确认；缺过期、替换与删除机制"),
-    ("任务级成功率评测", "没做", CORAL, "考卷只测「找到没」，不测「复习有没有用」"),
-]
-rh = 0.48
-ry = y + 0.02
-for name, status, c, desc in items:
-    dk.box(s, M, ry, CW, rh, fill=BG, line=LINE, line_w=0.8, round=True, r=0.05)
-    dk.box(s, M, ry, 0.05, rh, fill=c)
-    dk.text(s, M + 0.26, ry + 0.11, 3.0, 0.26, [para(name, 13.5, INK, True)])
-    dk.box(s, M + 3.30, ry + 0.09, 0.72, 0.28, fill=c, round=True, r=0.04)
-    dk.text(s, M + 3.30, ry + 0.135, 0.72, 0.22, [para(status, 10.5, C((255, 255, 255)), True)],
-            align=dk.PP_ALIGN.CENTER)
-    dk.text(s, M + 4.22, ry + 0.12, CW - 4.44, 0.24, [para(desc, 11.5, SLATE)])
-    ry += rh + 0.08
-
-# 三个真缺陷
-dk.text(s, M, ry + 0.02, 5.0, 0.24, [para("最该先补的三个", 13.5, CORAL, True)])
-defects = [
-    ("trace 是事后猜的", "从消息历史反推责任层，没有运行时耗时与 token 归因"),
-    ("没有连续失败熔断", "工具持续报错时会烧满 6 轮真实 API 调用"),
-    ("记忆没有生命周期", "「准备四级」和「准备考研」会同时注入，模型两件都当真"),
-]
-dx = M
-dw = (CW - 0.36) / 3
-for name, desc in defects:
-    dk.box(s, dx, ry + 0.30, dw, 0.76, fill=C((253, 246, 245)), line=C((222, 196, 192)),
-           line_w=0.9, round=True, r=0.06)
-    dk.text(s, dx + 0.20, ry + 0.38, dw - 0.40, 0.22, [para(name, 11.5, CORAL, True)])
-    dk.text(s, dx + 0.20, ry + 0.60, dw - 0.40, 0.40, [para(desc, 10, SLATE)], line_spacing=1.24)
-    dx += dw + 0.18
-# 底部结论条（浅色系 + 缩窄；位置在内容最低点之下，不遮挡上方任何元素）
-ib = 6.60
-dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.8, round=True, r=0.05)
-dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
-dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("工程", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("工程 ⑥ · 证据", 9.5, C((30, 110, 92)), True)])
 dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("domain 层不碰 I/O，回归测试跑一次十几秒，零 API 消耗。", 11, C((38, 52, 46)), True)])
-foot(s, 9)
+foot(s, 14)
 
-# ================================================================ 09 Roadmap
+# ================================================================ 章节 03：凭什么是它
 
 s = slide()
-y = head(s, "接下来三件事：都在现有门禁里能验证，不需要换架构",
-         "未来展望 · 有依据的排序")
+divider(s, "03", "这一章：凭什么是它",
+        "同样的活儿，为什么非它不可",
+        "不是比谁功能多，是比谁能把「你的资料、你的错题、你的进度」串在同一条线上。",
+        ["三条路摆在一起", "它凭什么赢"], 15, "16 — 17")
 
-road = [
-    ("任务级成功率评测", "从「找到没」升到「这次复习到底有没有用」",
-     "用确定性状态校验，不用 LLM 判分；引入 pass^k 看稳定性 —— "
-     "只报 pass@1 会把「偶尔能成」包装成「稳定可用」。", EMERALD),
-    ("记忆的过期与删除", "给记忆加状态：有效 / 被替代 / 失效",
-     "写入前做冲突检测，注入时按需检索而非全量拼接 —— "
-     "直接对上 LongMemEval 指出的「时间推理」短板。", GOLD),
-    ("更难的检索考卷", "现在的 35 题已经饱和，测不出差别",
-     "加长文档、强干扰项、跨库同名 —— "
-     "有难例才谈得上「比昨天更准」。", NAVY),
-]
-rw2 = (CW - 0.44) / 3
-rx2 = M
-for i, (t, sub, desc, c) in enumerate(road):
-    dk.box(s, rx2, y + 0.10, rw2, 2.90, fill=BG, line=LINE, line_w=0.9, round=True, r=0.08)
-    dk.box(s, rx2 + 0.24, y + 0.34, 0.42, 0.42, fill=c, round=True, r=0.06)
-    dk.text(s, rx2 + 0.24, y + 0.415, 0.42, 0.24, [para(f"0{i+1}", 13, C((255, 255, 255)), True)],
+# ================================================================ 16 三条路对比
+
+s = slide()
+y = head(s, "三条路摆在一起：只有第三条把整条线串起来了",
+         "对比 · 通用 AI / 在线题库 / 知迹")
+
+CW3 = [2.52, 2.58, 2.88]
+LABELW = 3.26
+cx0 = M + LABELW + 0.12
+heads = [("通用 AI", SLATE, C((255, 255, 255))),
+         ("在线题库 App", SLATE, C((255, 255, 255))),
+         ("知迹", C((238, 245, 242)), C((22, 112, 92)))]
+for i, (name, fill, ink) in enumerate(heads):
+    x = cx0 + sum(CW3[:i]) + i * 0.10
+    dk.box(s, x, y + 0.10, CW3[i], 0.44, fill=fill, round=True, r=0.05)
+    dk.text(s, x, y + 0.17, CW3[i], 0.28, [para(name, 12.5, ink, True)],
             align=dk.PP_ALIGN.CENTER)
-    dk.text(s, rx2 + 0.24, y + 0.92, rw2 - 0.48, 0.30, [para(t, 15, INK, True)])
-    dk.text(s, rx2 + 0.24, y + 1.26, rw2 - 0.48, 0.46, [para(sub, 12, c, True)], line_spacing=1.32)
-    dk.text(s, rx2 + 0.24, y + 1.80, rw2 - 0.48, 1.0, [para(desc, 11.5, SLATE)], line_spacing=1.38)
-    rx2 += rw2 + 0.22
 
-# 更大的愿景
-vy = y + 3.22
-dk.box(s, M, vy, CW, 1.16, fill=C((248, 250, 252)), line=LINE, line_w=0.9, round=True, r=0.08)
-dk.text(s, M + 0.28, vy + 0.18, 3.6, 0.28, [para("再往后：让它能交付给别人", 15, INK, True)])
-body(s, M + 0.28, vy + 0.52, CW - 0.56,
-     "多用户隔离（数据层已按 user_id 隔离，缺的是入口鉴权）、Reranker 重排、"
-     "OpenTelemetry 全链路追踪。技术选型上，SQLite 是主动选型 —— 单机演示不需要服务端库的并发写优势，"
-     "而换库会重创检索层（FTS5 trigram → ngram，四路召回与全部评测基线作废）。"
-     "真要多机部署时，会先看 Postgres 的 pg_trgm + pg_vector。",
-     12, SLATE, ls=1.36)
-# 底部结论条（浅色系 + 缩窄；位置在内容最低点之下，不遮挡上方任何元素）
+rows = [
+    ("懂不懂你的资料", "只懂通用知识，不知道你老师划的重点", "只懂它自己的题库", "只从你的库里找，切到页"),
+    ("会不会替你出题", "你问一句它答一句", "固定题库，跟你的讲义对不上", "按你的讲义出，分三档难度"),
+    ("记不记得错因", "聊完就散", "只记对错，不记为什么错", "记错因，下次按它加重"),
+    ("会不会排复习", "不管", "有错题本，何时看全凭你", "掌握度 + 间隔 0/1/3/7 天"),
+    ("改数据谁说了算", "没有这个概念", "不碰你的文件", "四道闸门 + 写前确认"),
+    ("结论能不能复现", "换个时间问，答案就变了", "题库固定，过程不可见", "284 项测试 + 35 题考卷"),
+]
+ry = y + 0.66
+for label, a, b, c in rows:
+    dk.box(s, M, ry, CW, 0.60, fill=BG, line=LINE, line_w=0.9, round=True, r=0.05)
+    dk.box(s, M, ry, 0.05, 0.60, fill=C((224, 231, 240)))
+    dk.text(s, M + 0.24, ry + 0.16, LABELW - 0.30, 0.28, [para(label, 12, INK, True)])
+    for i, txt in enumerate((a, b)):
+        x = cx0 + sum(CW3[:i]) + i * 0.10
+        dk.text(s, x + 0.12, ry + 0.10, CW3[i] - 0.24, 0.42, [para(txt, 10.5, MUTE)],
+                line_spacing=1.22)
+    x = cx0 + sum(CW3[:2]) + 0.20
+    dk.text(s, x + 0.12, ry + 0.10, CW3[2] - 0.24, 0.42, [para(c, 10.5, C((22, 112, 92)), True)],
+            line_spacing=1.22)
+    ry += 0.66
+
 ib = 6.60
-dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.8, round=True, r=0.05)
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
 dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
-dk.text(s, M + 0.22, ib + 0.105, 1.7, 0.20, [para("边界", 9.5, C((30, 110, 92)), True)])
-dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22, [para("六项能力每一项都有代码依据 —— 说清楚比多做一点更有用。", 11, C((38, 52, 46)), True)])
-foot(s, 10)
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("对比", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22,
+        [para("前两条路各自都成立，但它们的手里没有「你的那一份」。", 11, C((38, 52, 46)), True)])
+foot(s, 16)
 
-# ================================================================ 10 团队与致谢
+# ================================================================ 17 凭什么赢
 
 s = slide()
-y = head(s, "感谢聆听 · 欢迎追问", "Q & A")
+y = head(s, "单看每一项都不稀奇，稀奇的是它们共用同一份底账",
+         "壁垒 · 三件事串在一条线上")
 
-# 三个可能被问到的点 + 备答
-qa = [
-    ("「我直接用 ChatGPT 不行吗？」",
-     "ChatGPT 是一问一答，它没有状态，也不会管你明天记不记得。"
-     "知迹是有状态的 Agent 系统：把错题和知识库变成上下文，用 LangGraph 跑流程。"
-     "更关键的是，ChatGPT 可能会编造页码，而知迹的每个出处都能精确跳回你上传的第 12 页。"),
-    ("「你连登录都没有，是不是没做完？」",
-     "您看得很准，这确实是我们当前最大的短板。我们把精力全放在了最难的"
-     "「Agent 核心链路与防幻觉检索」上，目前它是单机自用的产品。"
-     "体检报告里已把它列为 P0，数据库的 user_id 隔离也做好了，接入多租户是接口层的工作。"),
-    ("「这个项目有什么了不起的？」",
-     "它不比多数 Demo 功能多，但它的每一个结论都能被复现："
-     "284 项测试全绿、检索 35 题考卷 0.9714、关掉精排立刻掉到 0.9571。"
-     "我们敢把没做的部分也摆出来 —— 那份体检报告和这份 PPT 一样重要。"),
+wins = [
+    ("同一份资料", "题从库里出", "出题时检索的是你上传的那几页，不是互联网。", NAVY),
+    ("同一份错题", "复习按错题排", "答错就记错因、降掌握度，下一次出题立刻按它加重。", EMERALD),
+    ("同一份进度", "越用越像你的私教", "资料越全、错题越多，掌握度曲线越准，排期越贴合你。", GOLD),
 ]
-qy = y + 0.02
-for q, a in qa:
-    dk.box(s, M, qy, CW, 0.98, fill=C((250, 251, 252)), line=LINE, line_w=0.9, round=True, r=0.07)
-    dk.box(s, M, qy, 0.05, 0.98, fill=NAVY)
-    dk.text(s, M + 0.28, qy + 0.12, CW - 0.56, 0.24, [para(q, 13, INK, True)])
-    dk.text(s, M + 0.28, qy + 0.40, CW - 0.56, 0.48, [para(a, 11.5, SLATE)], line_spacing=1.32)
-    qy += 1.08
+wy = y + 0.14
+for name, sub, desc, c in wins:
+    dk.box(s, M, wy, CW, 1.08, fill=BG, line=LINE, line_w=0.9, round=True, r=0.07)
+    dk.box(s, M, wy, 0.06, 1.08, fill=c)
+    dk.text(s, M + 0.28, wy + 0.14, 2.6, 0.26, [para(name, 10.5, c, True)])
+    dk.text(s, M + 0.28, wy + 0.44, 3.4, 0.30, [para(sub, 15, INK, True)])
+    dk.text(s, M + 4.10, wy + 0.28, CW - 4.40, 0.52, [para(desc, 12, SLATE)], line_spacing=1.36)
+    wy += 1.22
 
-dk.box(s, M, qy + 0.06, CW, 1.12, fill=C((14, 32, 61)), round=True, r=0.08)
-dk.text(s, M + 0.34, qy + 0.22, 5.0, 0.38, [para("知迹 ZhiJi", 22, C((255, 255, 255)), True)])
-dk.text(s, M + 0.34, qy + 0.64, 6.0, 0.26,
-        [para("一个不乱编的个人学习 Agent", 12.5, C((150, 205, 182)), True)])
-dk.text(s, W - M - 4.6, qy + 0.26, 4.26, 0.76,
-        [[("284 项测试全绿　·　检索 35 题 Hit@3 = MRR = 0.9714", 11.5,
-           C((205, 220, 240)), False, False, dk.FONT)],
-         [("知迹 · 赛道十三 · 智慧教育　·　欢迎指正", 10.5,
-           C((165, 185, 212)), False, False, dk.FONT)]],
-        align=dk.PP_ALIGN.RIGHT, line_spacing=1.46)
+dk.box(s, M, wy + 0.02, CW, 0.84, fill=C((238, 245, 242)), line=C((206, 226, 216)),
+       line_w=0.9, round=True, r=0.07)
+dk.text(s, M + 0.30, wy + 0.16, 3.0, 0.24, [para("所以", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 0.30, wy + 0.40, CW - 0.60, 0.34,
+        [para("别人给你的是「一次回答」，它给的是「一条会自己变准的线」。", 15, INK, True)])
 
-foot(s, 11)
+ib = 6.60
+dk.box(s, M, ib, CW, 0.40, fill=C((243, 247, 245)), line=C((206, 222, 216)), line_w=0.9, round=True, r=0.05)
+dk.box(s, M, ib, 0.045, 0.40, fill=C((30, 133, 108)))
+dk.text(s, M + 0.22, ib + 0.105, 1.58, 0.20, [para("壁垒", 9.5, C((30, 110, 92)), True)])
+dk.text(s, M + 1.86, ib + 0.10, CW - 2.1, 0.22,
+        [para("这三件事单独做都不难，难的是它们读的是同一份数据。", 11, C((38, 52, 46)), True)])
+foot(s, 17)
+
+# ================================================================ 18 结尾
+
+s = slide()
+dk.box(s, 0, 0, W, H, fill=C((14, 32, 61)))
+dk.box(s, 0, 0, W, 0.06, fill=C((30, 120, 104)))
+
+WHITE = C((255, 255, 255))
+MINT = C((122, 226, 198))
+SOFT = C((176, 198, 224))
+
+dk.text(s, M + 0.14, 1.62, 8.0, 0.28, [para("谢谢聆听", 12, MINT, True)])
+dk.text(s, M + 0.14, 2.02, 6.4, 1.30, [para("知迹", 60, WHITE, True)])
+dk.box(s, M + 0.14, 3.42, 1.50, 0.032, fill=C((30, 110, 100)))
+dk.box(s, M + 1.64, 3.42, 0.90, 0.032, fill=MINT)
+dk.text(s, M + 0.14, 3.66, 7.6, 0.46,
+        [para("会整理、会出题的学习 Agent", 24, MINT, True)])
+dk.text(s, M + 0.14, 4.36, 8.2, 0.30,
+        [para("284 项测试全绿　·　35 题检索 MRR 0.9714　·　六项能力自评在上一页", 12, SOFT)])
+
+dk.text(s, M + 0.14, 5.62, 8.6, 0.30,
+        [para("源码、评测集、体检报告都在这台机器上，欢迎当场抽查。", 12, C((150, 176, 206)))])
+
+# 与左侧那行同一基线，字号收小，不抢标题
+dk.text(s, W - M - 3.2, 5.62, 3.2, 0.30,
+        [para("欢迎追问", 14, WHITE, True)], align=dk.PP_ALIGN.RIGHT)
+dfoot(s, 18)
 
 # ================================================================ 保存
+
+# 清掉母版与版式里的 dt / ftr / sldNum 占位符：
+# 有些渲染器（含预览器）会把它们画出来，正好压在我们自己的页脚上。
+_DROP = {_PH.DATE, _PH.FOOTER, _PH.SLIDE_NUMBER}
+for _layout in prs.slide_layouts:
+    for _sh in list(_layout.shapes):
+        try:
+            if _sh.is_placeholder and _sh.placeholder_format.type in _DROP:
+                _sh._element.getparent().remove(_sh._element)
+        except (AttributeError, ValueError):
+            pass
+for _sh in list(prs.slide_master.shapes):
+    try:
+        if _sh.is_placeholder and _sh.placeholder_format.type in _DROP:
+            _sh._element.getparent().remove(_sh._element)
+    except (AttributeError, ValueError):
+        pass
 
 OUT.mkdir(parents=True, exist_ok=True)
 prs.save(str(PPTX))

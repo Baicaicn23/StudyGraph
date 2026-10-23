@@ -10,6 +10,7 @@ htmlcov/
 # Runtime data
 data/*
 !data/.gitkeep
+frontend/data/
 
 # Secrets
 .env
@@ -21,3 +22,9 @@ data/*
 .vscode/
 .claude/
 .workbuddy/
+
+# Editor backups
+*.bak
+
+# 生图中间产物（最终选用的图另存到 assets/ 根下）
+docs/作品集/参赛/知迹答辩/assets/_gen/
