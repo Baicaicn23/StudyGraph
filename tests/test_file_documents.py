@@ -66,7 +66,7 @@ def test_binary_upload_is_instant_and_served_inline(client, tmp_path) -> None:
     uploaded = client.post(
         "/api/knowledge/upload",
         data={"library": "高等数学"},
-        files={"file": ("吴岩升.pdf", pdf_bytes, "application/pdf")},
+        files={"file": ("测试文档.pdf", pdf_bytes, "application/pdf")},
     ).json()
     assert uploaded["kind"] == "file"
 
